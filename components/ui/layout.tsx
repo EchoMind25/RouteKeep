@@ -1,16 +1,38 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-/** A raised surface. Use only when elevation carries meaning; otherwise group with spacing. */
-export function Panel({ className, ...props }: ComponentProps<"section">) {
-  return <section className={cn("rounded-panel border border-line bg-surface shadow-raised", className)} {...props} />;
+function slug(node: ReactNode): string | undefined {
+  return typeof node === "string" ? `panel-${node.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : undefined;
 }
 
-export function PanelHeader({ title, description, actions, className }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; className?: string }) {
+interface PanelHeading {
+  title?: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}
+
+/**
+ * A raised surface. Use only when elevation carries meaning; otherwise group
+ * with spacing. With a title, the section is a named region (screen readers
+ * can jump to it, tests can find it).
+ */
+export function Panel({ className, title, description, actions, children, ...props }: Omit<ComponentProps<"section">, "title"> & PanelHeading) {
+  const id = title ? slug(title) : undefined;
+  return (
+    <section aria-labelledby={id} className={cn("rounded-panel border border-line bg-surface shadow-raised", className)} {...props}>
+      {title ? <PanelHeader id={id} title={title} description={description} actions={actions} /> : null}
+      {children}
+    </section>
+  );
+}
+
+export function PanelHeader({ id, title, description, actions, className }: PanelHeading & { id?: string; className?: string }) {
   return (
     <div className={cn("flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4", className)}>
       <div className="grid gap-0.5">
-        <h2 className="text-md font-semibold text-fg">{title}</h2>
+        <h2 id={id} className="text-md font-semibold text-fg">
+          {title}
+        </h2>
         {description ? <p className="text-sm text-fg-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex items-center gap-2">{actions}</div> : null}

@@ -23,6 +23,16 @@ export async function generateVisits(
   const tenant = await tx.selectFrom("tenants").select("timezone").where("id", "=", tenantId).executeTakeFirstOrThrow();
   const today = todayIn(tenant.timezone, options.now);
 
+  // A pause with an end date ends by itself (FR-SUB-03).
+  let ended = tx
+    .updateTable("subscriptions")
+    .set({ status: "active", paused_from: null, paused_until: null, pause_reason: null })
+    .where("tenant_id", "=", tenantId)
+    .where("status", "=", "paused")
+    .where("paused_until", "<", today);
+  if (options.subscriptionIds) ended = ended.where("id", "in", options.subscriptionIds.length ? options.subscriptionIds : ["00000000-0000-0000-0000-000000000000"]);
+  await ended.execute();
+
   let query = tx
     .selectFrom("subscriptions")
     .select([

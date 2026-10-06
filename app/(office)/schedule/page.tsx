@@ -30,7 +30,7 @@ function StopRow({ stop, index }: { stop: DayStop; index: number }) {
       </span>
       <div className="grid min-w-0 gap-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <Link href={`/customers/${stop.customerId}`} className="truncate font-semibold text-fg hover:underline">
+          <Link href={`/schedule/visits/${stop.id}`} className="truncate font-semibold text-fg hover:underline">
             {stop.customerName}
           </Link>
           <span className="text-sm text-fg-muted tabular">{formatWindow(stop.windowStart, stop.windowEnd)}</span>
@@ -168,7 +168,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                   return (
                     <li key={q.id} className="grid gap-1 px-4 py-3">
                       <div className="flex items-center justify-between gap-2">
-                        <Link href={`/customers/${q.customerId}`} className="truncate font-medium hover:underline">
+                        <Link href={`/schedule/visits/${q.id}`} className="truncate font-medium hover:underline">
                           {q.customerName}
                         </Link>
                         <Badge tone={q.status === "scheduled" ? "warning" : st.tone}>{q.status === "scheduled" ? "No technician" : st.label}</Badge>

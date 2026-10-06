@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Alert, Details, Panel, PanelHeader, PageHeader } from "@/components/ui/layout";
+import { Button } from "@/components/ui/button";
+import { Alert, Details, Panel, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatPhone } from "@/lib/domain/contact";
 import { formatCents } from "@/lib/domain/money";
@@ -32,6 +33,11 @@ export default async function CustomerPage({ params, searchParams }: { params: P
       <PageHeader
         title={customer.display_name}
         description={[customer.kind === "commercial" ? "Business" : "Home", customer.status === "inactive" ? "Inactive" : null].filter(Boolean).join(", ")}
+        actions={
+          <Button asChild variant="secondary">
+            <Link href={`/customers/${customer.id}/visits/new`}>Add a one-off visit</Link>
+          </Button>
+        }
         back={
           <Link href="/customers" className="inline-flex w-fit items-center gap-1.5 text-sm text-fg-muted hover:text-fg">
             <ArrowLeft size={14} aria-hidden /> Customers
@@ -47,8 +53,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid gap-6">
-          <Panel>
-            <PanelHeader title="Plans" description={subscriptions.length ? undefined : "No plan yet."} />
+          <Panel title="Plans" description={subscriptions.length ? undefined : "No plan yet."}>
             {subscriptions.length ? (
               <ul className="divide-y divide-line">
                 {subscriptions.map((s) => {
@@ -56,7 +61,9 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                   return (
                     <li key={s.id} className="grid gap-1.5 px-5 py-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-semibold">{s.plan_name}</p>
+                        <Link href={`/customers/${customer.id}/plans/${s.id}`} className="font-semibold hover:underline">
+                          {s.plan_name}
+                        </Link>
                         <Badge tone={st.tone}>{st.label}</Badge>
                       </div>
                       <p className="text-sm text-fg-muted">{describeRule(s.rrule, parseLocalDate(s.start_date))}</p>
@@ -74,14 +81,13 @@ export default async function CustomerPage({ params, searchParams }: { params: P
             ) : null}
           </Panel>
 
-          <Panel>
-            <PanelHeader title="Upcoming visits" description={upcoming.length ? undefined : "Nothing scheduled."} />
+          <Panel title="Upcoming visits" description={upcoming.length ? undefined : "Nothing scheduled."}>
             {upcoming.length ? (
               <ul className="divide-y divide-line">
                 {upcoming.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
                     <div className="grid gap-0.5">
-                      <Link href={`/schedule?date=${a.local_date}`} className="font-medium tabular hover:underline">
+                      <Link href={`/schedule/visits/${a.id}`} className="font-medium tabular hover:underline">
                         {formatLocalDate(a.local_date)}
                       </Link>
                       <p className="text-sm text-fg-muted">
@@ -100,15 +106,16 @@ export default async function CustomerPage({ params, searchParams }: { params: P
           </Panel>
 
           {history.length ? (
-            <Panel>
-              <PanelHeader title="History" />
+            <Panel title="History">
               <ul className="divide-y divide-line">
                 {history.map((a) => {
                   const st = APPOINTMENT_STATUS[a.status] ?? APPOINTMENT_STATUS.scheduled!;
                   return (
                     <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
                       <div className="grid gap-0.5">
-                        <p className="font-medium tabular">{a.local_date ? formatLocalDate(a.local_date, "full") : "No date"}</p>
+                        <Link href={`/schedule/visits/${a.id}`} className="font-medium tabular hover:underline">
+                          {a.local_date ? formatLocalDate(a.local_date, "full") : "No date yet"}
+                        </Link>
                         <p className="text-sm text-fg-muted">
                           {a.service_type_name}
                           {a.skip_reason ?? a.cancel_reason ? `: ${a.skip_reason ?? a.cancel_reason}` : ""}
@@ -124,8 +131,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
         </div>
 
         <div className="grid gap-6">
-          <Panel>
-            <PanelHeader title="Contact" />
+          <Panel title="Contact">
             <div className="px-5 py-4">
               <Details
                 items={[
@@ -148,8 +154,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
             </div>
           </Panel>
 
-          <Panel>
-            <PanelHeader title={properties.length === 1 ? "Property" : "Properties"} />
+          <Panel title={properties.length === 1 ? "Property" : "Properties"}>
             <ul className="divide-y divide-line">
               {properties.map((p) => (
                 <li key={p.id} className="grid gap-1.5 px-5 py-4">

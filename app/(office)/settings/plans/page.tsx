@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Panel, PanelHeader } from "@/components/ui/layout";
+import { EmptyState, Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatCents } from "@/lib/domain/money";
@@ -67,8 +67,7 @@ export default async function PlansPage() {
         </Table>
       )}
       {manage ? (
-        <Panel>
-          <PanelHeader title="Create a plan" />
+        <Panel title="Create a plan">
           <div className="px-5 py-4">
             <PlanForm serviceTypes={types.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name, category: t.category }))} />
           </div>

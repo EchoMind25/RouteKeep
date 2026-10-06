@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
-import { Panel, PanelHeader } from "@/components/ui/layout";
+import { Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { instantToZoned } from "@/lib/domain/time";
@@ -39,8 +39,7 @@ export default async function TeamPage() {
         </TBody>
       </Table>
       {canManage(member.role) ? (
-        <Panel>
-          <PanelHeader title="Invite someone" description="Unlimited users on every plan." />
+        <Panel title="Invite someone" description="Unlimited users on every plan.">
           <div className="px-5 py-4">
             <InviteForm isOwner={member.role === "owner"} />
           </div>

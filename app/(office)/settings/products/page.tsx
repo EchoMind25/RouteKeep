@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState, Panel, PanelHeader } from "@/components/ui/layout";
+import { EmptyState, Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatNumber, isMixUnit, mixLabel } from "@/lib/domain/units";
@@ -50,8 +50,7 @@ export default async function ProductsPage() {
         </Table>
       )}
       {canManage(member.role) ? (
-        <Panel>
-          <PanelHeader title="Add a product" description="Copy every value from the product label." />
+        <Panel title="Add a product" description="Copy every value from the product label.">
           <div className="px-5 py-4">
             <ProductForm />
           </div>

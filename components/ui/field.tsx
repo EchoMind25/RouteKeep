@@ -1,4 +1,6 @@
-import { cloneElement, isValidElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
+"use client";
+
+import { cloneElement, isValidElement, useId, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const control = [
@@ -25,9 +27,10 @@ export function Select({ className, children, ...props }: ComponentProps<"select
   );
 }
 
-/** Needs an id or a name (ids are derived from names so this renders on the server). */
 export function Checkbox({ className, label, hint, ...props }: ComponentProps<"input"> & { label: ReactNode; hint?: ReactNode }) {
-  const id = props.id ?? `f-${props.name}${props.value !== undefined ? `-${String(props.value)}` : ""}`;
+  // Unique per instance: two forms on one page often share field names.
+  const autoId = useId();
+  const id = props.id ?? autoId;
   return (
     <div className="flex items-start gap-3">
       <input
@@ -58,13 +61,14 @@ interface FieldProps {
   error?: string | string[] | null;
   optional?: boolean;
   className?: string;
-  /** One control with an id or a name; the label is wired to it. */
+  /** One control; the label, hint and error are wired to it. */
   children: ReactElement<{ id?: string; name?: string; "aria-describedby"?: string; "aria-invalid"?: boolean }>;
 }
 
 /** Label above, hint under the label, error under the control (taste 4.6). */
 export function Field({ label, hint, error, optional, className, children }: FieldProps) {
-  const id = children.props.id ?? `f-${children.props.name ?? "field"}`;
+  const autoId = useId();
+  const id = children.props.id ?? autoId;
   const message = Array.isArray(error) ? error[0] : error;
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = message ? `${id}-error` : undefined;
@@ -74,7 +78,12 @@ export function Field({ label, hint, error, optional, className, children }: Fie
     <div className={cn("grid gap-1.5", className)}>
       <label htmlFor={id} className="font-medium text-fg">
         {label}
-        {optional ? <span className="ml-1.5 font-normal text-fg-muted">Optional</span> : null}
+        {optional ? (
+          <>
+            {" "}
+            <span className="ml-1 font-normal text-fg-muted">(optional)</span>
+          </>
+        ) : null}
       </label>
       {hint ? (
         <p id={hintId} className="-mt-1 text-sm text-fg-muted">
