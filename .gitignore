@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# next.js / build output
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+tests/e2e/.auth/
+
+# local state
+.local/
+.netlify/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+supabase/.temp/
+supabase/.branches/

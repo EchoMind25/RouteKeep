@@ -1,0 +1,264 @@
+-- Shared pgTAP helpers. Included at the top of each test with \ir. Everything
+-- lives in pg_temp, so it disappears with the session and never touches the
+-- schema under test. Not a test file itself (pg_prove only runs *.test.sql).
+
+create or replace function pg_temp.new_user(p_email text) returns uuid
+language sql
+as $$
+  insert into auth.users (id, email, aud, role)
+  values (gen_random_uuid(), p_email, 'authenticated', 'authenticated')
+  returning id
+$$;
+
+-- Impersonate a signed-in member. Call `reset role;` (plain SQL) to go back.
+create or replace function pg_temp.login(p_user uuid, p_tenant uuid) returns void
+language plpgsql
+as $$
+begin
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', p_user, 'role', 'authenticated', 'tenant_id', p_tenant)::text,
+    true
+  );
+  perform set_config('role', 'authenticated', true);
+end
+$$;
+
+-- Tables that carry tenant data (all of public except views).
+create or replace function pg_temp.tenant_tables() returns setof text
+language sql
+stable
+as $$
+  select c.relname::text
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relkind = 'r'
+  order by 1
+$$;
+
+create or replace function pg_temp.tenant_col(p_table text) returns text
+language sql
+stable
+as $$
+  select case when p_table = 'tenants' then 'id' else 'tenant_id' end
+$$;
+
+create or replace function pg_temp.count_rows(p_table text, p_tenant uuid) returns bigint
+language plpgsql
+as $$
+declare
+  v bigint;
+begin
+  execute format('select count(*) from public.%I where %I = $1', p_table, pg_temp.tenant_col(p_table))
+    into v using p_tenant;
+  return v;
+exception when insufficient_privilege then
+  return -1;
+end
+$$;
+
+-- Returns 'rows=<n>' or 'denied' (42501). Anything else propagates and fails the test.
+create or replace function pg_temp.try_update(p_table text, p_tenant uuid) returns text
+language plpgsql
+as $$
+declare
+  n bigint;
+begin
+  execute format('update public.%I set updated_at = updated_at where %I = $1', p_table, pg_temp.tenant_col(p_table))
+    using p_tenant;
+  get diagnostics n = row_count;
+  return 'rows=' || n;
+exception when insufficient_privilege then
+  return 'denied';
+end
+$$;
+
+create or replace function pg_temp.try_delete(p_table text, p_tenant uuid) returns text
+language plpgsql
+as $$
+declare
+  n bigint;
+begin
+  execute format('delete from public.%I where %I = $1', p_table, pg_temp.tenant_col(p_table))
+    using p_tenant;
+  get diagnostics n = row_count;
+  return 'rows=' || n;
+exception when insufficient_privilege then
+  return 'denied';
+end
+$$;
+
+-- Insert a copy of another tenant's row (fresh id) using an explicit column
+-- list without generated columns. Returns 'inserted' or 'denied' (42501).
+create or replace function pg_temp.try_insert(p_table text, p_row jsonb) returns text
+language plpgsql
+as $$
+declare
+  v_cols text;
+begin
+  select string_agg(quote_ident(a.attname), ', ' order by a.attnum)
+    into v_cols
+  from pg_attribute a
+  where a.attrelid = ('public.' || quote_ident(p_table))::regclass
+    and a.attnum > 0 and not a.attisdropped and a.attgenerated = '';
+  execute format(
+    'insert into public.%I (%s) select %s from jsonb_populate_record(null::public.%I, $1)',
+    p_table, v_cols, v_cols, p_table
+  ) using p_row;
+  return 'inserted';
+exception when insufficient_privilege then
+  return 'denied';
+end
+$$;
+
+-- One row in every tenant table, inserted as the superuser, so isolation tests
+-- cover the whole schema. 001 fails if a table is ever added without a row here.
+create or replace function pg_temp.seed_tenant(p_label text) returns jsonb
+language plpgsql
+as $$
+declare
+  v_tenant uuid;
+  v_owner uuid := pg_temp.new_user(p_label || '-owner@test.routekeep.dev');
+  v_admin uuid := pg_temp.new_user(p_label || '-admin@test.routekeep.dev');
+  v_office uuid := pg_temp.new_user(p_label || '-office@test.routekeep.dev');
+  v_dispatch uuid := pg_temp.new_user(p_label || '-dispatch@test.routekeep.dev');
+  v_tech_user uuid := pg_temp.new_user(p_label || '-tech@test.routekeep.dev');
+  v_tech uuid;
+  v_type uuid;
+  v_plan uuid;
+  v_product uuid;
+  v_customer uuid;
+  v_property uuid;
+  v_sub uuid;
+  v_appt uuid;
+  v_route uuid;
+  v_application uuid;
+  v_invoice uuid;
+  v_payment uuid;
+  v_outbox uuid;
+  v_job uuid;
+begin
+  insert into public.tenants (name, timezone, state, business_license_no)
+  values ('Tenant ' || p_label, 'America/Denver', 'UT', 'BL-' || p_label)
+  returning id into v_tenant;
+
+  insert into public.offices (tenant_id, name, address_line1, city, region, postal_code, is_primary)
+  values (v_tenant, 'Main office', '100 N University Ave', 'Provo', 'UT', '84601', true);
+
+  insert into public.memberships (tenant_id, user_id, role, email) values
+    (v_tenant, v_owner, 'owner', p_label || '-owner@test.routekeep.dev'),
+    (v_tenant, v_admin, 'admin', p_label || '-admin@test.routekeep.dev'),
+    (v_tenant, v_office, 'office', p_label || '-office@test.routekeep.dev'),
+    (v_tenant, v_dispatch, 'dispatcher', p_label || '-dispatch@test.routekeep.dev'),
+    (v_tenant, v_tech_user, 'technician', p_label || '-tech@test.routekeep.dev');
+
+  insert into public.technicians (tenant_id, user_id, display_name, applicator_license_no, license_expiry)
+  values (v_tenant, v_tech_user, 'Tech ' || p_label, 'UT-' || p_label || '-0042', date '2027-12-31')
+  returning id into v_tech;
+
+  select id into v_type from public.service_types where tenant_id = v_tenant and category = 'pest';
+
+  insert into public.service_plans (tenant_id, service_type_id, name, price_cents, initial_price_cents, rrule)
+  values (v_tenant, v_type, 'Quarterly pest', 12900, 19900, 'FREQ=MONTHLY;INTERVAL=3')
+  returning id into v_plan;
+
+  insert into public.products (tenant_id, name, kind, epa_reg_no, signal_word, default_amount_unit, default_mix_rate, default_mix_unit)
+  values (v_tenant, 'Test perimeter concentrate', 'pesticide', '1000-1', 'caution', 'gal', 0.5, 'fl_oz_per_gal')
+  returning id into v_product;
+
+  insert into public.customers (tenant_id, display_name, first_name, last_name, email, phone)
+  values (v_tenant, 'Marisol Quintero ' || p_label, 'Marisol', 'Quintero', 'marisol.' || p_label || '@example.com', '+18015550142')
+  returning id into v_customer;
+
+  insert into public.properties (tenant_id, customer_id, address_line1, city, region, postal_code, location, geocode_confidence)
+  values (v_tenant, v_customer, '1450 S Sandhill Rd', 'Orem', 'UT', '84058',
+          extensions.st_setsrid(extensions.st_makepoint(-111.6946, 40.2738), 4326)::extensions.geography, 0.94)
+  returning id into v_property;
+
+  insert into public.subscriptions (tenant_id, customer_id, property_id, plan_id, service_type_id, start_date, rrule,
+                                    price_cents, initial_price_cents, billing_mode)
+  values (v_tenant, v_customer, v_property, v_plan, v_type, date '2026-10-05', 'FREQ=MONTHLY;INTERVAL=3',
+          12900, 19900, 'per_service')
+  returning id into v_sub;
+
+  insert into public.appointments (tenant_id, customer_id, property_id, subscription_id, service_type_id, technician_id,
+                                   local_date, window_start, window_end, tz, occurrence_date, is_initial, sequence, price_cents)
+  values (v_tenant, v_customer, v_property, v_sub, v_type, v_tech,
+          date '2026-10-05', '08:00', '12:00', 'America/Denver', date '2026-10-05', true, 1, 19900)
+  returning id into v_appt;
+
+  insert into public.routes (tenant_id, technician_id, local_date) values (v_tenant, v_tech, date '2026-10-05')
+  returning id into v_route;
+
+  insert into public.applications (
+    tenant_id, appointment_id, product_id, technician_id,
+    customer_name, customer_address, application_address,
+    business_name, business_address, business_license_no,
+    applicator_name, applicator_license_no,
+    product_name, product_kind, epa_reg_no, signal_word, restricted_use,
+    mix_rate, mix_unit, total_amount, amount_unit, area_treated, area_unit,
+    target_sites, target_pests, applied_at, client_key)
+  values (
+    v_tenant, v_appt, v_product, v_tech,
+    'Marisol Quintero', '1450 S Sandhill Rd, Orem, UT 84058', '1450 S Sandhill Rd, Orem, UT 84058',
+    'Tenant ' || p_label, '100 N University Ave, Provo, UT 84601', 'BL-' || p_label,
+    'Tech ' || p_label, 'UT-' || p_label || '-0042',
+    'Test perimeter concentrate', 'pesticide', '1000-1', 'caution', false,
+    0.5, 'fl_oz_per_gal', 1.5, 'gal', 1800, 'linear_ft',
+    '{foundation perimeter,entry points}', '{ants,spiders}', timestamptz '2026-10-05 15:20:00+00', 'app-' || p_label || '-1')
+  returning id into v_application;
+
+  insert into public.agreements (tenant_id, customer_id, document_type, pdf_path, sha256, signer_name, signed_at, consent_text_version)
+  values (v_tenant, v_customer, 'service_agreement', v_tenant || '/agreements/1.pdf', repeat('a', 64),
+          'Marisol Quintero', now(), 'v1');
+
+  insert into public.attachments (tenant_id, owner_type, owner_id, kind, path, content_type, size_bytes)
+  values (v_tenant, 'appointment', v_appt, 'photo', v_tenant || '/photos/1.jpg', 'image/jpeg', 182344);
+
+  insert into public.invoices (tenant_id, customer_id, subscription_id, appointment_id, period_key, status, total_cents, issued_at)
+  values (v_tenant, v_customer, v_sub, v_appt, '2026-10-05', 'open', 19900, now())
+  returning id into v_invoice;
+
+  insert into public.invoice_lines (tenant_id, invoice_id, appointment_id, description, unit_amount_cents, amount_cents)
+  values (v_tenant, v_invoice, v_appt, 'Initial pest service', 19900, 19900);
+
+  insert into public.payments (tenant_id, customer_id, invoice_id, client_payment_key, method, status, amount_cents, received_at)
+  values (v_tenant, v_customer, v_invoice, 'pay-' || p_label || '-000001', 'check', 'succeeded', 19900, now())
+  returning id into v_payment;
+
+  insert into public.ledger_entries (tenant_id, customer_id, type, amount_cents, invoice_id, entry_key)
+  values (v_tenant, v_customer, 'invoice', 19900, v_invoice, 'invoice:' || v_invoice);
+  insert into public.ledger_entries (tenant_id, customer_id, type, amount_cents, invoice_id, payment_id, entry_key)
+  values (v_tenant, v_customer, 'payment', -19900, v_invoice, v_payment, 'payment:' || v_payment);
+
+  insert into public.outbox_events (tenant_id, event_id, channel, topic, payload)
+  values (v_tenant, gen_random_uuid(), 'email', 'appointment.reminder', '{}')
+  returning id into v_outbox;
+
+  insert into public.messages (tenant_id, customer_id, outbox_event_id, channel, template, recipient, status)
+  values (v_tenant, v_customer, v_outbox, 'email', 'appointment_reminder', 'marisol@example.com', 'sent');
+
+  insert into public.webhook_events (tenant_id, provider, event_id, type, payload)
+  values (v_tenant, 'stripe', 'evt_' || p_label, 'payment_intent.succeeded', '{}');
+
+  insert into public.import_mappings (tenant_id, name, source, entity)
+  values (v_tenant, 'Spreadsheet customers', 'csv', 'customers');
+
+  insert into public.import_jobs (tenant_id, source) values (v_tenant, 'csv') returning id into v_job;
+
+  insert into public.import_rows (tenant_id, job_id, entity, file_name, row_number, raw)
+  values (v_tenant, v_job, 'customers', 'customers.csv', 1, '{"Name":"Marisol Quintero"}');
+
+  insert into public.exports (tenant_id) values (v_tenant);
+
+  return jsonb_build_object(
+    'tenant', v_tenant,
+    'owner', v_owner, 'admin', v_admin, 'office', v_office, 'dispatcher', v_dispatch, 'tech_user', v_tech_user,
+    'technician', v_tech, 'service_type', v_type, 'plan', v_plan, 'product', v_product,
+    'customer', v_customer, 'property', v_property, 'subscription', v_sub, 'appointment', v_appt,
+    'route', v_route, 'application', v_application, 'invoice', v_invoice, 'payment', v_payment,
+    'import_job', v_job
+  );
+end
+$$;
