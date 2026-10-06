@@ -258,3 +258,170 @@ export async function sellPlan(
 export function propertyAddress(p: { address_line1: string; address_line2: string | null; city: string; region: string; postal_code: string }) {
   return formatAddress({ line1: p.address_line1, line2: p.address_line2, city: p.city, region: p.region, postalCode: p.postal_code });
 }
+
+// Edits (FR-CRM-01) -------------------------------------------------------------------
+
+export class StaleRecordError extends Error {
+  override name = "StaleRecordError";
+  constructor(what: string) {
+    super(`Someone else changed this ${what} while you were editing. Reload to see the latest, then try again.`);
+  }
+}
+
+export interface CustomerEdit {
+  id: string;
+  version: number;
+  kind: "residential" | "commercial";
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  email: string | null;
+  phone: string | null;
+  smsConsent: boolean;
+  emailOptIn: boolean;
+  status: "active" | "inactive";
+  notes: string | null;
+}
+
+/**
+ * Consent is history, not a flag: granting records when and who (CR-07);
+ * withdrawing records an opt-out time instead of erasing the grant.
+ */
+export async function updateCustomer(m: MemberSession, input: CustomerEdit): Promise<void> {
+  await withRls(m.claims, async (tx) => {
+    const current = await tx
+      .selectFrom("customers")
+      .select(["sms_consent_at", "sms_opted_out_at", "email_opt_in"])
+      .where("id", "=", input.id)
+      .where("version", "=", input.version)
+      .executeTakeFirst();
+    if (!current) throw new StaleRecordError("customer");
+    const now = new Date();
+    const hadSms = current.sms_consent_at !== null && current.sms_opted_out_at === null;
+    const smsChanges =
+      input.smsConsent && !hadSms
+        ? { sms_consent_at: now, sms_consent_source: `office:${m.userId}`, sms_opted_out_at: null }
+        : !input.smsConsent && hadSms
+          ? { sms_opted_out_at: now }
+          : {};
+    const result = await tx
+      .updateTable("customers")
+      .set({
+        kind: input.kind,
+        first_name: input.firstName,
+        last_name: input.lastName,
+        company_name: input.companyName,
+        display_name: displayNameFor(input),
+        email: input.email,
+        phone: input.phone,
+        email_opt_in: input.emailOptIn,
+        email_opt_in_at: input.emailOptIn ? (current.email_opt_in ? undefined : now) : null,
+        status: input.status,
+        notes: input.notes,
+        ...smsChanges,
+      })
+      .where("id", "=", input.id)
+      .where("version", "=", input.version)
+      .executeTakeFirst();
+    if (Number(result.numUpdatedRows) !== 1) throw new StaleRecordError("customer");
+  });
+}
+
+export interface PropertyInput {
+  line1: string;
+  line2: string | null;
+  city: string;
+  region: string;
+  postalCode: string;
+  accessNotes: string | null;
+  sqFt: number | null;
+  lawnAreaSqFt: number | null;
+}
+
+export async function getProperty(m: MemberSession, customerId: string, propertyId: string) {
+  return withRls(m.claims, (tx) =>
+    tx
+      .selectFrom("properties")
+      .select(["id", "version", "address_line1", "address_line2", "city", "region", "postal_code", "access_notes", "sq_ft", "lawn_area_sq_ft", "location_locked", "geocode_confidence"])
+      .where("id", "=", propertyId)
+      .where("customer_id", "=", customerId)
+      .executeTakeFirst(),
+  );
+}
+
+export async function addProperty(m: MemberSession, customerId: string, input: PropertyInput): Promise<string> {
+  const geo = await geocoder()
+    .geocode({ line1: input.line1, city: input.city, region: input.region, postalCode: input.postalCode })
+    .catch(() => null);
+  return withRls(m.claims, async (tx) => {
+    const row = await tx
+      .insertInto("properties")
+      .values({
+        customer_id: customerId,
+        address_line1: input.line1,
+        address_line2: input.line2,
+        city: input.city,
+        region: input.region,
+        postal_code: input.postalCode,
+        access_notes: input.accessNotes,
+        sq_ft: input.sqFt,
+        lawn_area_sq_ft: input.lawnAreaSqFt,
+        location: geo ? sql`extensions.st_setsrid(extensions.st_makepoint(${geo.lng}, ${geo.lat}), 4326)::extensions.geography` : null,
+        geocode_confidence: geo ? String(geo.confidence) : null,
+        geocode_source: geo?.source ?? null,
+        geocoded_at: geo ? new Date() : null,
+      })
+      .returning("id")
+      .executeTakeFirstOrThrow();
+    return row.id;
+  });
+}
+
+/**
+ * An address change re-geocodes, unless a person confirmed and locked the pin
+ * (R-BUG-05): then the old pin stays and is flagged for a check instead.
+ */
+export async function updateProperty(m: MemberSession, customerId: string, propertyId: string, version: number, input: PropertyInput): Promise<{ addressChanged: boolean; pinKept: boolean }> {
+  const before = await getProperty(m, customerId, propertyId);
+  if (!before || before.version !== version) throw new StaleRecordError("property");
+  const addressChanged =
+    before.address_line1 !== input.line1 || before.city !== input.city || before.region !== input.region || before.postal_code !== input.postalCode;
+  const geo =
+    addressChanged && !before.location_locked
+      ? await geocoder()
+          .geocode({ line1: input.line1, city: input.city, region: input.region, postalCode: input.postalCode })
+          .catch(() => null)
+      : null;
+
+  await withRls(m.claims, async (tx) => {
+    const result = await tx
+      .updateTable("properties")
+      .set({
+        address_line1: input.line1,
+        address_line2: input.line2,
+        city: input.city,
+        region: input.region,
+        postal_code: input.postalCode,
+        access_notes: input.accessNotes,
+        sq_ft: input.sqFt,
+        lawn_area_sq_ft: input.lawnAreaSqFt,
+        ...(addressChanged && !before.location_locked
+          ? {
+              location: geo ? sql`extensions.st_setsrid(extensions.st_makepoint(${geo.lng}, ${geo.lat}), 4326)::extensions.geography` : null,
+              geocode_confidence: geo ? String(geo.confidence) : null,
+              geocode_source: geo?.source ?? null,
+              geocoded_at: geo ? new Date() : null,
+              location_confirmed_at: null,
+              location_confirmed_by: null,
+            }
+          : {}),
+        ...(addressChanged && before.location_locked ? { location_confirmed_at: null } : {}),
+      })
+      .where("id", "=", propertyId)
+      .where("customer_id", "=", customerId)
+      .where("version", "=", version)
+      .executeTakeFirst();
+    if (Number(result.numUpdatedRows) !== 1) throw new StaleRecordError("property");
+  });
+  return { addressChanged, pinKept: addressChanged && before.location_locked };
+}

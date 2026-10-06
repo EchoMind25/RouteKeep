@@ -18,14 +18,23 @@ export const metadata: Metadata = { title: "Customer" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
+const DONE: Record<string, string> = {
+  saved: "Customer saved.",
+  property_added: "Address added.",
+  property_saved: "Address saved.",
+  property_pin_kept: "Address saved. The locked pin stayed where it was and is flagged for a check.",
+};
+
+export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; done?: string }> }) {
   const member = await requireMember(OFFICE_ROLES);
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const data = await getCustomer(member, id);
   if (!data) notFound();
   const { customer, properties, subscriptions, upcoming, history } = data;
-  const created = (await searchParams).created === "1";
+  const query = await searchParams;
+  const created = query.created === "1";
+  const done = DONE[query.done ?? ""];
   const addressOf = new Map(properties.map((p) => [p.id, propertyAddress(p)]));
 
   return (
@@ -45,6 +54,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
         }
       />
 
+      {done ? <Alert tone="success">{done}</Alert> : null}
       {created ? (
         <Alert tone="success" title="Customer saved">
           {upcoming.length ? `${upcoming.length} upcoming ${upcoming.length === 1 ? "visit is" : "visits are"} on the schedule.` : "Add a plan when they are ready to book."}
@@ -131,7 +141,14 @@ export default async function CustomerPage({ params, searchParams }: { params: P
         </div>
 
         <div className="grid gap-6">
-          <Panel title="Contact">
+          <Panel
+            title="Contact"
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/customers/${customer.id}/edit`}>Edit</Link>
+              </Button>
+            }
+          >
             <div className="px-5 py-4">
               <Details
                 items={[
@@ -154,7 +171,14 @@ export default async function CustomerPage({ params, searchParams }: { params: P
             </div>
           </Panel>
 
-          <Panel title={properties.length === 1 ? "Property" : "Properties"}>
+          <Panel
+            title={properties.length === 1 ? "Property" : "Properties"}
+            actions={
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/customers/${customer.id}/properties/new`}>Add address</Link>
+              </Button>
+            }
+          >
             <ul className="divide-y divide-line">
               {properties.map((p) => (
                 <li key={p.id} className="grid gap-1.5 px-5 py-4">
@@ -172,6 +196,9 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                     )}
                   </div>
                   {p.access_notes ? <p className="text-sm text-fg-muted">{p.access_notes}</p> : null}
+                  <Link href={`/customers/${customer.id}/properties/${p.id}`} className="w-fit text-sm font-medium text-accent hover:underline">
+                    Edit address<span className="sr-only">: {propertyAddress(p)}</span>
+                  </Link>
                 </li>
               ))}
             </ul>

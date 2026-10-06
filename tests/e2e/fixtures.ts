@@ -13,6 +13,8 @@ export const test = base.extend<{ problems: string[] }>({
       page.on("pageerror", (e) => problems.push(`exception: ${e.message}`));
       page.on("response", (r) => {
         if (r.status() >= 500) problems.push(`HTTP ${r.status()} ${r.url()}`);
+        // Name the URL behind "Failed to load resource" console errors.
+        if (r.status() === 404) problems.push(`HTTP 404 ${r.url()}`);
       });
       await use(problems);
       expect(problems, "console errors, exceptions or 5xx responses").toEqual([]);
