@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+/* Tokens only (replica-build rule): Tailwind's default palette is removed, so
+   a raw colour like bg-blue-500 does not exist. Every colour is a role from
+   replica/design/tokens.json. */
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-md: 16px;
+  --text-md--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 22px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 28px;
+  --text-2xl--line-height: 34px;
+
+  --radius-control: 6px;
+  --radius-panel: 10px;
+  --radius-pill: 999px;
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}
+
+@theme inline {
+  --color-canvas: var(--rk-canvas);
+  --color-surface: var(--rk-surface);
+  --color-sunken: var(--rk-sunken);
+  --color-line: var(--rk-line);
+  --color-line-strong: var(--rk-line-strong);
+  --color-fg: var(--rk-fg);
+  --color-fg-muted: var(--rk-fg-muted);
+  --color-accent: var(--rk-accent);
+  --color-accent-hover: var(--rk-accent-hover);
+  --color-accent-soft: var(--rk-accent-soft);
+  --color-on-accent: var(--rk-on-accent);
+  --color-danger: var(--rk-danger);
+  --color-danger-soft: var(--rk-danger-soft);
+  --color-success: var(--rk-success);
+  --color-success-soft: var(--rk-success-soft);
+  --color-warning: var(--rk-warning);
+  --color-warning-soft: var(--rk-warning-soft);
+  --color-focus: var(--rk-focus);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --shadow-raised: var(--rk-shadow-raised);
+  --shadow-overlay: var(--rk-shadow-overlay);
+  --ease-out: var(--rk-ease);
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--rk-canvas);
+    color: var(--rk-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Numbers that people compare (money, times, counts) line up. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible {
+    outline: 2px solid var(--rk-focus);
+    outline-offset: 2px;
+  }
+  /* iOS zooms into inputs under 16px; the technician app never shrinks them. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+  @media (min-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: inherit;
+    }
+  }
+  ::selection {
+    background: var(--rk-accent-soft);
+    color: var(--rk-fg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

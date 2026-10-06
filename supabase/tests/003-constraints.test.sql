@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir _helpers.psql
-select plan(42);
+select plan(43);
 
 create temp table fx on commit drop as
 select pg_temp.seed_tenant('a') as a, pg_temp.seed_tenant('b') as b;
@@ -261,6 +261,10 @@ update public.customers set version = 1, notes = 'rewind attempt' where id = (se
 select is(
   (select version from public.customers where id = (select customer from ids)), 3,
   'ENG-07: a client cannot rewind the version');
+update public.subscriptions set generated_through = date '2026-12-31' where id = (select subscription from ids);
+select is(
+  (select version from public.subscriptions where id = (select subscription from ids)), 1,
+  'ENG-07: the generator advancing generated_through is not an edit');
 
 update public.properties set location_locked = true where id = (select property from ids);
 select throws_ok(

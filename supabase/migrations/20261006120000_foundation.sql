@@ -43,13 +43,21 @@ end
 $$;
 
 -- ENG-07: optimistic concurrency. Writers update with `where version = <seen>`;
--- the database owns the counter so a client can never rewind it.
+-- the database owns the counter so a client can never rewind it. Bookkeeping
+-- columns written by jobs (generated_through) and no-op updates do not count
+-- as edits, so the nightly generator never invalidates a form someone has open.
 create or replace function app.bump_version() returns trigger
 language plpgsql
 set search_path = ''
 as $$
+declare
+  v_ignored text[] := array['version', 'updated_at', 'generated_through'];
 begin
-  new.version := old.version + 1;
+  if (to_jsonb(new) - v_ignored) is distinct from (to_jsonb(old) - v_ignored) then
+    new.version := old.version + 1;
+  else
+    new.version := old.version;
+  end if;
   return new;
 end
 $$;
