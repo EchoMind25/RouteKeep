@@ -68,7 +68,14 @@ Server Actions, each validating with zod and running inside `withRls`:
 | `inviteMemberAction` | S14 | owner, admin (owner for owner/admin roles) | auth user (Supabase admin invite), `app.add_member` |
 | `createTechnician`, `createPlan`, `setPlanActive`, `createProduct` | S14 | owner, admin | catalog tables |
 
-Background jobs: `lib/jobs/generate-appointments.ts` (FR-SUB-02), batched 400 subscriptions per step.
+Background jobs (Inngest, served at `/api/inngest`):
+
+| Function | Trigger | Does |
+| --- | --- | --- |
+| `generation-nightly` | cron 02:15 America/Denver | lists tenants, emits one `generation/tenant.requested` event each (fan-out: one tenant cannot block another) |
+| `generation-tenant` | `generation/tenant.requested`, concurrency 1 per tenant, 4 retries | `lib/jobs/generate-appointments.ts` in steps of 400 subscriptions; inserts are idempotent so retries are safe; ends bounded pauses |
+
+Visit-level and plan-level actions added in M1: `rescheduleAction`, `skipAction`, `cancelAction`, `restoreAction` (single visit, version-checked); `changeSeriesAction`, `pauseAction`, `resumeAction`, `cancelPlanAction`, `reactivateAction` (series, version-checked, row-locked); `createVisitAction` (one-off, client key); `updateCustomerAction`, `savePropertyAction`.
 
 Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6), PowerSync upload endpoint (M3).
 

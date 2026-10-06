@@ -57,8 +57,23 @@ secret only the owner can create. Budget references are PRD section 5.
 - Actions secrets for the keepalive: `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
 - Branch protection on `main`: require the CI workflow.
 
-## 4. Later milestones
+## 4. Inngest (Free, D-04): nightly visit generation
 
-Inngest (M1 nightly generation in production), PowerSync (M3), Stripe Connect
-(M4), Resend and per-tenant 10DLC (M6), Sentry. Each gets a row in
-`docs/VENDORS.md` with its real free-tier limits at signup (BUD-05).
+1. Create an Inngest account and app; record the free-tier limits in
+   `docs/VENDORS.md` (BUD-05).
+2. Add `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY` to Netlify.
+3. In the Inngest dashboard, sync the app at `https://<app-url>/api/inngest`.
+   Two functions appear: `generation-nightly` (cron, 02:15 Mountain) fans out
+   one `generation/tenant.requested` event per tenant, and `generation-tenant`
+   keeps each tenant's visits 60 days ahead in idempotent batches.
+
+Until this is done the endpoint answers 500 by design (it refuses unsigned
+calls), and visits are still generated whenever a plan is sold or resumed.
+Locally: `npx inngest-cli@latest dev` plus `INNGEST_DEV=1`, or just
+`npm run db:generate`.
+
+## 5. Later milestones
+
+PowerSync (M3), Stripe Connect (M4), Resend and per-tenant 10DLC (M6),
+Sentry. Each gets a row in `docs/VENDORS.md` with its real free-tier limits at
+signup (BUD-05).
