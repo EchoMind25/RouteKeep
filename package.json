@@ -23,7 +23,7 @@
     "design:contrast": "python3 scripts/design/contrast.py replica/design/tokens.json",
     "design:tokens": "node scripts/design/build-tokens.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run design:contrast",
-    "db:generate": "tsx --conditions=react-server --env-file=.env.local scripts/generate-demo-visits.ts"
+    "db:generate": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/generate-demo-visits.ts"
   },
   "dependencies": {
     "@date-fns/tz": "1.5.0",

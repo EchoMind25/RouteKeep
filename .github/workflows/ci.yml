@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    name: Lint, types, unit tests, design tokens
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Design tokens are generated and pass WCAG AA
+        run: |
+          node scripts/design/build-tokens.mjs --check
+          python3 scripts/design/contrast.py replica/design/tokens.json
+
+  database:
+    name: Migrations and pgTAP (RLS, constraints)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 16, PostGIS and pgTAP
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq postgresql-16 postgresql-16-postgis-3 postgresql-16-pgtap libtap-parser-sourcehandler-pgtap-perl
+      - run: scripts/db/test.sh
+
+  e2e:
+    name: Build and end-to-end tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      AUTH_MODE: local
+      APP_URL: http://127.0.0.1:3100
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54329/routekeep
+      # CI-only secret for the throwaway local database; never used elsewhere.
+      LOCAL_AUTH_SECRET: ci-only-local-auth-secret-${{ github.run_id }}-0000000000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install PostgreSQL 16, PostGIS and pgTAP
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq postgresql-16 postgresql-16-postgis-3 postgresql-16-pgtap
+      - run: npm ci
+      - name: Database with demo data
+        run: npm run db:reset
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

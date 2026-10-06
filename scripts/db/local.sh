@@ -23,7 +23,15 @@ HOST="127.0.0.1"
 if [[ -n "${RK_PGBIN:-}" ]]; then
   PGBIN="$RK_PGBIN"
 else
-  PGBIN="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -n 1)"
+  # Newest installed server that also has PostGIS (runners can carry several versions).
+  PGBIN=""
+  for dir in $(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -rV); do
+    version="$(basename "$(dirname "$dir")")"
+    if [[ -f "/usr/share/postgresql/$version/extension/postgis.control" ]]; then
+      PGBIN="$dir"
+      break
+    fi
+  done
 fi
 if [[ -z "$PGBIN" || ! -x "$PGBIN/pg_ctl" ]]; then
   echo "Postgres server binaries not found. Install postgresql-16, postgresql-16-postgis-3, postgresql-16-pgtap." >&2

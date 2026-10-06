@@ -1,22 +1,22 @@
 feature,area,priority,original,clone,notes
-"FR-SET-01 Owner signs up, creates tenant with timezone, state, business name, and license number.",tenant setup,must,yes,no,
-FR-SET-02 Invite users with roles. Technicians require applicator license number and expiry.,tenant setup,must,yes,no,
-"FR-SET-03 Product catalog with EPA registration number, signal word, restricted-use flag. Seed common products; allow custom.",tenant setup,must,yes,no,
-FR-SET-04 Service types and plans with price and recurrence.,tenant setup,must,yes,no,
+"FR-SET-01 Owner signs up, creates tenant with timezone, state, business name, and license number.",tenant setup,must,yes,yes,S02; idempotent create_tenant
+FR-SET-02 Invite users with roles. Technicians require applicator license number and expiry.,tenant setup,must,yes,yes,Invites via Supabase admin; technician licence and expiry required in DB
+"FR-SET-03 Product catalog with EPA registration number, signal word, restricted-use flag. Seed common products; allow custom.",tenant setup,must,yes,partial,"Catalog with EPA no, signal word, RUP; seed list waits for an owner-verified product list"
+FR-SET-04 Service types and plans with price and recurrence.,tenant setup,must,yes,yes,Presets plus custom RRULE subset
 "FR-SET-05 Connect Stripe (onboarding link). Until connected, billing features show a setup prompt.",tenant setup,must,yes,no,
-"FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,no,
-"FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,no,
-"FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,no,
-FR-CRM-04 Record SMS consent with timestamp and source; email opt-in.,customers,must,yes,no,
-FR-SUB-01 Sell a subscription: initial service plus recurring frequency (RRULE).,plans and appointments,must,yes,no,
-"FR-SUB-02 A daily job generates appointments 60 days ahead, idempotently.",plans and appointments,must,yes,no,
+"FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,partial,Create and search; edit and add-property screens next
+"FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,partial,"Geocode with confidence, lockable pin enforced in DB; map pin UI needs M2 map"
+"FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,partial,"Visits only; invoices, payments, messages arrive with M4/M6"
+FR-CRM-04 Record SMS consent with timestamp and source; email opt-in.,customers,must,yes,yes,Consent time and source recorded; email opt-in separate
+FR-SUB-01 Sell a subscription: initial service plus recurring frequency (RRULE).,plans and appointments,must,yes,yes,Initial visit at initial price; plan terms copied at sale
+"FR-SUB-02 A daily job generates appointments 60 days ahead, idempotently.",plans and appointments,must,yes,partial,Generator and batched job body done; production scheduler (Inngest) not deployed
 "FR-SUB-03 Edit one occurrence or all future ones. Skip, pause, cancel with reason.",plans and appointments,must,yes,no,
 FR-SUB-04 One-off appointments without a subscription.,plans and appointments,must,yes,no,
 "FR-DSP-01 Split view: technician timeline lanes and a map, shared selection.",dispatch,must,yes,no,
 "FR-DSP-02 Drag a stop to another time, day, or technician. Optimistic concurrency with a conflict message.",dispatch,must,yes,no,
 "FR-DSP-03 ""Optimize"" per technician per day: shows a preview diff (order, drive time), then commit or discard. Undo last commit.",dispatch,must,yes,no,
-"FR-DSP-04 Always-visible queue of unscheduled, skipped, and cancelled work (R-PAIN-08).",dispatch,must,yes,no,
-"FR-DSP-05 The same stop sequence number appears on map, list, and technician app (R-BUG-06).",dispatch,must,yes,no,
+"FR-DSP-04 Always-visible queue of unscheduled, skipped, and cancelled work (R-PAIN-08).",dispatch,must,yes,partial,Needs-attention queue on the day view
+"FR-DSP-05 The same stop sequence number appears on map, list, and technician app (R-BUG-06).",dispatch,must,yes,partial,One stop number shown everywhere; sequence assignment comes with the optimizer
 FR-DSP-06 Flag any stop whose travel leg is more than 3x the route median before publishing.,dispatch,must,yes,no,
 "FR-TEC-01 Installable PWA. Today's and tomorrow's routes, customers, properties, products, and notes sync at shift start and incrementally.",technician app,must,yes,no,
 FR-TEC-02 All screens read from local storage. No screen blocks on the network.,technician app,must,yes,no,
@@ -27,33 +27,33 @@ FR-TEC-04 Every field edit persists locally within 500 ms. Killing or background
 FR-TEC-07 A stop cannot be completed if a required record field (CR-01) is missing. Show exactly which field.,technician app,must,yes,no,
 "FR-TEC-08 Payment in the field: online only via Stripe-hosted fields, or ""charge card on file"" or ""invoice later"" queued with a `client_payment_key`. Never capture card numbers offline.",technician app,must,yes,no,
 "FR-TEC-09 Photos and signatures store locally, upload in the background, and survive app restarts.",technician app,must,yes,no,
-FR-TEC-10 One-tap navigate to the stop in the device's maps app.,technician app,must,yes,no,
-FR-TEC-11 Outdoor high-contrast mode; primary actions bottom-anchored; touch targets at least 48 px.,technician app,must,yes,no,
+FR-TEC-10 One-tap navigate to the stop in the device's maps app.,technician app,must,yes,partial,Navigate link in the interim online day view
+FR-TEC-11 Outdoor high-contrast mode; primary actions bottom-anchored; touch targets at least 48 px.,technician app,must,yes,partial,Outdoor high-contrast tokens and 48 px targets; mode toggle in M3
 FR-REC-01 Each completed service produces an application record per product with all CR-01 fields.,application records,must,yes,no,
 FR-REC-02 PDF service record for the customer with business name and license number.,application records,must,yes,no,
-"FR-REC-03 Records are immutable after 24 h; amendments are new rows linked to the original, with an audit entry.",application records,must,yes,no,
-FR-REC-04 Record state template is per tenant state. Utah template ships first.,application records,must,yes,no,
-FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-application customer statement.,application records,must,yes,no,
+"FR-REC-03 Records are immutable after 24 h; amendments are new rows linked to the original, with an audit entry.",application records,must,yes,partial,DB-08 lock and amendment rows enforced in DB; UI in M3
+FR-REC-04 Record state template is per tenant state. Utah template ships first.,application records,must,yes,partial,"state_template column, Utah default"
+FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-application customer statement.,application records,must,yes,partial,Enforced by CHECK and domain helper; prompt UI in M3
 "FR-REC-06 Report: product usage by date range, product, EPA number, technician; exportable CSV and PDF.",application records,must,yes,no,
 "FR-BIL-01 Invoices generated on service completion or on a billing schedule, one per subscription period.",billing,must,yes,no,
 FR-BIL-02 Autopay by card or ACH using Stripe-hosted setup and stored mandates.,billing,must,yes,no,
 FR-BIL-03 Billing runs as one durable step per invoice; a failed item never blocks others; reruns are safe.,billing,must,yes,no,
 FR-BIL-04 Failed payments enter a retry schedule and a collections list.,billing,must,yes,no,
 FR-BIL-05 Receipts and invoices by email; SMS when enabled.,billing,must,yes,no,
-FR-BIL-06 Refunds and credits create ledger entries; nothing edits history.,billing,must,yes,no,
+FR-BIL-06 Refunds and credits create ledger entries; nothing edits history.,billing,must,yes,partial,Ledger append-only in DB; credit UI in M4
 FR-BIL-07 Nightly reconciliation of ledger against Stripe; mismatches listed for the owner.,billing,must,yes,no,
 "FR-BIL-08 Reports: revenue, AR aging, production by technician.",billing,must,yes,no,
 "FR-MSG-01 Email reminders, ""on the way"", service complete, invoice, payment failed.",messaging,must,yes,no,
 FR-MSG-02 SMS for the same events only when the tenant's 10DLC status is approved and the recipient has consent on file.,messaging,must,yes,no,
 FR-MSG-03 Onboarding step collects the tenant's 10DLC brand details and shows registration status.,messaging,must,yes,no,
 "FR-MSG-04 STOP, HELP, quiet hours by recipient timezone, unsubscribe link on email.",messaging,must,yes,no,
-FR-MSG-05 Usage ledger: every billed message links to a message row the tenant can see (R-BUG-10).,messaging,must,yes,no,
+FR-MSG-05 Usage ledger: every billed message links to a message row the tenant can see (R-BUG-10).,messaging,must,yes,partial,messages table carries billed units and cost
 FR-POR-01 Passwordless sign-in by email link (SMS code when enabled).,customer portal,must,yes,no,
 "FR-POR-02 Next visit, history, downloadable service records, pay invoice, update card or bank, request service.",customer portal,must,yes,no,
 "FR-EXP-01 Owner can export the entire tenant at any time: every table as CSV and JSON, attachments as a ZIP, application records as PDFs.",export,must,yes,no,
 "FR-EXP-02 Export completes in under 10 minutes for 10,000 customers and is delivered by expiring link.",export,must,yes,no,
 FR-EXP-03 Export format is documented and is itself a valid import source (FR-MIG-02).,export,must,yes,no,
-"FR-MIG-01 Guided presets for FieldRoutes, PestPac, GorillaDesk, Jobber, and QuickBooks customer lists. Each preset is a saved column mapping plus value transforms, stored as data in `import_mappings`, not code.",migration,must,yes,no,
+"FR-MIG-01 Guided presets for FieldRoutes, PestPac, GorillaDesk, Jobber, and QuickBooks customer lists. Each preset is a saved column mapping plus value transforms, stored as data in `import_mappings`, not code.",migration,must,yes,partial,import_mappings stores presets as data
 "FR-MIG-02 Generic CSV and XLSX for spreadsheets, and Routewright's own export format.",migration,must,yes,no,
 FR-MIG-03 Presets are built only from files real customers export. The first preset for each source is created during a concierge migration and saved for reuse. No competitor credentials or APIs are used.,migration,must,yes,no,
 "FR-MIG-04 Entities, in dependency order: customers, properties, service plans, subscriptions with recurrence and next service date, future appointments, technicians, products, historical service and application records, open invoices and balances, notes, documents.",migration,must,yes,no,
@@ -72,18 +72,18 @@ FR-MIG-16 Delta import: re-upload a fresh export later; only new and changed row
 "FR-MIG-17 Cutover checklist screen: Stripe connected, 10DLC status, tokens transferred, technicians invited, first route optimized, customer notice email sent.",migration,must,yes,no,
 FR-MIG-18 Customer notice: optional templated email announcing the new portal link.,migration,must,yes,no,
 "FR-MIG-19 Messaging is suppressed for imported records until the owner clicks ""Go live"".",migration,must,yes,no,
-"CR-01 Application record MUST contain: customer name and address, application address, area treated, target sites, date and time, product brand name, EPA registration number, mix rate, total amount applied, purpose and target pest, applicator name, business address, applicator license number",compliance,must,n/a,no,"floor, not traded for cost"
-CR-02 Record MUST be captured within 24 h of application; show status; warn at 20 h,compliance,must,n/a,no,"floor, not traded for cost"
-CR-03 Business name and license number on every service record and notice,compliance,must,n/a,no,"floor, not traded for cost"
-CR-04 Records retained at least 2 years and included in exports (confirm clause with UDAF),compliance,must,n/a,no,"floor, not traded for cost"
-"CR-05 Card and bank details only through Stripe-hosted fields. No card data in our database, logs, or offline storage",compliance,must,n/a,no,"floor, not traded for cost"
+"CR-01 Application record MUST contain: customer name and address, application address, area treated, target sites, date and time, product brand name, EPA registration number, mix rate, total amount applied, purpose and target pest, applicator name, business address, applicator license number",compliance,must,n/a,yes,cr01_complete CHECK; domain list asserted equal
+CR-02 Record MUST be captured within 24 h of application; show status; warn at 20 h,compliance,must,n/a,partial,recordDeadline helper; status UI in M3
+CR-03 Business name and license number on every service record and notice,compliance,must,n/a,partial,Captured at signup; printed on PDFs in M3
+CR-04 Records retained at least 2 years and included in exports (confirm clause with UDAF),compliance,must,n/a,partial,Records cannot be deleted; export in M5
+"CR-05 Card and bank details only through Stripe-hosted fields. No card data in our database, logs, or offline storage",compliance,must,n/a,partial,No card columns; policy blocks marking card payments paid
 CR-06 ACH autopay requires a stored Stripe mandate and a visible way to revoke,compliance,must,n/a,no,"floor, not traded for cost"
-CR-07 No SMS without (a) approved tenant 10DLC registration and (b) recorded recipient consent. STOP and HELP honored,compliance,must,n/a,no,"floor, not traded for cost"
+CR-07 No SMS without (a) approved tenant 10DLC registration and (b) recorded recipient consent. STOP and HELP honored,compliance,must,n/a,partial,Consent stored; send gating in M6
 CR-08 Marketing email carries unsubscribe and physical address,compliance,must,n/a,no,"floor, not traded for cost"
 CR-09 Production data MUST have automated daily backups and a tested restore before the first real record is stored,compliance,must,n/a,no,"floor, not traded for cost"
-CR-10 RLS on 100% of tenant tables with an automated cross-tenant read and write test per table,compliance,must,n/a,no,"floor, not traded for cost"
-"CR-11 E-signed documents store signer identity, timestamp, IP, consent text version, and document hash",compliance,must,n/a,no,"floor, not traded for cost"
-CR-12 Audit log on financial and compliance tables,compliance,must,n/a,no,"floor, not traded for cost"
+CR-10 RLS on 100% of tenant tables with an automated cross-tenant read and write test per table,compliance,must,n/a,yes,pgTAP per-table cross-tenant read/update/delete/insert
+"CR-11 E-signed documents store signer identity, timestamp, IP, consent text version, and document hash",compliance,must,n/a,partial,"agreements table with hash, IP, consent version"
+CR-12 Audit log on financial and compliance tables,compliance,must,n/a,yes,Audit trigger on financial and compliance tables
 "CR-13 Publish Terms, Privacy Policy, a DPA, and a subprocessor list before the first customer. Templates are acceptable for customer 1; attorney review is deferred risk (D-13)",compliance,must,n/a,no,"floor, not traded for cost"
 CR-14 No card surcharge feature in MVP. Offer ACH as the low-fee option instead,compliance,must,n/a,no,"floor, not traded for cost"
 CR-15 MFA available for owner and admin roles,compliance,must,n/a,no,"floor, not traded for cost"
@@ -91,10 +91,10 @@ NFR-01 Offline: full route day with zero connectivity; zero data loss on app kil
 NFR-02 Sync conflicts: server wins on schedule fields; client wins on field-captured records; conflicts go to a review queue.,non-functional,should,n/a,no,
 NFR-03 Performance: office interactions p95 under 300 ms; technician route opens under 1 s from local data; optimize one technician with 60 stops under 15 s.,non-functional,should,n/a,no,
 NFR-04 Reliability: billing and messaging jobs idempotent and resumable; public status page.,non-functional,should,n/a,no,
-NFR-05 Accessibility: WCAG 2.2 AA on office and portal; color-blind-safe route colors.,non-functional,should,n/a,no,
+NFR-05 Accessibility: WCAG 2.2 AA on office and portal; color-blind-safe route colors.,non-functional,should,n/a,partial,axe WCAG 2.2 AA on every built screen at 1440 and 390 px
 NFR-06 Observability: Sentry on web and PWA; structured logs with tenant and request ids; job failure dashboard.,non-functional,should,n/a,no,
-"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,no,
-"NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. Subprocessors listed in `docs/VENDORS.md`.",non-functional,should,n/a,no,
+"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,partial,Geocoder interface; others follow their milestones
+"NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. Subprocessors listed in `docs/VENDORS.md`.",non-functional,should,n/a,yes,Geocoder sends address only (unit tested)
 Door-to-door sales app with contracts,sales,could,yes,skip,PRD non-goal for MVP (P3)
 Fleet GPS tracking add-on,dispatch,could,yes,skip,PRD non-goal for MVP (P3)
 Voice and IVR messaging,messaging,could,yes,skip,PRD non-goal for MVP

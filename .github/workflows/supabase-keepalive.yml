@@ -1,0 +1,34 @@
+name: Supabase keepalive
+
+# BUD-03: while the project is on Supabase Free (no real customer data, BUD-02),
+# one small request a day keeps it from pausing after 7 idle days. Delete this
+# workflow when the project moves to Pro. Does nothing until the secrets exist.
+
+on:
+  schedule:
+    - cron: "17 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Ping
+        if: env.SUPABASE_URL != '' && env.SUPABASE_ANON_KEY != ''
+        run: |
+          # A database round trip (RLS returns no rows to the anon role) ...
+          curl -fsS -o /dev/null "$SUPABASE_URL/rest/v1/service_types?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            || echo "Data API not reachable (fine if it is disabled); falling back to auth health"
+          # ... and the auth service, which answers even with the Data API off.
+          curl -fsS -o /dev/null "$SUPABASE_URL/auth/v1/health" -H "apikey: $SUPABASE_ANON_KEY"
+      - name: Not configured
+        if: env.SUPABASE_URL == '' || env.SUPABASE_ANON_KEY == ''
+        run: echo "SUPABASE_URL / SUPABASE_ANON_KEY secrets not set; nothing to ping."
