@@ -10,6 +10,7 @@ const TABS = [
   { href: "/settings/technicians", label: "Technicians" },
   { href: "/settings/plans", label: "Plans" },
   { href: "/settings/products", label: "Products" },
+  { href: "/settings/changes", label: "What's new" },
 ];
 
 export function SettingsNav() {

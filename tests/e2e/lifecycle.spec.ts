@@ -75,7 +75,7 @@ test("FR-SUB-04: a one-off visit without a date waits in the needs-attention lis
   await expect(page.getByRole("heading", { name: "Visit without a date" })).toBeVisible();
 
   await page.goto("/schedule");
-  const queue = page.getByRole("complementary", { name: "Needs attention" });
+  const queue = page.getByRole("region", { name: "Needs attention" });
   await expect(queue.getByText("Leopold Fonoti")).toBeVisible();
   await expect(queue.getByText("Needs a date")).toBeVisible();
 });

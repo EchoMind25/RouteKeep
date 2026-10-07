@@ -1,9 +1,9 @@
 -- Who may do what inside a tenant, tenant creation, member management, and
--- the access token hook. PRD: FR-SET-01, FR-SET-02, CR-05, ENG-08.
+-- the access token hook. PRD: FR-SET-01, FR-SET-02, CR-05, ENG-08, FR-DSP-03, FR-DSP-06.
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir _helpers.psql
-select plan(30);
+select plan(34);
 
 create temp table fx on commit drop as select pg_temp.seed_tenant('a') as a;
 create temp table ids on commit drop as
@@ -17,6 +17,8 @@ select
   (a ->> 'service_type')::uuid as service_type,
   (a ->> 'customer')::uuid as customer,
   (a ->> 'appointment')::uuid as appointment,
+  (a ->> 'route')::uuid as route,
+  (a ->> 'technician')::uuid as technician,
   pg_temp.new_user('new-admin@test.routekeep.dev') as new_admin,
   pg_temp.new_user('new-tech@test.routekeep.dev') as new_tech,
   pg_temp.new_user('sneaky-owner@test.routekeep.dev') as sneaky_owner
@@ -42,6 +44,13 @@ select lives_ok(
   'a technician can record cash collected in the field');
 select is((select count(*) from public.audit_log), 0::bigint, 'a technician cannot read the audit log');
 select is((select count(*) from public.import_jobs), 0::bigint, 'a technician cannot see imports');
+update public.routes set published_at = now(), published_order = '[]' where id = (select route from ids);
+select is(
+  (select published_at from public.routes where id = (select route from ids)), null,
+  'FR-DSP-06: a technician cannot publish their own route');
+select throws_ok(
+  format($$insert into public.routes (technician_id, local_date) values (%L, date '2026-10-09')$$, (select technician from ids)),
+  '42501', null, 'FR-DSP-03: a technician cannot create or reorder routes');
 reset role;
 
 -- Office ------------------------------------------------------------------------------
@@ -79,6 +88,13 @@ select throws_ok(
 select lives_ok(
   format($$update public.appointments set local_date = date '2026-10-08' where id = %L$$, (select appointment from ids)),
   'a dispatcher can move a visit');
+select lives_ok(
+  format($$update public.routes set published_at = now(), published_order = '["%s"]', flagged_stops = 1 where id = %L$$,
+         (select appointment from ids), (select route from ids)),
+  'FR-DSP-06: a dispatcher publishes a route, recording the order and the warnings accepted');
+select throws_ok(
+  format($$update public.routes set published_order = '{"order": []}' where id = %L$$, (select route from ids)),
+  '23514', null, 'the published order is a list');
 reset role;
 
 -- Owner and admin -------------------------------------------------------------------------

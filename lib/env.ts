@@ -15,7 +15,9 @@ const schema = z
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
     LOCAL_AUTH_SECRET: z.string().min(32, "LOCAL_AUTH_SECRET needs at least 32 characters").optional(),
     GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
-    ROUTE_OPTIMIZER: z.enum(["google", "vroom"]).default("google"),
+    // D-07. Only the built-in estimate exists so far; the Google and VROOM
+    // adapters are added once there is an account or server to verify them against.
+    ROUTE_OPTIMIZER: z.enum(["estimate", "google", "vroom"]).default("estimate"),
     NETLIFY: z.string().optional(),
     CONTEXT: z.string().optional(),
   })

@@ -372,6 +372,7 @@ export interface Offices {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
   is_primary: Generated<boolean>;
+  location: string | null;
   name: string;
   phone: string | null;
   postal_code: string;
@@ -469,12 +470,15 @@ export interface Properties {
 
 export interface Routes {
   created_at: Generated<Timestamp>;
+  flagged_stops: Generated<number>;
   id: Generated<string>;
   local_date: string;
   optimized_at: Timestamp | null;
   optimizer: string | null;
   previous_order: Json | null;
   published_at: Timestamp | null;
+  published_by: string | null;
+  published_order: Json | null;
   run_id: string | null;
   stats: Generated<Json>;
   technician_id: string;

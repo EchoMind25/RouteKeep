@@ -48,7 +48,8 @@ secret only the owner can create. Budget references are PRD section 5.
 3. Environment variables (section 18 of the PRD):
    `AUTH_MODE=supabase`, `APP_URL`, `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
    `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
-   `GOOGLE_MAPS_API_KEY` if you want automatic pins. Never set `AUTH_MODE=local`
+   `GOOGLE_MAPS_API_KEY` if you want automatic pins, and
+   `NEXT_PUBLIC_MAP_STYLE_URL` for a street map (section 5). Never set `AUTH_MODE=local`
    or `LOCAL_AUTH_SECRET` on Netlify; the app refuses to start that way anyway.
 4. Set a usage alert at 80% of credits (RISK-02).
 
@@ -72,7 +73,21 @@ calls), and visits are still generated whenever a plan is sold or resumed.
 Locally: `npx inngest-cli@latest dev` plus `INNGEST_DEV=1`, or just
 `npm run db:generate`.
 
-## 5. Later milestones
+## 5. Street map (optional, strongly recommended)
+
+The dispatch board and the pin check work without a basemap, but checking a
+pin against a blank background is guesswork. Pick one, then set
+`NEXT_PUBLIC_MAP_STYLE_URL` in Netlify and redeploy (it is read at build time):
+
+- Simplest: a free open tile host such as OpenFreeMap (no key). The host sees
+  viewers' IP addresses and which areas they view; add it to `docs/VENDORS.md`.
+- Most private: host Protomaps PMTiles for your region on your own storage and
+  point a MapLibre style at it. No third party sees anything.
+
+If the style fails to load, the map falls back to the plain background and
+says so; nothing else breaks.
+
+## 6. Later milestones
 
 PowerSync (M3), Stripe Connect (M4), Resend and per-tenant 10DLC (M6),
 Sentry. Each gets a row in `docs/VENDORS.md` with its real free-tier limits at

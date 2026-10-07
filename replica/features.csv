@@ -5,19 +5,19 @@ FR-SET-02 Invite users with roles. Technicians require applicator license number
 FR-SET-04 Service types and plans with price and recurrence.,tenant setup,must,yes,yes,Presets plus custom RRULE subset
 "FR-SET-05 Connect Stripe (onboarding link). Until connected, billing features show a setup prompt.",tenant setup,must,yes,no,
 "FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,partial,Create and search; edit and add-property screens next
-"FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,partial,"Geocode with confidence, lockable pin enforced in DB; map pin UI needs M2 map"
+"FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,yes,"Geocode with confidence; pin page with drag, click or crosshair placement, typed coordinates, lock; DB refuses moving a locked pin"
 "FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,partial,"Visits only; invoices, payments, messages arrive with M4/M6"
 FR-CRM-04 Record SMS consent with timestamp and source; email opt-in.,customers,must,yes,yes,Consent time and source recorded; email opt-in separate
 FR-SUB-01 Sell a subscription: initial service plus recurring frequency (RRULE).,plans and appointments,must,yes,yes,Initial visit at initial price; plan terms copied at sale
 "FR-SUB-02 A daily job generates appointments 60 days ahead, idempotently.",plans and appointments,must,yes,partial,Generator and batched job body done; production scheduler (Inngest) not deployed
 "FR-SUB-03 Edit one occurrence or all future ones. Skip, pause, cancel with reason.",plans and appointments,must,yes,no,
 FR-SUB-04 One-off appointments without a subscription.,plans and appointments,must,yes,no,
-"FR-DSP-01 Split view: technician timeline lanes and a map, shared selection.",dispatch,must,yes,no,
-"FR-DSP-02 Drag a stop to another time, day, or technician. Optimistic concurrency with a conflict message.",dispatch,must,yes,no,
-"FR-DSP-03 ""Optimize"" per technician per day: shows a preview diff (order, drive time), then commit or discard. Undo last commit.",dispatch,must,yes,no,
-"FR-DSP-04 Always-visible queue of unscheduled, skipped, and cancelled work (R-PAIN-08).",dispatch,must,yes,partial,Needs-attention queue on the day view
-"FR-DSP-05 The same stop sequence number appears on map, list, and technician app (R-BUG-06).",dispatch,must,yes,partial,One stop number shown everywhere; sequence assignment comes with the optimizer
-FR-DSP-06 Flag any stop whose travel leg is more than 3x the route median before publishing.,dispatch,must,yes,no,
+"FR-DSP-01 Split view: technician timeline lanes and a map, shared selection.",dispatch,must,yes,yes,"Lanes and MapLibre map, one selection: picking a stop focuses its route and its numbers"
+"FR-DSP-02 Drag a stop to another time, day, or technician. Optimistic concurrency with a conflict message.",dispatch,must,yes,yes,"Pointer and keyboard drag within and between lanes, to another day, from the queue; stale moves refused with a message"
+"FR-DSP-03 ""Optimize"" per technician per day: shows a preview diff (order, drive time), then commit or discard. Undo last commit.",dispatch,must,yes,yes,"Preview dialog (drive time before and after, order changes, arrivals), save, one-step undo"
+"FR-DSP-04 Always-visible queue of unscheduled, skipped, and cancelled work (R-PAIN-08).",dispatch,must,yes,yes,"Queue beside the map, always in view at desktop width; items drag onto routes"
+"FR-DSP-05 The same stop sequence number appears on map, list, and technician app (R-BUG-06).",dispatch,must,yes,yes,"Number = place in route; same order query on board, map and technician list"
+FR-DSP-06 Flag any stop whose travel leg is more than 3x the route median before publishing.,dispatch,must,yes,yes,Long-drive badge and map ring; publishing lists flagged stops first; the stop after a wrong pin is not blamed
 "FR-TEC-01 Installable PWA. Today's and tomorrow's routes, customers, properties, products, and notes sync at shift start and incrementally.",technician app,must,yes,no,
 FR-TEC-02 All screens read from local storage. No screen blocks on the network.,technician app,must,yes,no,
 "FR-TEC-03 Stop flow: Arrive, checklist, Products, Photos, Signature, Payment, Complete.",technician app,must,yes,no,
@@ -89,11 +89,11 @@ CR-14 No card surcharge feature in MVP. Offer ACH as the low-fee option instead,
 CR-15 MFA available for owner and admin roles,compliance,must,n/a,no,"floor, not traded for cost"
 NFR-01 Offline: full route day with zero connectivity; zero data loss on app kill.,non-functional,should,n/a,no,
 NFR-02 Sync conflicts: server wins on schedule fields; client wins on field-captured records; conflicts go to a review queue.,non-functional,should,n/a,no,
-NFR-03 Performance: office interactions p95 under 300 ms; technician route opens under 1 s from local data; optimize one technician with 60 stops under 15 s.,non-functional,should,n/a,no,
+NFR-03 Performance: office interactions p95 under 300 ms; technician route opens under 1 s from local data; optimize one technician with 60 stops under 15 s.,non-functional,should,n/a,partial,Optimizing 60 stops: well under 1 s (unit test); 125 stops under 5 s. Office p95 and technician route timing not measured yet
 NFR-04 Reliability: billing and messaging jobs idempotent and resumable; public status page.,non-functional,should,n/a,no,
 NFR-05 Accessibility: WCAG 2.2 AA on office and portal; color-blind-safe route colors.,non-functional,should,n/a,partial,axe WCAG 2.2 AA on every built screen at 1440 and 390 px
 NFR-06 Observability: Sentry on web and PWA; structured logs with tenant and request ids; job failure dashboard.,non-functional,should,n/a,no,
-"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,partial,Geocoder interface; others follow their milestones
+"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,partial,Geocoder and RouteOptimizer interfaces; others follow their milestones
 "NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. Subprocessors listed in `docs/VENDORS.md`.",non-functional,should,n/a,yes,Geocoder sends address only (unit tested)
 Door-to-door sales app with contracts,sales,could,yes,skip,PRD non-goal for MVP (P3)
 Fleet GPS tracking add-on,dispatch,could,yes,skip,PRD non-goal for MVP (P3)

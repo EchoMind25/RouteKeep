@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir _helpers.psql
-select plan(43);
+select plan(45);
 
 create temp table fx on commit drop as
 select pg_temp.seed_tenant('a') as a, pg_temp.seed_tenant('b') as b;
@@ -24,6 +24,7 @@ select
   (a ->> 'application')::uuid as application,
   (a ->> 'tech_user')::uuid as tech_user,
   (a ->> 'owner')::uuid as owner,
+  (a ->> 'route')::uuid as route,
   (b ->> 'tenant')::uuid as tenant_b,
   (b ->> 'customer')::uuid as customer_b
 from fx;
@@ -265,6 +266,13 @@ update public.subscriptions set generated_through = date '2026-12-31' where id =
 select is(
   (select version from public.subscriptions where id = (select subscription from ids)), 1,
   'ENG-07: the generator advancing generated_through is not an edit');
+update public.appointments set sequence = 7 where id = (select appointment from ids);
+select is(
+  (select version from public.appointments where id = (select appointment from ids)), 1,
+  'ENG-07: reordering a route (sequence) is guarded by the route, not the visit');
+select throws_ok(
+  format($$update public.routes set flagged_stops = -1 where id = %L$$, (select route from ids)),
+  '23514', null, 'FR-DSP-06: a count of flagged stops is never negative');
 
 update public.properties set location_locked = true where id = (select property from ids);
 select throws_ok(

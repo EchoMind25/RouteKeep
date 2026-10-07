@@ -1,11 +1,15 @@
 import { ArrowLeft, ArrowRight, MapPinSimpleArea, Plus, WarningCircle } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DispatchBoard } from "@/components/dispatch/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { addDays, isLocalDate, todayIn, type LocalDate } from "@/lib/domain/time";
+import { isEnabled } from "@/lib/flags";
+import { publicEnv } from "@/lib/public-env";
+import { getBoard, nextDays } from "@/lib/server/dispatch";
 import { getDay, type DayStop } from "@/lib/server/schedule";
 import { APPOINTMENT_STATUS, formatLocalDate, formatWindow, pluralize } from "@/lib/ui/format";
 
@@ -24,9 +28,9 @@ function StopRow({ stop, index }: { stop: DayStop; index: number }) {
   const status = APPOINTMENT_STATUS[stop.status] ?? APPOINTMENT_STATUS.scheduled!;
   return (
     <li className="grid grid-cols-[1.75rem_1fr] gap-3 px-4 py-3">
-      {/* FR-DSP-05: one stop number, the same on map, list and technician app. */}
-      <span className="grid size-7 place-items-center rounded-pill border border-line-strong text-xs font-semibold tabular" aria-label={`Stop ${stop.sequence ?? index + 1}`}>
-        {stop.sequence ?? index + 1}
+      {/* FR-DSP-05: one stop number, the same on map, list and technician app: the stop's place in the route order. */}
+      <span className="grid size-7 place-items-center rounded-pill border border-line-strong text-xs font-semibold tabular" aria-label={`Stop ${index + 1}`}>
+        {index + 1}
       </span>
       <div className="grid min-w-0 gap-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -86,65 +90,100 @@ function Lane({ title, color, stops, empty }: { title: string; color?: number; s
   );
 }
 
-export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string; done?: string }> }) {
   const member = await requireMember(OFFICE_ROLES);
   const today = todayIn(member.timezone);
-  const { date: raw } = await searchParams;
+  const { date: raw, done } = await searchParams;
   const date: LocalDate = raw && isLocalDate(raw) ? raw : today;
-  const day = await getDay(member, date);
 
+  const header = (
+    <PageHeader
+      title={formatLocalDate(date, "long")}
+      description={date === today ? "Today" : undefined}
+      actions={
+        <>
+          <nav aria-label="Change day" className="flex items-center gap-1">
+            <Button asChild variant="secondary" size="icon" aria-label="Previous day">
+              <Link href={`/schedule?date=${addDays(date, -1)}`}>
+                <ArrowLeft size={18} aria-hidden />
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" disabled={date === today}>
+              <Link href="/schedule">Today</Link>
+            </Button>
+            <Button asChild variant="secondary" size="icon" aria-label="Next day">
+              <Link href={`/schedule?date=${addDays(date, 1)}`}>
+                <ArrowRight size={18} aria-hidden />
+              </Link>
+            </Button>
+          </nav>
+          <Button asChild>
+            <Link href="/customers/new">
+              <Plus size={18} aria-hidden /> New customer
+            </Link>
+          </Button>
+        </>
+      }
+    />
+  );
+
+  // UX-04: empty states teach the next step.
+  const empty = (
+    <EmptyState
+      title="Nothing scheduled yet"
+      action={
+        <>
+          <Button asChild>
+            <Link href="/setup">Finish setup</Link>
+          </Button>
+          <Button asChild variant="secondary">
+            <Link href="/customers/new">Add a customer</Link>
+          </Button>
+        </>
+      }
+    >
+      Add your technicians and plans, then sell a plan to a customer. Visits appear here automatically, 60 days ahead.
+    </EmptyState>
+  );
+
+  if (isEnabled("dispatchBoard")) {
+    const board = await getBoard(member, date);
+    const nothing = board.technicians.length === 0 && board.stops.length === 0 && board.queue.length === 0;
+    return (
+      <div className="grid gap-2">
+        {header}
+        {nothing ? (
+          empty
+        ) : (
+          // FR-DSP-01: lanes and map with one selection. Keyed by day so a new day starts clean.
+          <DispatchBoard
+            key={date}
+            date={date}
+            nextDays={nextDays(date)}
+            technicians={board.technicians}
+            stops={board.stops}
+            queue={board.queue}
+            routes={board.routes}
+            start={board.start}
+            mapStyleUrl={publicEnv.mapStyleUrl}
+            notice={done === "pin" ? "Pin confirmed. Drive times now use it." : undefined}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // The day list: what the schedule was before the board, kept behind the flag as a fallback (ENG-10).
+  const day = await getDay(member, date);
   const lanes = day.technicians.map((t) => ({ tech: t, stops: day.stops.filter((s) => s.technicianId === t.id) }));
   const unassigned = day.stops.filter((s) => !s.technicianId);
   const hasAnything = day.stops.length > 0 || day.queue.length > 0;
 
   return (
     <div className="grid gap-2">
-      <PageHeader
-        title={formatLocalDate(date, "long")}
-        description={date === today ? "Today" : undefined}
-        actions={
-          <>
-            <nav aria-label="Change day" className="flex items-center gap-1">
-              <Button asChild variant="secondary" size="icon" aria-label="Previous day">
-                <Link href={`/schedule?date=${addDays(date, -1)}`}>
-                  <ArrowLeft size={18} aria-hidden />
-                </Link>
-              </Button>
-              <Button asChild variant="secondary" disabled={date === today}>
-                <Link href="/schedule">Today</Link>
-              </Button>
-              <Button asChild variant="secondary" size="icon" aria-label="Next day">
-                <Link href={`/schedule?date=${addDays(date, 1)}`}>
-                  <ArrowRight size={18} aria-hidden />
-                </Link>
-              </Button>
-            </nav>
-            <Button asChild>
-              <Link href="/customers/new">
-                <Plus size={18} aria-hidden /> New customer
-              </Link>
-            </Button>
-          </>
-        }
-      />
-
+      {header}
       {!hasAnything && day.technicians.length === 0 ? (
-        // UX-04: empty states teach the next step.
-        <EmptyState
-          title="Nothing scheduled yet"
-          action={
-            <>
-              <Button asChild>
-                <Link href="/setup">Finish setup</Link>
-              </Button>
-              <Button asChild variant="secondary">
-                <Link href="/customers/new">Add a customer</Link>
-              </Button>
-            </>
-          }
-        >
-          Add your technicians and plans, then sell a plan to a customer. Visits appear here automatically, 60 days ahead.
-        </EmptyState>
+        empty
       ) : (
         <div className="grid items-start gap-6 xl:grid-cols-[1fr_20rem]">
           <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">

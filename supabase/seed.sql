@@ -31,8 +31,10 @@ insert into public.tenants (id, name, timezone, state, business_license_no, plan
 values ('7e000000-0000-4000-8000-000000000001', 'Timpanogos Pest & Lawn (demo)', 'America/Denver', 'UT', 'DEMO-UT-BUS-4471', 'pro',
         'd0000000-0000-4000-8000-000000000001');
 
-insert into public.offices (tenant_id, name, address_line1, city, region, postal_code, phone, is_primary)
-values ('7e000000-0000-4000-8000-000000000001', 'Timpanogos Pest & Lawn (demo)', '1800 N Demo Industrial Way', 'Orem', 'UT', '84057', '+18015550100', true);
+-- Routes start and end at the office (fictional address; the point is in Orem).
+insert into public.offices (tenant_id, name, address_line1, city, region, postal_code, phone, is_primary, location)
+values ('7e000000-0000-4000-8000-000000000001', 'Timpanogos Pest & Lawn (demo)', '1800 N Demo Industrial Way', 'Orem', 'UT', '84057', '+18015550100', true,
+        extensions.st_setsrid(extensions.st_makepoint(-111.7120, 40.3260), 4326)::extensions.geography);
 
 insert into public.memberships (tenant_id, user_id, role, email, display_name) values
   ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'owner', 'owner@demo.routekeep.test', 'Marisol Quintero'),

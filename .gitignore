@@ -25,3 +25,7 @@ tests/e2e/.auth/
 .DS_Store
 supabase/.temp/
 supabase/.branches/
+
+# Copied from node_modules before dev and build (scripts/vendor/copy-assets.mjs)
+/public/vendor/
+.shots/

@@ -50,8 +50,8 @@ export default async function TechDayPage() {
             return (
               <li key={s.id} className="grid gap-3 rounded-panel border border-line bg-surface p-4">
                 <div className="flex items-start gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-pill bg-fg text-md font-bold text-canvas tabular" aria-label={`Stop ${s.sequence ?? i + 1}`}>
-                    {s.sequence ?? i + 1}
+                  <span className="grid size-9 shrink-0 place-items-center rounded-pill bg-fg text-md font-bold text-canvas tabular" aria-label={`Stop ${i + 1}`}>
+                    {i + 1}
                   </span>
                   <div className="grid min-w-0 gap-0.5">
                     <p className="text-md font-semibold">{s.customer_name}</p>

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "lib/db/schema.ts",
     "playwright-report/**",
     "test-results/**",
+    "public/vendor/**",
+    ".shots/**",
   ]),
   {
     rules: {

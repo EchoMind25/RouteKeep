@@ -23,6 +23,8 @@ const DONE: Record<string, string> = {
   property_added: "Address added.",
   property_saved: "Address saved.",
   property_pin_kept: "Address saved. The locked pin stayed where it was and is flagged for a check.",
+  pin_confirmed: "Pin confirmed.",
+  pin_locked: "Pin confirmed and locked.",
 };
 
 export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; done?: string }> }) {
@@ -196,9 +198,16 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                     )}
                   </div>
                   {p.access_notes ? <p className="text-sm text-fg-muted">{p.access_notes}</p> : null}
-                  <Link href={`/customers/${customer.id}/properties/${p.id}`} className="w-fit text-sm font-medium text-accent hover:underline">
-                    Edit address<span className="sr-only">: {propertyAddress(p)}</span>
-                  </Link>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    <Link href={`/customers/${customer.id}/properties/${p.id}`} className="w-fit text-sm font-medium text-accent hover:underline">
+                      Edit address<span className="sr-only">: {propertyAddress(p)}</span>
+                    </Link>
+                    {/* FR-CRM-02: below the confidence threshold a person confirms the pin. */}
+                    <Link href={`/customers/${customer.id}/properties/${p.id}/pin`} className="w-fit text-sm font-medium text-accent hover:underline">
+                      {p.lat === null ? "Place pin" : "Check pin"}
+                      <span className="sr-only">: {propertyAddress(p)}</span>
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

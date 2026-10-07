@@ -14,8 +14,9 @@ Reads `replica/recon.md` and `docs/PRD.md` (normative). Last updated 2026-10-06.
 | Auth | Supabase Auth, email one-time code; MFA available later (CR-15) | Code entry works inside an installed iOS PWA, where magic links open Safari instead |
 | Jobs | Inngest (durable steps) for generation, billing, messaging, import | D-04: nothing over 20 s in a request |
 | Offline | PowerSync behind a `SyncProvider` interface (M3) | D-06 |
-| Routing | `RouteOptimizer` interface: Google single-vehicle first, VROOM later (M2) | D-07 |
-| Maps | MapLibre with open tiles; Google Geocoding behind `Geocoder` (address only) | D-08, NFR-08 |
+| Routing | `RouteOptimizer` interface. Built: a local estimate adapter (straight-line legs x 1.35 at 40 km/h; window-aware construction, then relocate search scored on late stops, lateness, then driving; never returns a worse day than the current order). Google and VROOM adapters wait for an account or server to verify against | D-07, NFR-07 |
+| Maps | MapLibre GL 6 via react-map-gl. Style URL is configuration; empty means a plain background and no tile requests. The worker file is copied to `public/vendor` at build so it loads from our own domain. Google Geocoding behind `Geocoder` (address only) | D-08, NFR-08 |
+| Drag and drop | dnd-kit (pointer and keyboard sensors, screen-reader announcements with customer names) | FR-DSP-02, NFR-05 |
 | Payments | Stripe Connect, Standard-style accounts, direct charges, hosted fields (M4) | D-09, CR-05 |
 | Email / SMS | Resend; Twilio only after tenant 10DLC approval (M6) | D-10, CR-07 |
 | Hosting | Netlify Free; nothing Netlify-specific outside `/infra/netlify` | D-03 |
@@ -35,7 +36,7 @@ TypeScript is pinned at 6.0.3, not the latest 7.0.2: TS 7 ships only the native 
 
 ## 3. Schema
 
-27 tables in `supabase/migrations`, all with RLS (pgTAP: 561 assertions).
+27 tables in `supabase/migrations`, all with RLS (pgTAP: 567 assertions).
 
 | Area | Tables | Notable constraints |
 | --- | --- | --- |
@@ -77,13 +78,26 @@ Background jobs (Inngest, served at `/api/inngest`):
 
 Visit-level and plan-level actions added in M1: `rescheduleAction`, `skipAction`, `cancelAction`, `restoreAction` (single visit, version-checked); `changeSeriesAction`, `pauseAction`, `resumeAction`, `cancelPlanAction`, `reactivateAction` (series, version-checked, row-locked); `createVisitAction` (one-off, client key); `updateCustomerAction`, `savePropertyAction`.
 
+Dispatch (M2), all for owner, admin, office and dispatcher; each write locks the technician's route row for the day and is refused if the lane's order differs from the order the dispatcher saw:
+
+| Action | Does |
+| --- | --- |
+| `moveStopAction` | reorder within a lane, or move between technicians and the unassigned lane; renumbers both lanes 1..n |
+| `moveStopToDayAction` | move to another day; keeps the technician, joins the end of that route |
+| `scheduleStopAction` | drag queued work (undated, skipped, unassigned) onto a route or a day |
+| `previewOptimizeAction` | proposal only: current vs proposed drive time, order, estimated arrivals, flagged stops |
+| `commitOptimizeAction`, `undoOptimizeAction` | save the proposal (previous order kept), undo it; any manual change ends the undo |
+| `publishRouteAction` | records the published order and how many FR-DSP-06 warnings were accepted |
+| `confirmPinAction` | FR-CRM-02: place, confirm and optionally lock a property pin (a locked pin moves only by unlocking in the same save) |
+
 Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6), PowerSync upload endpoint (M3).
 
 ## 5. The parts that bite
 
 - Time zones and DST: dates and wall times are stored without offsets; conversion to instants happens only for reminders and is property-tested across seven zones. Recurrence expands on calendar dates, never instants.
 - Idempotency: every retryable write has a client key with a unique constraint; generation, ledger posting and webhook intake are all upserts or dedupes.
-- Concurrency: version columns bumped by trigger; no-op updates and job bookkeeping (`generated_through`) do not count as edits.
+- Concurrency: version columns bumped by trigger; no-op updates and job bookkeeping (`generated_through`, `sequence`) do not count as edits. Route order is protected differently: a board write locks the route rows it touches (always in technician-id order, so two dispatchers cannot deadlock) and compares the lane's current order with the order the dispatcher saw. Comparing the order itself also catches changes made elsewhere, such as a skip on the visit page.
+- Stop numbers (FR-DSP-05): a stop's number is its place in the lane, ordered by `sequence`, then window start, then id, the same query on the board, the map and the technician app. Publishing writes 1..n so the stored sequence matches.
 - Offline (M3): the hardest part; PowerSync, local-first reads, persisted drafts, upload queue, conflict review queue (NFR-02).
 - Money (M4): Stripe idempotency keys from row ids, webhook dedupe, ledger as the only source for balances and reports.
 - Multi-tenancy: composite foreign keys plus RLS plus grants, all tested per table.
@@ -93,8 +107,8 @@ Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/
 | Milestone | Screens | Status |
 | --- | --- | --- |
 | M0 Foundation | S01, S02 | Done: schema, RLS, pgTAP, auth, tenant setup, CI |
-| M1 Core records | S03, S06, S07, S08, S14 | Done: customers, properties, plans, subscriptions, generation, DST tests. Remaining: subscription edits (FR-SUB-03), one-off visits (FR-SUB-04), pin confirmation map (FR-CRM-02 needs M2 map) |
-| M2 Dispatch | S04 board, S05, S09 | Day lanes and queue built; map, drag, optimizer next |
+| M1 Core records | S03, S06, S07, S08, S14 | Done: customers, properties, plans, subscriptions with edits, pause and cancel, one-off visits, generation, DST tests |
+| M2 Dispatch | S04 board, S05, S09 | Done: lanes and map with shared selection, drag by pointer or keyboard (within and between lanes, to other days, from the queue), optimize preview, save and undo, publish with the long-leg check, pin confirmation. Remaining: Google and VROOM optimizer adapters (owner accounts) |
 | M3 Technician PWA | S17, S18 | Online day list as a stopgap |
 | M4 Money | S11, S12 | Schema and constraints in place |
 | M5 Migration and export | S15, S16 | Schema in place |

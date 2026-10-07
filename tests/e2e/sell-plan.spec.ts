@@ -71,7 +71,7 @@ test("FR-SUB-01: sell a plan and see its visits on the schedule", async ({ page 
   // The first visit is on that day's schedule in Dez's lane.
   await page.goto(`/schedule?date=${firstVisit}`);
   const lane = page.getByRole("region", { name: "Dez Whitlock" });
-  await expect(lane.getByRole("link", { name: "Juniper Fairbanks" })).toBeVisible();
+  await expect(lane.getByRole("link", { name: "Juniper Fairbanks", exact: true })).toBeVisible();
   await expect(lane.getByText("8:00 AM - 12:00 PM")).toBeVisible();
   await expectAccessible(page);
 });

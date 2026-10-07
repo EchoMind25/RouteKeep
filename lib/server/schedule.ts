@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 import { addDays, type LocalDate } from "@/lib/domain/time";
+import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
 
 export interface DayStop {
   id: string;
@@ -47,13 +48,7 @@ export async function getDay(m: MemberSession, date: LocalDate) {
       .orderBy("display_name")
       .execute();
 
-    const stops = await base()
-      .where("a.local_date", "=", date)
-      .where("a.status", "not in", ["cancelled"])
-      .orderBy("a.sequence", (ob) => ob.asc().nullsLast())
-      .orderBy("a.window_start", (ob) => ob.asc().nullsLast())
-      .orderBy("c.display_name")
-      .execute();
+    const stops = await stopOrder(base().where("a.local_date", "=", date).where("a.status", "in", LANE_STATUSES)).execute();
 
     const queue = await base()
       .where((eb) =>
@@ -99,7 +94,7 @@ export async function getMyDay(m: MemberSession, date: LocalDate) {
   return withRls(m.claims, async (tx) => {
     const tech = await tx.selectFrom("technicians").select(["id", "display_name"]).where("user_id", "=", m.userId).executeTakeFirst();
     if (!tech) return { technician: null, stops: [] };
-    const stops = await tx
+    const stops = tx
       .selectFrom("appointments as a")
       .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "a.customer_id").onRef("c.tenant_id", "=", "a.tenant_id"))
       .innerJoin("properties as p", (j) => j.onRef("p.id", "=", "a.property_id").onRef("p.tenant_id", "=", "a.tenant_id"))
@@ -110,10 +105,7 @@ export async function getMyDay(m: MemberSession, date: LocalDate) {
       ])
       .where("a.technician_id", "=", tech.id)
       .where("a.local_date", "=", date)
-      .where("a.status", "not in", ["cancelled", "unscheduled"])
-      .orderBy("a.sequence", (ob) => ob.asc().nullsLast())
-      .orderBy("a.window_start", (ob) => ob.asc().nullsLast())
-      .execute();
-    return { technician: tech, stops };
+      .where("a.status", "in", LANE_STATUSES);
+    return { technician: tech, stops: await stopOrder(stops).execute() };
   });
 }

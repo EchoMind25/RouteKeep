@@ -425,3 +425,73 @@ export async function updateProperty(m: MemberSession, customerId: string, prope
   });
   return { addressChanged, pinKept: addressChanged && before.location_locked };
 }
+
+/** Everything the pin check needs (FR-CRM-02). */
+export async function getPropertyPin(m: MemberSession, customerId: string, propertyId: string) {
+  return withRls(m.claims, async (tx) => {
+    const property = await tx
+      .selectFrom("properties as p")
+      .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "p.customer_id").onRef("c.tenant_id", "=", "p.tenant_id"))
+      .select([
+        "p.id", "p.version", "p.address_line1", "p.address_line2", "p.city", "p.region", "p.postal_code",
+        "p.geocode_confidence", "p.geocode_source", "p.location_confirmed_at", "p.location_locked", "c.display_name as customer_name",
+        sql<number | null>`extensions.st_y(p.location::extensions.geometry)`.as("lat"),
+        sql<number | null>`extensions.st_x(p.location::extensions.geometry)`.as("lng"),
+      ])
+      .where("p.id", "=", propertyId)
+      .where("p.customer_id", "=", customerId)
+      .executeTakeFirst();
+    if (!property) return null;
+    const office = await tx
+      .selectFrom("offices")
+      .select([
+        sql<number | null>`extensions.st_y(location::extensions.geometry)`.as("lat"),
+        sql<number | null>`extensions.st_x(location::extensions.geometry)`.as("lng"),
+      ])
+      .where("is_primary", "=", true)
+      .executeTakeFirst();
+    return { property, office: office?.lat != null && office.lng != null ? { lat: office.lat, lng: office.lng } : null };
+  });
+}
+
+/**
+ * FR-CRM-02, R-BUG-05: a person puts the pin where the building is and
+ * confirms it, optionally locking it so no re-geocode or import moves it.
+ * A locked pin moves only by unlocking it in the same save, on purpose.
+ */
+export async function confirmPin(
+  m: MemberSession,
+  input: { customerId: string; propertyId: string; version: number; lat: number; lng: number; lock: boolean },
+): Promise<void> {
+  await withRls(m.claims, async (tx) => {
+    const current = await tx
+      .selectFrom("properties")
+      .select([
+        "version", "location_locked",
+        sql<number | null>`extensions.st_y(location::extensions.geometry)`.as("lat"),
+        sql<number | null>`extensions.st_x(location::extensions.geometry)`.as("lng"),
+      ])
+      .where("id", "=", input.propertyId)
+      .where("customer_id", "=", input.customerId)
+      .forUpdate()
+      .executeTakeFirst();
+    if (!current || current.version !== input.version) throw new StaleRecordError("property");
+    // About a centimetre: anything closer is the same spot.
+    const moved = current.lat === null || current.lng === null || Math.abs(current.lat - input.lat) > 1e-7 || Math.abs(current.lng - input.lng) > 1e-7;
+    if (moved && current.location_locked) {
+      await tx.updateTable("properties").set({ location_locked: false }).where("id", "=", input.propertyId).execute();
+    }
+    await tx
+      .updateTable("properties")
+      .set({
+        ...(moved
+          ? { location: sql`extensions.st_setsrid(extensions.st_makepoint(${input.lng}, ${input.lat}), 4326)::extensions.geography`, geocode_source: "manual" }
+          : {}),
+        location_confirmed_at: new Date(),
+        location_confirmed_by: m.userId,
+        location_locked: input.lock,
+      })
+      .where("id", "=", input.propertyId)
+      .execute();
+  });
+}

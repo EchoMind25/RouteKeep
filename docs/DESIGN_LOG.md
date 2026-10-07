@@ -36,3 +36,24 @@ Open items affecting derivation:
   exports (FR-MIG-03). None exist yet.
 - No seed product catalog with real EPA numbers ships until the owner supplies
   a verified list (FR-SET-03); the app accepts custom products today.
+
+## 2026-10-07: dispatch board and pin check (M2)
+
+Inputs: `docs/PRD.md` FR-DSP-01..06, FR-CRM-02, D-07, D-08; RESEARCH R-BUG-05,
+R-BUG-06, R-PAIN-08 as summarised there; MapLibre, react-map-gl and dnd-kit
+documentation. No competitor product, account, screenshot or help page was
+opened.
+
+- Layout: lanes beside the map, with the queue above the map so both stay in
+  view while the lanes scroll (FR-DSP-04). On narrow screens the queue comes
+  first and the map last. Our own arrangement, chosen from the requirement.
+- Results show in a corner toast so the board never shifts under the pointer.
+- Stop numbers on the map appear for the route in focus (or every route on a
+  light day) to stay legible; selecting a stop focuses its route.
+- Optimizer: our own heuristic (window groups, nearest neighbour, 2-opt,
+  schedule-aware insertion and relocate search) built from textbook methods.
+- Long-leg rule (FR-DSP-06) attributes the leg out of a misplaced stop to that
+  stop, so the next, correctly placed stop is not sent for a pin check.
+- No basemap by default: the tile host is the owner's choice (D-08) because it
+  sees which areas are viewed.
+

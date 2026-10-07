@@ -14,9 +14,10 @@ pricing, works offline, and your data leaves whenever you want.
 
 | Milestone | State |
 | --- | --- |
-| M0 Foundation | Done. 27 tables with RLS, 561 pgTAP assertions, auth, tenant setup, CI |
-| M1 Core records | Mostly done. Customers, properties, plans, subscriptions, 60-day visit generation, DST tests. Next: skip/pause/cancel and visit edits |
-| M2 to M7 | Schema in place; screens not started (see `replica/build-log.md`) |
+| M0 Foundation | Done. 27 tables with RLS, 567 pgTAP assertions, auth, tenant setup, CI workflows |
+| M1 Core records | Done. Customers, properties, plans and subscriptions with edits, pause and cancel, one-off visits, 60-day visit generation, DST tests |
+| M2 Dispatch | Done. Lanes and map, drag and drop (pointer and keyboard), queue, optimize with preview and undo, publish checks, pin confirmation. Google and VROOM optimizer adapters wait on accounts |
+| M3 to M7 | Schema in place; screens not started (see `replica/build-log.md`) |
 
 ## Run it locally
 
@@ -33,6 +34,9 @@ cp .env.example .env.local     # then set AUTH_MODE=local, DATABASE_URL and LOCA
 npm run db:reset               # local Postgres on :54329, migrations, demo business, 60 days of visits
 npm run dev                    # http://localhost:3000, sign in with the Owner / Office / Technician buttons
 ```
+
+The map has no street basemap until `NEXT_PUBLIC_MAP_STYLE_URL` is set (see
+`.env.example` and `docs/DEPLOY.md` section 5); pins and routes still draw.
 
 `AUTH_MODE=local` signs in without a password and only works against a database
 on this machine; it is refused on hosted deploys. With the Supabase CLI stack
@@ -53,9 +57,10 @@ Rules every change follows are in `CLAUDE.md` (PRD section 12, clean room, token
 ```
 app/                 Next.js routes: (auth), (office), (tech); (portal) and /api later
 components/ui        Design-system primitives (tokens only)
-lib/domain           Pure business logic: time zones, recurrence, units, records, money
+components/dispatch  Board, lanes, route map          components/map  MapLibre setup, pin editor
+lib/domain           Pure business logic: time zones, recurrence, units, records, money, routing
 lib/server           Data access, always through withRls
-lib/providers        Geocoder now; RouteOptimizer, SyncProvider, Messenger, Payments later
+lib/providers        Geocoder, RouteOptimizer; SyncProvider, Messenger, Payments later
 lib/jobs             Background job bodies (generation)
 supabase/migrations  Schema, RLS, constraints     supabase/tests  pgTAP
 replica/             Recon map, feature matrix, architecture, design tokens, build log
