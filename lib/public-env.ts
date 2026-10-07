@@ -15,8 +15,8 @@ export const publicEnv = {
    * social cards. The Netlify address until the owner's domain is live.
    */
   siteUrl: (process.env.NEXT_PUBLIC_SITE_URL || "https://spontaneous-naiad-6d1a16.netlify.app").replace(/\/$/, ""),
-  /** Where "Ask about white label" goes. Empty sends people to sign up instead. */
-  salesEmail: process.env.NEXT_PUBLIC_SALES_EMAIL ?? "",
+  /** Where "Ask about white label" goes. Owner decision 2026-10-07; override per deploy if it changes. */
+  salesEmail: process.env.NEXT_PUBLIC_SALES_EMAIL || "RouteKeep@proton.me",
   /** Production build: the service worker is registered only then, so development never serves stale code. */
   production: process.env.NODE_ENV === "production",
 };

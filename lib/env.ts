@@ -18,6 +18,15 @@ const schema = z
     // D-07. Only the built-in estimate exists so far; the Google and VROOM
     // adapters are added once there is an account or server to verify them against.
     ROUTE_OPTIMIZER: z.enum(["estimate", "google", "vroom"]).default("estimate"),
+    // D-07 (revised 2026-10-07): the AI route planner. Without a key the
+    // button is hidden and the built-in solver is all there is.
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    // Tests point this at a local stand-in for the model API; unset in production.
+    ANTHROPIC_BASE_URL: z.url().optional(),
+    ROUTE_AI_MODEL: z.string().min(1).default("claude-fable-5-1"),
+    ROUTE_AI_EFFORT: z.enum(["low", "medium", "high", "xhigh", "max"]).default("high"),
+    // Each step stops starting new model turns after this long (D-04).
+    ROUTE_AI_STEP_MS: z.coerce.number().int().min(1000).max(50_000).default(15_000),
     // FR-TEC-09: where photos and signatures go. Defaults to Supabase Storage,
     // or to files on this machine when AUTH_MODE=local (development and tests).
     STORAGE_PROVIDER: z.enum(["supabase", "local"]).optional(),

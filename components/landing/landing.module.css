@@ -43,10 +43,85 @@
 
 .paper {
   left: -7%;
-  bottom: -18%;
-  width: 36%;
+  bottom: -20%;
+  width: 38%;
   border-radius: 4px;
+  color: var(--rk-fg);
   transform: translateZ(90px) rotateZ(-5deg) rotateX(6deg);
+}
+
+/* A phone has no room for pieces hanging off the sides or flying far forward:
+   keep the set inside its column and the depth shallow. */
+@media (max-width: 1023px) {
+  .rig {
+    --rx: 8deg;
+    --ry: -10deg;
+  }
+  .phone {
+    right: -2%;
+    bottom: -16%;
+    width: 30%;
+    border-width: 5px;
+    border-radius: 22px;
+    transform: translateZ(60px) rotateY(-4deg);
+  }
+  .paper {
+    left: -3%;
+    bottom: -22%;
+    width: 44%;
+    transform: translateZ(40px) rotateZ(-4deg) rotateX(4deg);
+  }
+}
+
+/* Flat, numbered labels over the set: what each piece is, in plain words. */
+.tag {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
+  border: 1px solid var(--rk-line-strong);
+  border-radius: 999px;
+  background: var(--rk-surface);
+  color: var(--rk-fg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px -14px rgb(21 25 30 / 0.5);
+}
+
+.tagNum {
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 999px;
+  background: var(--rk-accent);
+  color: var(--rk-on-accent);
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tag {
+    animation: tag-in 600ms var(--rk-ease) both;
+  }
+  .tag:nth-child(2) {
+    animation-delay: 700ms;
+  }
+  .tag:nth-child(3) {
+    animation-delay: 1000ms;
+  }
+  .tag:nth-child(1) {
+    animation-delay: 400ms;
+  }
+}
+
+/* Motion only, so the label is never drawn at low contrast. */
+@keyframes tag-in {
+  from {
+    transform: translateY(10px) scale(0.92);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -89,8 +164,6 @@
 
 .isoWrap {
   perspective: 2200px;
-  display: grid;
-  place-items: center;
   overflow: hidden;
 }
 
@@ -208,84 +281,39 @@
   background: var(--rk-fg);
   border: 3px solid var(--rk-surface);
   transform: translateZ(4px);
-  offset-rotate: 0deg;
   opacity: 0;
+  transition: opacity 200ms linear;
 }
 
-/* Armed by script only when the scene is off screen, so without JavaScript or
-   with reduced motion the finished route simply shows. */
+/* Armed by script (route-scene.tsx), which draws the line, moves the truck and
+   marks each pin and step as the truck reaches it. Without script, or with
+   reduced motion, the finished route simply shows. */
 @media (prefers-reduced-motion: no-preference) {
-  .scene[data-armed] .routeLine {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-  }
   .scene[data-armed] .pinBody {
     opacity: 0;
+    transform: rotateZ(40deg) rotateX(-56deg) translateY(10px) scale(0.4);
+    transition: opacity 260ms var(--rk-ease), transform 420ms var(--rk-ease);
   }
+  .scene[data-armed] .pinBody[data-shown] {
+    opacity: 1;
+    transform: rotateZ(40deg) rotateX(-56deg) translateY(-6px) scale(1);
+  }
+  /* The number fills in as the route reaches its step; the text never dims. */
   .scene[data-armed] .stepNum {
     background: transparent;
     color: var(--rk-fg);
+    transition: background-color 300ms var(--rk-ease), border-color 300ms var(--rk-ease), color 300ms var(--rk-ease);
   }
-  .scene[data-on] .routeLine {
-    animation: draw 4.2s var(--rk-ease) 300ms forwards;
-  }
-  .scene[data-on] .pinBody {
-    animation: pop 500ms var(--rk-ease) forwards;
-    animation-delay: calc(500ms + var(--i) * 520ms);
-  }
-  .scene[data-on] .truck {
-    animation: drive 4.2s var(--rk-ease) 300ms forwards, show 300ms linear 300ms forwards;
-  }
-  .scene[data-on] .stepNum {
-    animation: light 400ms var(--rk-ease) forwards;
-    animation-delay: calc(var(--i) * 1100ms);
+  .scene[data-armed] .stepNum[data-lit] {
+    background: var(--rk-accent);
+    border-color: var(--rk-accent);
+    color: var(--rk-on-accent);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .truck {
     display: none;
-  }
-}
-
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: rotateZ(40deg) rotateX(-56deg) translateY(10px) scale(0.4);
-  }
-  to {
-    opacity: 1;
-    transform: rotateZ(40deg) rotateX(-56deg) translateY(-6px) scale(1);
-  }
-}
-
-@keyframes drive {
-  from {
-    offset-distance: 0%;
-  }
-  to {
-    offset-distance: 100%;
-  }
-}
-
-@keyframes show {
-  to {
-    opacity: 1;
-  }
-}
-
-/* A step's number fills in as the route reaches it; the text never dims. */
-@keyframes light {
-  to {
-    background: var(--rk-accent);
-    border-color: var(--rk-accent);
-    color: var(--rk-on-accent);
   }
 }
 

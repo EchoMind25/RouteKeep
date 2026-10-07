@@ -506,6 +506,27 @@ export interface Properties {
   version: Generated<number>;
 }
 
+export interface RouteAiRuns {
+  created_at: Generated<Timestamp>;
+  error: string | null;
+  expected: Json;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  lease_until: Timestamp | null;
+  local_date: string;
+  model: string | null;
+  request_key: string;
+  requested_by: Generated<string | null>;
+  result: Json | null;
+  started_at: Timestamp | null;
+  state: Generated<Json>;
+  status: Generated<string>;
+  technician_id: string;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  usage: Generated<Json>;
+}
+
 export interface Routes {
   created_at: Generated<Timestamp>;
   flagged_stops: Generated<number>;
@@ -692,6 +713,7 @@ export interface DB {
   payments: Payments;
   products: Products;
   properties: Properties;
+  route_ai_runs: RouteAiRuns;
   routes: Routes;
   service_plans: ServicePlans;
   service_types: ServiceTypes;

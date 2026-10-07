@@ -257,6 +257,9 @@ begin
 
   insert into public.billing_runs (tenant_id, invoices_created) values (v_tenant, 1);
 
+  insert into public.route_ai_runs (tenant_id, technician_id, local_date, request_key, expected)
+  values (v_tenant, v_tech, date '2026-10-05', 'ai-' || p_label, '[]');
+
   insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
   values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
 

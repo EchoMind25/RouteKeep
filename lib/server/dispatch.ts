@@ -4,6 +4,7 @@ import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
 import type { RouteStop } from "@/lib/domain/routing";
 import { addDays, type LocalDate } from "@/lib/domain/time";
+import { redactNote, type PlannerProblem } from "@/lib/routing/ai-planner";
 import { estimateOptimizer, type RouteOptimizer, type RoutePlan } from "@/lib/providers/route-optimizer";
 
 // Dispatch board (FR-DSP-01..06). Stop order is a route concern. Every write
@@ -394,6 +395,44 @@ async function laneStops(tx: Tx, technicianId: string, date: LocalDate): Promise
         windowStart: r.window_start?.slice(0, 5) ?? null,
         windowEnd: r.window_end?.slice(0, 5) ?? null,
       })),
+  };
+}
+
+/**
+ * D-07 (revised): the lane as the AI planner needs it, read with the
+ * dispatcher's own permissions. Notes are redacted here, before they are
+ * stored or sent anywhere (NFR-08).
+ */
+export async function aiLaneProblem(tx: Tx, technicianId: string, date: LocalDate): Promise<{ expected: string[]; problem: PlannerProblem; unplaced: string[] }> {
+  const rows = await stopOrder(
+    tx
+      .selectFrom("appointments as a")
+      .innerJoin("properties as p", (j) => j.onRef("p.id", "=", "a.property_id").onRef("p.tenant_id", "=", "a.tenant_id"))
+      .innerJoin("service_types as t", (j) => j.onRef("t.id", "=", "a.service_type_id").onRef("t.tenant_id", "=", "a.tenant_id"))
+      .select([
+        "a.id", "a.duration_min", "a.window_start", "a.window_end", "a.notes", "p.access_notes", "t.name as service_type",
+        sql<number | null>`extensions.st_y(p.location::extensions.geometry)`.as("lat"),
+        sql<number | null>`extensions.st_x(p.location::extensions.geometry)`.as("lng"),
+      ])
+      .where("a.technician_id", "=", technicianId)
+      .where("a.local_date", "=", date)
+      .where("a.status", "in", LANE_STATUSES),
+  ).execute();
+  const placed = rows.filter((r) => r.lat !== null && r.lng !== null);
+  const stops = placed.map((r) => ({
+    id: r.id,
+    lat: r.lat!,
+    lng: r.lng!,
+    durationMin: r.duration_min,
+    windowStart: r.window_start?.slice(0, 5) ?? null,
+    windowEnd: r.window_end?.slice(0, 5) ?? null,
+    serviceType: r.service_type,
+    note: redactNote([r.access_notes, r.notes].filter(Boolean).join(". ")),
+  }));
+  return {
+    expected: rows.map((r) => r.id),
+    problem: { start: await officeStart(tx), dayStart: DAY_START, stops, current: stops.map((s) => s.id) },
+    unplaced: rows.filter((r) => r.lat === null || r.lng === null).map((r) => r.id),
   };
 }
 

@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowCounterClockwise, CheckCircle, DotsSixVertical, MapPinSimpleArea, Path, Warning, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CheckCircle, DotsSixVertical, MapPinSimpleArea, Path, Sparkle, Warning, WarningCircle, X } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,6 +28,8 @@ import {
   moveStopToDayAction,
   previewOptimizeAction,
   publishRouteAction,
+  requestAiPlanAction,
+  stepAiPlanAction,
   scheduleStopAction,
   undoOptimizeAction,
   type BoardResult,
@@ -122,6 +124,8 @@ export function DispatchBoard(props: {
   mapStyleUrl: string;
   /** A result to show on arrival, e.g. after confirming a pin. */
   notice?: string;
+  /** D-07 (revised): the AI route planner is configured on this server. */
+  aiPlanner?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -150,6 +154,9 @@ export function DispatchBoard(props: {
   const [dragging, setDragging] = useState<string | null>(null);
   const origin = useRef<{ lane: string; index: number } | null>(null);
   const [preview, setPreview] = useState<OptimizePreview | null>(null);
+  // D-07 (revised): what the AI planner said about its proposal, shown with it.
+  const [aiNotes, setAiNotes] = useState<AiNotes | null>(null);
+  const [planning, setPlanning] = useState<string | null>(null);
   const [publishCheck, setPublishCheck] = useState<{ technicianId: string; flagged: string[] } | null>(null);
 
   // Live estimates per lane in the current order: drive time, arrival times and
@@ -328,9 +335,46 @@ export function DispatchBoard(props: {
     setMessage(null);
     startTransition(async () => {
       const r = await previewOptimizeAction({ technicianId, date: props.date });
+      setAiNotes(null);
       if (r.ok) setPreview(r.preview);
       else setMessage({ tone: "danger", text: r.message });
     });
+  }
+
+  async function planWithAi(technicianId: string) {
+    setMessage(null);
+    setPlanning(technicianId);
+    try {
+      const asked = await requestAiPlanAction({ technicianId, date: props.date, key: `ai-${crypto.randomUUID()}` });
+      if (!asked.ok) {
+        setMessage({ tone: "danger", text: asked.message });
+        return;
+      }
+      // Each step is one short request; the plan is usually ready in under a minute.
+      for (let i = 0; i < 40; i++) {
+        const r = await stepAiPlanAction({ runId: asked.runId });
+        if (!r.ok) {
+          setMessage({ tone: "danger", text: r.message });
+          return;
+        }
+        if (r.run.status === "done" && r.run.plan) {
+          const plan = r.run.plan;
+          setAiNotes({ summary: plan.summary, reasons: plan.reasons, source: plan.source, note: plan.note });
+          setPreview({ technicianId, expected: r.run.expected, current: plan.current, proposed: plan.proposed, unplaced: plan.unplaced });
+          return;
+        }
+        if (r.run.status === "failed") {
+          setMessage({ tone: "danger", text: r.run.error ?? "The AI planner could not finish. Try Optimize instead." });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      setMessage({ tone: "danger", text: "The AI planner is taking too long. Try again, or use Optimize." });
+    } catch {
+      setMessage({ tone: "danger", text: "The AI planner could not be reached. Check your connection and try again." });
+    } finally {
+      setPlanning(null);
+    }
   }
 
   function commit() {
@@ -416,8 +460,19 @@ export function DispatchBoard(props: {
                     tech && ids.length > 0 ? (
                       <>
                         {(a?.pinned ?? 0) > 1 ? (
-                          <Button variant="secondary" size="sm" onClick={() => optimize(lane)} disabled={pending} aria-label={`Optimize ${tech.display_name}'s route`}>
+                          <Button variant="secondary" size="sm" onClick={() => optimize(lane)} disabled={pending || planning !== null} aria-label={`Optimize ${tech.display_name}'s route`}>
                             <Path size={16} aria-hidden /> Optimize
+                          </Button>
+                        ) : null}
+                        {(a?.pinned ?? 0) > 1 && props.aiPlanner ? (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => planWithAi(lane)}
+                            disabled={pending || planning !== null}
+                            aria-label={planning === lane ? `Planning ${tech.display_name}'s route with AI` : `Plan ${tech.display_name}'s route with AI`}
+                          >
+                            <Sparkle size={16} aria-hidden /> {planning === lane ? "Planning…" : "AI plan"}
                           </Button>
                         ) : null}
                         {route?.canUndo ? (
@@ -506,7 +561,12 @@ export function DispatchBoard(props: {
 
       <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
         {preview ? (
-          <DialogContent title={`Optimize ${laneName(preview.technicianId)}`} description="A proposal only. Nothing changes until you save it." className="max-w-2xl">
+          <DialogContent
+            title={aiNotes ? `AI plan for ${laneName(preview.technicianId)}` : `Optimize ${laneName(preview.technicianId)}`}
+            description="A proposal only. Nothing changes until you save it."
+            className="max-w-2xl"
+          >
+            {aiNotes ? <AiPlanNotes notes={aiNotes} byId={byId} /> : null}
             <OptimizeSummary preview={preview} byId={byId} />
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="secondary" onClick={() => setPreview(null)}>
@@ -770,6 +830,32 @@ function DayTarget({ date }: { date: string }) {
   return (
     <div ref={setNodeRef} className={cn("rounded-control border border-dashed px-3 py-2 text-sm font-medium tabular", isOver ? "border-accent bg-accent-soft text-accent" : "border-line-strong text-fg")}>
       {formatLocalDate(date)}
+    </div>
+  );
+}
+
+interface AiNotes {
+  summary: string;
+  reasons: { id: string; reason: string }[];
+  source: "ai" | "solver";
+  note: string | null;
+}
+
+function AiPlanNotes({ notes, byId }: { notes: AiNotes; byId: Map<string, BoardStop | QueueStop> }) {
+  return (
+    <div className="grid gap-3">
+      {notes.note ? <Alert tone="warning">{notes.note}</Alert> : null}
+      <p className="text-md">{notes.summary}</p>
+      {notes.reasons.length ? (
+        <ul className="grid gap-1.5 text-sm" aria-label="Why stops moved">
+          {notes.reasons.map((r) => (
+            <li key={r.id} className="grid grid-cols-[minmax(0,10rem)_1fr] gap-3">
+              <span className="truncate font-medium">{byId.get(r.id)?.customerName ?? "A stop"}</span>
+              <span className="text-fg-muted">{r.reason}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

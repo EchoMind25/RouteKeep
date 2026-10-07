@@ -16,7 +16,7 @@ export function GET() {
     "",
     "## Pricing",
     ...PLANS.map((p) => `- ${p.name}: ${formatCents(p.cents)} a month, ${p.limit.toLowerCase()}. Unlimited users.`),
-    `- White label: ${formatCents(WHITE_LABEL.cents)} one time, then the regular monthly plan. Includes: ${WHITE_LABEL.includes.join("; ")}.`,
+    `- White label: ${formatCents(WHITE_LABEL.cents)} one time, then the regular monthly plan; after the first year, support is ${formatCents(WHITE_LABEL.renewalCents)} a year if wanted. Includes: ${WHITE_LABEL.includes.join("; ")}.`,
     "",
     "## Questions and answers",
     ...FAQS.flatMap((f) => [`### ${f.q}`, f.a, ""]),

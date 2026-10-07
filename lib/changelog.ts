@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "AI plan for routes",
+    items: [
+      'Next to Optimize on each route there\'s now AI plan. It reads the access and visit notes ("not before 2", "dog out until noon") and plans around them.',
+      "It shows the same preview as Optimize, plus a short summary and the reason for each stop it moved. Nothing changes until you save.",
+      "Every plan is checked against the built-in optimizer: if the AI's order would be late or much longer, you get the built-in order instead, with the reason.",
+      "The AI never sees customer names, addresses, phone numbers or gate codes.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Billing: invoices, payments and money reports",
     items: [
       "Billing in the main menu. Invoice finished visits turns every finished visit into an invoice, or one invoice per month, quarter or year for plans billed that way. Running it twice never bills anything twice.",

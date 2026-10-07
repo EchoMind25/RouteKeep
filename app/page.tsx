@@ -307,13 +307,15 @@ export default function LandingPage() {
                 Want it under your own name?
               </h2>
               <p className="max-w-[46ch] text-lg text-fg-muted">
-                Every plan puts your logo on invoices. White label goes all the way: your logo, your colors, your web address on everything. Your customers never see ours.
+                Every plan puts your logo on invoices. White label goes all the way: your logo, your colors, your web address on everything, set up around how you run your shop. Your customers never see ours.
               </p>
               <p className="flex items-baseline gap-2">
                 <span className="text-5xl font-semibold tracking-tight tabular">{formatCents(WHITE_LABEL.cents).replace(".00", "")}</span>
                 <span className="text-lg text-fg-muted">one time</span>
               </p>
-              <p className="text-md text-fg-muted">Then your regular monthly plan. That&apos;s it.</p>
+              <p className="text-md text-fg-muted">
+                Then your regular monthly plan. After the first year, support is {formatCents(WHITE_LABEL.renewalCents).replace(".00", "")} a year if you want to keep it. We build it so you shouldn&apos;t need much.
+              </p>
               <div>
                 <a href={whiteLabelHref} className="inline-flex h-12 items-center rounded-control border border-line-strong px-6 text-md font-semibold whitespace-nowrap hover:bg-surface">
                   Ask about white label
@@ -322,7 +324,7 @@ export default function LandingPage() {
             </div>
             <ul className="grid gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-2" aria-label="Included with white label">
               {WHITE_LABEL.includes.map((item, i) => (
-                <li key={item} className={`flex gap-3 bg-surface p-6 text-md ${i === WHITE_LABEL.includes.length - 1 ? "sm:col-span-2 bg-accent-soft" : ""}`}>
+                <li key={item} className={`flex gap-3 p-6 text-md ${i === WHITE_LABEL.includes.length - 1 ? `bg-accent-soft ${WHITE_LABEL.includes.length % 2 ? "sm:col-span-2" : ""}` : "bg-surface"}`}>
                   <CheckCircle size={22} weight="fill" className="shrink-0 text-accent" aria-hidden />
                   <span>{item}</span>
                 </li>

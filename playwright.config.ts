@@ -24,6 +24,9 @@ export default defineConfig({
     command: process.env.E2E_COMMAND ?? `npx next start -p ${port}`,
     url: `http://127.0.0.1:${port}/sign-in`,
     reuseExistingServer: !process.env.CI,
+    // The AI route planner talks to a stand-in model API that the test starts
+    // itself (tests/e2e/route-ai.spec.ts); no real key, nothing leaves the machine.
+    env: { ANTHROPIC_API_KEY: "e2e-not-a-real-key", ANTHROPIC_BASE_URL: "http://127.0.0.1:3199" },
     timeout: 120_000,
   },
 });

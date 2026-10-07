@@ -103,3 +103,15 @@ was opened.
 - Invoice PDF and logo (FR-BRD-01/02): layout is a plain letter invoice built
   from our tokens; the no-product-branding rule and PNG/JPEG limit come from
   the owner's decision and react-pdf's format support.
+- AI route planner (D-07 revised, 2026-10-07): the owner asked for an
+  in-house optimizer driven by the best available model with map access. The
+  design (model plans with measuring tools; our solver is the baseline and
+  the judge; a refused order falls back to the solver; steps under the host
+  time limit; aliases and redacted notes only) is our own, from the PRD's
+  preview-and-undo rule (FR-DSP-03) and NFR-08. No competitor optimizer,
+  screen or documentation was looked at.
+- Landing hero, 2026-10-07: the owner found the floating record unreadable on
+  a phone and the tilt dead on touch. The record is now real text at a
+  readable size, each piece has a numbered plain-words label, and touch
+  screens tilt with scroll. The neighborhood route plays from script with the
+  path's measured length so iOS Safari draws it the same as desktop.

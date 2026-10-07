@@ -1,6 +1,5 @@
-// The product name lives here and nowhere else. The PRD's working name is
-// "Routewright" with "Routekeep" as the fallback (OQ-04); the repository is
-// RouteKeep, so that is used until the trademark and domain checks are done.
+// The product name lives here and nowhere else. RouteKeep is the owner's
+// choice (OQ-04, 2026-10-07); trademark and domain checks are still to do.
 export const BRAND = {
   name: "RouteKeep",
   tagline: "Scheduling, routes and records for pest and lawn operators",

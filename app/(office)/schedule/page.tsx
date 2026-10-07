@@ -10,6 +10,7 @@ import { addDays, isLocalDate, todayIn, type LocalDate } from "@/lib/domain/time
 import { isEnabled } from "@/lib/flags";
 import { publicEnv } from "@/lib/public-env";
 import { getBoard, nextDays } from "@/lib/server/dispatch";
+import { aiPlannerAvailable } from "@/lib/server/route-ai";
 import { listRecordsDue, type RecordDueVisit } from "@/lib/server/records";
 import { countOpenReview } from "@/lib/server/review";
 import { getDay, type DayStop } from "@/lib/server/schedule";
@@ -202,6 +203,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           // FR-DSP-01: lanes and map with one selection. Keyed by day so a new day starts clean.
           <DispatchBoard
             key={date}
+            aiPlanner={aiPlannerAvailable()}
             date={date}
             nextDays={nextDays(date)}
             technicians={board.technicians}

@@ -14,7 +14,7 @@ test("FR-WEB-01: the landing page renders, is accessible and describes itself to
   const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
   const data = JSON.parse(blocks[0]!) as { "@type": string; offers?: { price: string }[]; mainEntity?: { name: string }[] }[];
   const app = data.find((d) => d["@type"] === "SoftwareApplication")!;
-  expect(app.offers!.map((o) => o.price)).toEqual(["79.00", "179.00", "349.00", "2000.00"]);
+  expect(app.offers!.map((o) => o.price)).toEqual(["79.00", "179.00", "349.00", "5000.00"]);
   const faq = data.find((d) => d["@type"] === "FAQPage")!;
   await expect(page.locator("#faq summary")).toHaveCount(faq.mainEntity!.length);
 
@@ -35,7 +35,7 @@ test("FR-WEB-01: robots, sitemap and llms.txt keep the app private and describe 
   expect(await (await request.get("/sitemap.xml")).text()).toContain("<loc>");
   const llms = await (await request.get("/llms.txt")).text();
   expect(llms).toContain("$79.00 a month");
-  expect(llms).toContain("White label: $2,000.00 one time");
+  expect(llms).toContain("White label: $5,000.00 one time");
   const card = await request.get("/opengraph-image");
   expect(card.headers()["content-type"]).toBe("image/png");
 });

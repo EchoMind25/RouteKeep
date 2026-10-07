@@ -15,6 +15,8 @@ import {
   undoOptimize,
   type OptimizePreview,
 } from "@/lib/server/dispatch";
+import { stepAiRun } from "@/lib/jobs/route-ai";
+import { aiRunTenant, readAiPlan, requestAiPlan, type AiPlanView } from "@/lib/server/route-ai";
 
 // The board is for people who run the schedule.
 const DISPATCH = ["owner", "admin", "office", "dispatcher"] as const;
@@ -117,4 +119,30 @@ export async function publishRouteAction(input: unknown): Promise<BoardResult> {
     const v = z.object({ technicianId: z.uuid(), date, expected: lane, flaggedStops: z.number().int().min(0) }).parse(input);
     await publishRoute(member, v);
   });
+}
+
+// D-07 (revised): the AI route planner. Asking queues a run; the board then
+// calls the step action until the plan is ready, each call a short request.
+
+export async function requestAiPlanAction(input: unknown): Promise<{ ok: true; runId: string } | { ok: false; message: string }> {
+  const member = await requireMember(DISPATCH);
+  const v = z.object({ technicianId: z.uuid(), date, key: z.string().min(8).max(80) }).safeParse(input);
+  if (!v.success) return { ok: false, message: "Reload the board and try again." };
+  try {
+    return { ok: true, runId: await requestAiPlan(member, v.data) };
+  } catch (error) {
+    if (error instanceof RouteConflictError) return { ok: false, message: "This route needs at least two stops with map pins to plan." };
+    throw error;
+  }
+}
+
+export async function stepAiPlanAction(input: unknown): Promise<{ ok: true; run: AiPlanView } | { ok: false; message: string }> {
+  const member = await requireMember(DISPATCH);
+  const v = z.object({ runId: z.uuid() }).safeParse(input);
+  if (!v.success) return { ok: false, message: "Reload the board and try again." };
+  const tenantId = await aiRunTenant(member, v.data.runId);
+  if (!tenantId) return { ok: false, message: "That plan is no longer available." };
+  await stepAiRun(tenantId, v.data.runId);
+  const run = await readAiPlan(member, v.data.runId);
+  return run ? { ok: true, run } : { ok: false, message: "That plan is no longer available." };
 }

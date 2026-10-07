@@ -1,4 +1,4 @@
-# Routewright PRD
+# RouteKeep PRD
 
 Path in repo: `docs/PRD.md`
 Status: v1.0, normative
@@ -19,7 +19,7 @@ Last updated: 2026-10-07 (v1.2: white label offer, branded documents, public sit
 
 ## 1. Summary
 
-Routewright is a multi-tenant SaaS for pest control and lawn care operators with 1 to 10 trucks. It covers customers, recurring service plans, scheduling, route optimization, an offline technician app, pesticide application records, billing with autopay, reminders, a customer portal, and self-serve migration in and out.
+RouteKeep is a multi-tenant SaaS for pest control and lawn care operators with 1 to 10 trucks. It covers customers, recurring service plans, scheduling, route optimization, an offline technician app, pesticide application records, billing with autopay, reminders, a customer portal, and self-serve migration in and out.
 
 Positioning: published month-to-month pricing, no setup fee, works offline, your data leaves whenever you want.
 
@@ -57,14 +57,14 @@ Door-to-door sales app (canvassing, territories, door contracts; technician sale
 | D-04 | No request handler may run longer than 20 s. All long work runs as durable steps (Inngest free tier) or Netlify background functions | Host limit is 60 s; keep margin | Never |
 | D-05 | Technician app is an installable offline PWA inside the same app. No native binaries in MVP | Saves store fees and a second codebase | First revenue: wrap with Capacitor for App Store and Play |
 | D-06 | Offline sync via PowerSync web SDK on the Cloud Free plan, behind a `SyncProvider` interface | Avoid building sync | 50 concurrent connections or free-plan limits reached: PowerSync Pro ($49) or self-host the open edition |
-| D-07 | Route optimization behind a `RouteOptimizer` interface. Adapter 1: Google Route Optimization, one request per technician per day (single-vehicle free tier). Adapter 2: VROOM + OSRM self-hosted | Zero cost at launch; privacy path preserved | Monthly optimized stops near 5,000, or a tenant requires no third-party routing |
+| D-07 | Route optimization is our own, no outside optimizer (owner decision 2026-10-07, replacing the Google and VROOM adapters). Two layers: (1) the built-in solver (`lib/domain/routing.ts`): windows first, then driving, instant, no third party; (2) the AI route planner (`lib/routing/ai-planner.ts`): the most capable Claude model (default `claude-fable-5-1`, set by `ROUTE_AI_MODEL`) plans with tools that measure on our own map model, starting from the solver's order. It reads access and visit notes the solver cannot. Every order it submits is measured by our code and refused if it is later than the solver's or more than 10% longer; after two refusals the solver's order stands. Runs in short steps (D-04). The dispatcher always previews and decides | Owner wants routing that is ours and better than generic optimizers; the model brings judgment on notes, our code keeps it honest on numbers | Road distances: the map model is straight-line times a road factor until a self-hosted road graph (OSRM on open map data) is added behind the same `measure` seam. Cost: revisit if AI plan spend per tenant passes 10% of their plan price |
 | D-08 | Maps: MapLibre GL with open tiles. Geocoding: Google Geocoding (free monthly allowance), results cached per property | Avoid per-load map fees | Geocoding volume near 10,000/month |
 | D-09 | Payments: Stripe Connect, Standard-style connected accounts, direct charges, Stripe-hosted card and bank fields. Stripe sets processing price; tenant pays it | No platform fees, lowest liability and PCI scope | Need to earn a payment margin |
 | D-10 | Messaging: email (Resend free tier) from day 1. SMS (Twilio) only after the tenant's 10DLC brand and campaign are approved. Registration and usage costs pass through to the tenant | Compliance cannot be skipped; cost belongs to the tenant's brand | Never |
 | D-11 | Pricing: Starter $79/month (up to 300 active customers), Pro $179 (up to 1,500), Growth $349 (up to 5,000). Unlimited users. Month to month. No setup fee | Keeps the per-customer-count model users like (R-PRICE-07) | After 5 customers |
-| D-12 | Billing for Routewright's own subscription uses Stripe Billing on the platform account | Standard | Never |
+| D-12 | Billing for RouteKeep's own subscription uses Stripe Billing on the platform account | Standard | Never |
 | D-13 | Deferred spend: trademark filing, attorney review, SOC 2, QuickBooks sync, Apple and Google developer accounts | Not required to sign customer 1 | First revenue |
-| D-14 | White label as a done-for-you service: $2,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, portal and every document, with the product credit removed (FR-BRD-03; invoices are branded on every plan, FR-BRD-01); their own domain once they own one; setup with the owner (plans, products, technicians, customer list import from their own export); a walkthrough; one year of fix-it support (defects and help, not new features). Owner decision 2026-10-07 | Comparable to a competitor's reported $1,300+ implementation fee (R-PRICE-03) while also covering branding and a support year; roughly 15 to 25 hours of setup work | After 3 white label sales, or if setup regularly runs past 25 hours |
+| D-14 | White label as a done-for-you service: $5,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, portal and every document, with the product credit removed (FR-BRD-03; invoices are branded on every plan, FR-BRD-01); personalized setup (their services, plans, forms and reports shaped around how they work); setup support start to finish, including customer list import from their own export; advice on technician hardware (phones, tablets, accessories) and what is worth maintaining; their own domain once they own one; one year of support (defects and help, not new features). After the first year, support renews at $500 a year, optional. The goal is a product that needs little support. Owner decisions 2026-10-07 ($2,000 first, raised to $5,000 the same day) | Covers 20 to 40 hours of personalized setup and a support year with margin; the $500 renewal prices support at a level that rewards building it right | After 3 white label sales, or if setup regularly runs past 40 hours |
 
 ## 5. Budget constraint
 
@@ -285,7 +285,7 @@ Goal: an owner with no technical help moves a full book of business in one sitti
 
 ### 9.1 Sources
 - FR-MIG-01 Guided presets for FieldRoutes, PestPac, GorillaDesk, Jobber, and QuickBooks customer lists. Each preset is a saved column mapping plus value transforms, stored as data in `import_mappings`, not code.
-- FR-MIG-02 Generic CSV and XLSX for spreadsheets, and Routewright's own export format.
+- FR-MIG-02 Generic CSV and XLSX for spreadsheets, and RouteKeep's own export format.
 - FR-MIG-03 Presets are built only from files real customers export. The first preset for each source is created during a concierge migration and saved for reuse. No competitor credentials or APIs are used.
 
 ### 9.2 What can be imported
@@ -325,7 +325,7 @@ These are the floor. None may be traded for cost.
 | CR-01 | Application record MUST contain: customer name and address, application address, area treated, target sites, date and time, product brand name, EPA registration number, mix rate, total amount applied, purpose and target pest, applicator name, business address, applicator license number | $0 |
 | CR-02 | Record MUST be captured within 24 h of application; show status; warn at 20 h | $0 |
 | CR-03 | Business name and license number on every service record and notice | $0 |
-| CR-04 | Records retained at least 2 years and included in exports (confirm clause with UDAF) | $0 |
+| CR-04 | Records retained at least 2 years from the application date and included in exports. Utah Admin. Code R68-7 (commercial applicator records): "Records shall be kept for a period of at least two years from the date of the pesticide application", made within 24 hours, "available for inspection by the department upon request" and "furnished in a uniform format". Seen in search excerpts of the rule (2021 to 2024 versions), not yet read from the current official text: owner to confirm with UDAF (OQ-03) | $0 |
 | CR-05 | Card and bank details only through Stripe-hosted fields. No card data in our database, logs, or offline storage | $0 |
 | CR-06 | ACH autopay requires a stored Stripe mandate and a visible way to revoke | $0 |
 | CR-07 | No SMS without (a) approved tenant 10DLC registration and (b) recorded recipient consent. STOP and HELP honored | about $21 per tenant, pass-through |
@@ -337,6 +337,7 @@ These are the floor. None may be traded for cost.
 | CR-13 | Publish Terms, Privacy Policy, a DPA, and a subprocessor list before the first customer. Templates are acceptable for customer 1; attorney review is deferred risk (D-13) | $0 now |
 | CR-14 | No card surcharge feature in MVP. Offer ACH as the low-fee option instead | $0 |
 | CR-15 | MFA available for owner and admin roles | $0 |
+| CR-16 | Restricted use pesticides: the customer gets a copy of the application record within 30 days (7 U.S.C. 136i-1(a)(2)). The service record PDF covers it; M6 emails it automatically for RUP applications | $0 |
 
 ## 11. Non-functional requirements
 
@@ -347,7 +348,7 @@ These are the floor. None may be traded for cost.
 - NFR-05 Accessibility: WCAG 2.2 AA on office and portal; color-blind-safe route colors.
 - NFR-06 Observability: Sentry on web and PWA; structured logs with tenant and request ids; job failure dashboard.
 - NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.
-- NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. Subprocessors listed in `docs/VENDORS.md`.
+- NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. The AI route planner (D-07) receives stop aliases, service types, windows, durations, positions in kilometres from the office (no coordinates) and access and visit notes with numbers, phone numbers and emails removed; never names or addresses (tested end to end). Subprocessors listed in `docs/VENDORS.md`.
 
 ## 12. Engineering rules (always apply)
 
@@ -409,14 +410,14 @@ Time from import to first optimized route under 1 day. Zero duplicate charges. B
 
 ## 17. Open questions (owner to answer)
 
-- OQ-01 Is the Netlify account older than 2025-09-04 (legacy limits) or on the 300-credit plan?
-- OQ-02 Which legal entity signs customer contracts and owns the Stripe platform account?
-- OQ-03 Confirm the current Utah retention clause and any UDAF format expectations for inspections.
-- OQ-04 USPTO and WHOIS check on "Routewright"; fall back to "Routekeep" if blocked.
-- OQ-05 Who is the pilot customer and what system are they leaving? That decides the first import preset.
+- OQ-01 Answered 2026-10-07: new Netlify account, so the 300-credit plan (BUD-04 applies).
+- OQ-02 Open. Recommendation (not legal advice): one legal entity owns RouteKeep, signs customer and white label contracts, and owns the Stripe platform account. Cheapest path that keeps liability separate: a Utah LLC for RouteKeep (or, if Echo Mind Automation is already an LLC, RouteKeep as its registered DBA until revenue justifies its own LLC), an EIN in the entity's name, a business bank account, and the Stripe platform account opened by that entity. Confirm current Utah filing fees and have an attorney review the white label agreement before the first $5,000 sale (D-13).
+- OQ-03 Partly answered by research 2026-10-07 (CR-04, CR-16). Owner to confirm with UDAF Pesticide Program (UDAF-Pesticide@utah.gov, 801-538-7100): current R68-7 citation and retention, the complete field list and any template for the "uniform format", whether software-only records satisfy inspection, how fast records must be produced, and whether non-RUP applications require a customer copy or posting.
+- OQ-04 Answered 2026-10-07: the name is RouteKeep. A USPTO search and domain check are still to be done by the owner before public launch (RISK-07).
+- OQ-05 Answered 2026-10-07: no pilot yet. Target: a small pest control owner leaving the ServiceTitan family (FieldRoutes). The first preset is built from that customer's own FieldRoutes export during a concierge migration (FR-MIG-03); until then the generic CSV path is the import.
 
 ## 18. Environment variables
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `POWERSYNC_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `GOOGLE_MAPS_API_KEY`, `ROUTE_OPTIMIZER` (`google` or `vroom`), `SENTRY_DSN`.
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `POWERSYNC_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `GOOGLE_MAPS_API_KEY`, `ROUTE_OPTIMIZER` (`estimate`), `ANTHROPIC_API_KEY`, `ROUTE_AI_MODEL` (default `claude-fable-5-1`), `ROUTE_AI_EFFORT` (default `high`), `ROUTE_AI_STEP_MS`, `SENTRY_DSN`, `NEXT_PUBLIC_SALES_EMAIL` (default RouteKeep@proton.me).
 
 Secrets live in Netlify and GitHub Actions secrets only. Never commit them.

@@ -5,19 +5,37 @@ import { BRAND } from "@/lib/brand";
 // white label offer from PRD D-14. Nothing here is a made-up number or review.
 
 export const PLANS = [
-  { name: "Starter", cents: 7900, limit: "Up to 300 active customers", note: "One or two trucks finding their rhythm." },
-  { name: "Pro", cents: 17900, limit: "Up to 1,500 active customers", note: "Where most 3 to 6 truck shops land.", featured: true },
-  { name: "Growth", cents: 34900, limit: "Up to 5,000 active customers", note: "Full routes, full season, bigger office." },
+  {
+    name: "Starter",
+    cents: 7900,
+    limit: "Up to 300 active customers",
+    note: "One or two trucks finding their rhythm.",
+  },
+  {
+    name: "Pro",
+    cents: 17900,
+    limit: "Up to 1,500 active customers",
+    note: "Where most 3 to 6 truck shops land.",
+    featured: true,
+  },
+  {
+    name: "Growth",
+    cents: 34900,
+    limit: "Up to 5,000 active customers",
+    note: "Full routes, full season, bigger office.",
+  },
 ] as const;
 
 export const WHITE_LABEL = {
-  cents: 200000,
+  cents: 500000,
+  renewalCents: 50000,
   includes: [
     "Your logo, colors and company name on the office app, the tech app, the customer portal and every document, with our name taken off",
+    "Set up your way: your services, plans, forms and reports shaped around how your shop already runs",
+    "Setup done with you, start to finish: products, techs and your customer list brought over from your old software",
+    "Honest advice on the phones, tablets and gear your techs carry, and what's worth keeping up",
     "Your own web address once you own one",
-    "Setup done with you: plans, products, techs and your customer list brought over",
-    "A walkthrough for you and your office, on a call or in person",
-    "A full year of fix-it support. Something breaks, we fix it",
+    "A full year of support, setup included. Something breaks or you're stuck, we fix it",
   ],
 } as const;
 
@@ -49,7 +67,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Does it optimize routes?",
-    a: "Yes. Pick a tech, hit optimize, and you see the new order and the drive time saved before anything changes. Keep it or undo it. Arrival windows are respected, and a stop that's suddenly a long drive away gets flagged before you publish, because that's usually a bad map pin.",
+    a: "Yes. Pick a tech, hit optimize, and you see the new order and the drive time saved before anything changes. Keep it or undo it. Arrival windows are respected, and a stop that's suddenly a long drive away gets flagged before you publish, because that's usually a bad map pin. There's also an AI plan that reads your access notes, like \"not before 2\" or \"dog out until noon\", and tells you why it moved each stop. It only sees the stops and notes, never your customers' names or addresses.",
   },
   {
     q: "Can my techs sell plans and earn commission?",
@@ -57,15 +75,15 @@ export const FAQS: Faq[] = [
   },
   {
     q: "What about billing, autopay and text reminders?",
-    a: "Being built now. Invoices and autopay come first through Stripe, then email and text reminders. Card numbers will only ever go through Stripe's own secure form, never through us.",
+    a: "Invoicing is in. Finished visits turn into invoices, cash and checks get recorded, and late ones land on a collections list. Card payments and autopay come next through Stripe, then email and text reminders. Card numbers will only ever go through Stripe's own secure form, never through us.",
   },
   {
     q: "Will my invoices show my logo?",
     a: "Yes, on every plan. Invoices carry your logo and business details and nothing of ours. Service records and other customer messages show your name and license with a small Powered by note, unless you go white label.",
   },
   {
-    q: "What does the $2,000 white label package include?",
-    a: "Your brand on everything your office, techs and customers see, with our name removed everywhere. Set up with you, your customer list moved over, and a full year of fix-it support. It's a one time fee. Your regular monthly plan still applies after that.",
+    q: "What does the $5,000 white label package include?",
+    a: "Your brand on everything your office, techs and customers see, with our name removed everywhere. We set it up around how you work, move your customer list over, help you pick the right gear for your techs, and support you for a full year. After that year, support is $500 a year if you want to keep it. We build it so you shouldn't need much. Your regular monthly plan still applies.",
   },
   {
     q: "Who sees my customer data?",
