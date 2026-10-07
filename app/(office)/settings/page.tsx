@@ -3,17 +3,19 @@ import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 import { formatPhone } from "@/lib/domain/contact";
 import { BusinessForm } from "./forms";
+import { LogoForm } from "./logo/logo-form";
 
 export const metadata: Metadata = { title: "Business settings" };
 
 export default async function BusinessSettingsPage() {
   const member = await requireMember(OFFICE_ROLES);
   const { tenant, office } = await withRls(member.claims, async (tx) => ({
-    tenant: await tx.selectFrom("tenants").select(["name", "business_license_no", "state", "timezone"]).executeTakeFirstOrThrow(),
+    tenant: await tx.selectFrom("tenants").select(["name", "business_license_no", "state", "timezone", "logo_path", "updated_at"]).executeTakeFirstOrThrow(),
     office: await tx.selectFrom("offices").select(["address_line1", "address_line2", "city", "postal_code", "phone"]).where("is_primary", "=", true).executeTakeFirst(),
   }));
 
   return (
+    <>
     <BusinessForm
       readOnly={!canManage(member.role)}
       initial={{
@@ -28,5 +30,8 @@ export default async function BusinessSettingsPage() {
         phone: formatPhone(office?.phone),
       }}
     />
+    {/* FR-BRD-02 */}
+    <LogoForm hasLogo={Boolean(tenant.logo_path)} version={new Date(tenant.updated_at).getTime().toString(36)} readOnly={!canManage(member.role)} />
+    </>
   );
 }

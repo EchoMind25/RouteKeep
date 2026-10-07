@@ -13,6 +13,9 @@ import { instantToZoned, parseLocalDate } from "@/lib/domain/time";
 import { needsPinConfirmation } from "@/lib/providers/geocoder";
 import { getCustomer, propertyAddress } from "@/lib/server/customers";
 import { saleFor } from "@/lib/server/sales";
+import { listInvoices } from "@/lib/server/billing";
+import { isEnabled } from "@/lib/flags";
+import { INVOICE_STATUS } from "../../billing/status";
 import { COMMISSION_STATUS } from "@/lib/domain/commission";
 import { APPOINTMENT_STATUS, BILLING_MODE, formatLocalDate, formatWindow, SUBSCRIPTION_STATUS } from "@/lib/ui/format";
 
@@ -33,9 +36,10 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   const member = await requireMember(OFFICE_ROLES);
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  const [data, sale] = await Promise.all([getCustomer(member, id), saleFor(member, id)]);
+  const billing = isEnabled("billing") && member.role !== "dispatcher";
+  const [data, sale, invoices] = await Promise.all([getCustomer(member, id), saleFor(member, id), billing ? listInvoices(member, "all", { customerId: id, limit: 12 }) : Promise.resolve([])]);
   if (!data) notFound();
-  const { customer, properties, subscriptions, upcoming, history } = data;
+  const { customer, properties, subscriptions, upcoming, history, balanceCents } = data;
   const query = await searchParams;
   const created = query.created === "1";
   const done = DONE[query.done ?? ""];
@@ -118,6 +122,30 @@ export default async function CustomerPage({ params, searchParams }: { params: P
               </ul>
             ) : null}
           </Panel>
+
+          {billing ? (
+            // FR-CRM-03: invoices and the running balance, from the ledger.
+            <Panel title="Invoices" description={`Balance ${formatCents(balanceCents)}${balanceCents < 0 ? " in credit" : ""}.`}>
+              {invoices.length ? (
+                <ul className="divide-y divide-line">
+                  {invoices.map((i) => {
+                    const st = INVOICE_STATUS[i.status] ?? INVOICE_STATUS.open!;
+                    return (
+                      <li key={i.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                        <Link href={`/billing/invoices/${i.id}`} className="font-medium tabular hover:underline">
+                          #{i.number}
+                        </Link>
+                        <span className="text-sm text-fg-muted tabular">{formatCents(i.totalCents)}{i.status === "open" ? `, ${formatCents(i.openCents)} owed` : ""}</span>
+                        <Badge tone={i.overdue ? "danger" : st.tone}>{i.overdue ? "Overdue" : st.label}</Badge>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="px-5 py-4 text-fg-muted">No invoices yet.</p>
+              )}
+            </Panel>
+          ) : null}
 
           {history.length ? (
             <Panel title="History">

@@ -157,6 +157,19 @@ export interface AuditLog {
   updated_at: Generated<Timestamp>;
 }
 
+export interface BillingRuns {
+  created_at: Generated<Timestamp>;
+  failures: Generated<Json>;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  invoices_created: Generated<number>;
+  payments_posted: Generated<number>;
+  started_at: Generated<Timestamp>;
+  started_by: Generated<string | null>;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Commissions {
   amount_cents: number;
   basis_cents: number;
@@ -422,6 +435,7 @@ export interface OutboxEvents {
 
 export interface Payments {
   amount_cents: number;
+  appointment_id: string | null;
   check_number: string | null;
   client_payment_key: string;
   collected_by: Generated<string | null>;
@@ -619,6 +633,7 @@ export interface Tenants {
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  logo_path: string | null;
   /**
    * FR-MIG-19: customer messaging stays suppressed for imported records until the owner clicks Go live.
    */
@@ -658,6 +673,7 @@ export interface DB {
   appointments: Appointments;
   attachments: Attachments;
   audit_log: AuditLog;
+  billing_runs: BillingRuns;
   commissions: Commissions;
   customer_balances: CustomerBalances;
   customers: Customers;

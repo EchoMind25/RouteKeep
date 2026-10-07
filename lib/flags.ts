@@ -6,8 +6,8 @@ export const FLAGS = {
   dispatchBoard: true,
   /** M3: offline technician PWA. On since 2026-10-07; off falls back to the online day list. */
   offlineTechApp: true,
-  /** M4: invoices, autopay, ledger screens. */
-  billing: false,
+  /** M4: invoices, payments taken in the office, credits, collections, money reports. On since 2026-10-08; card and autopay wait for Stripe. */
+  billing: true,
   /** The Reports area. On since 2026-10-07 with product usage (FR-REC-06); billing reports join it with `billing`. */
   reports: true,
   /** M5: import wizard and export. */

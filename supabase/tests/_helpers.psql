@@ -255,6 +255,8 @@ begin
   insert into public.commissions (tenant_id, technician_id, customer_id, subscription_id, basis_cents, flat_cents, pct, amount_cents)
   values (v_tenant, v_tech, v_customer, v_sub, 9900, 2500, 10, 3490);
 
+  insert into public.billing_runs (tenant_id, invoices_created) values (v_tenant, 1);
+
   insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
   values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
 

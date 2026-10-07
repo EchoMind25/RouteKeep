@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // pg loads optional native bindings at runtime; keep it out of the bundle.
   serverExternalPackages: ["pg"],
+  // A logo upload (FR-BRD-02) is up to 1 MB plus the form around it.
+  experimental: { serverActions: { bodySizeLimit: "2mb" } },
   // Short ways into the app: /login and /app both end at sign-in or the right home.
   async redirects() {
     return [{ source: "/login", destination: "/app", permanent: false }];

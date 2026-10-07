@@ -340,6 +340,7 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
       .insertInto("payments")
       .values({
         customer_id: visit.customer_id,
+        appointment_id: visit.id,
         client_payment_key: mutation.payment.key,
         method: mutation.payment.method,
         status: "succeeded",

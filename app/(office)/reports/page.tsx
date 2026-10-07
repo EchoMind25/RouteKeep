@@ -1,4 +1,4 @@
-import { CaretRight, Flask, HandCoins } from "@phosphor-icons/react/ssr";
+import { CaretRight, ChartLineUp, Flask, HandCoins } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -28,6 +28,20 @@ export default async function ReportsPage() {
             <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
           </Link>
         </li>
+        {isEnabled("billing") ? (
+          <li>
+            <Link href="/reports/billing" className="flex items-center gap-4 rounded-panel border border-line bg-surface p-5 hover:border-line-strong">
+              <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent-soft text-accent" aria-hidden>
+                <ChartLineUp size={22} />
+              </span>
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <span className="font-semibold">Money</span>
+                <span className="text-sm text-fg-muted">Revenue by month, money owed by how late it is, and production by technician.</span>
+              </span>
+              <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
+            </Link>
+          </li>
+        ) : null}
         <li>
           <Link href="/reports/commissions" className="flex items-center gap-4 rounded-panel border border-line bg-surface p-5 hover:border-line-strong">
             <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent-soft text-accent" aria-hidden>
@@ -41,7 +55,6 @@ export default async function ReportsPage() {
           </Link>
         </li>
       </ul>
-      {isEnabled("billing") ? null : <p className="pt-2 text-sm text-fg-muted">Revenue, money owed and production by technician arrive with billing.</p>}
     </div>
   );
 }

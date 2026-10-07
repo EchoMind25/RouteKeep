@@ -239,6 +239,14 @@ Added 2026-10-07 by owner decision: technicians often sell plans in the field an
 - FR-BIL-07 Nightly reconciliation of ledger against Stripe; mismatches listed for the owner.
 - FR-BIL-08 Reports: revenue, AR aging, production by technician.
 
+Billing rules as built in M4 stage 1 (2026-10-07; change only with the owner):
+- A finished visit with a price is billable once. Plans billed per service, and one-off visits, get one invoice per visit. Plans billed monthly, quarterly or yearly get one invoice per closed calendar period (in the business's time zone) listing each finished visit at its own price; a visit finished after its period was invoiced gets a supplementary invoice for that period.
+- Invoices are due on issue until payment terms exist as a setting. Aging counts days past the due date: not due, 1 to 30, 31 to 60, 61 to 90, over 90.
+- Payments taken in the field post against their visit's invoice on the next run; one whose visit is not invoiced yet (a plan billed by period, mid-period) posts as credit on the customer's account and lowers what they owe, but is not tied to the later invoice.
+- An invoice is paid when its ledger balance reaches zero. Recording more than an invoice still owes is refused. Void needs a reason and posts an offsetting credit; void and uncollectible invoices never reopen.
+- The run is started by the office ("Invoice finished visits") or the nightly job (`npm run billing:run`); each invoice and each payment is its own transaction, failures are listed on the run, and a rerun only does what is left.
+- Card and bank payments, autopay, retries and reconciliation (FR-BIL-02, 04 retry part, 05, 07) wait for the owner's Stripe account (stage 2).
+
 ### 8.8 Messaging `[MVP]`
 - FR-MSG-01 Email reminders, "on the way", service complete, invoice, payment failed.
 - FR-MSG-02 SMS for the same events only when the tenant's 10DLC status is approved and the recipient has consent on file.
@@ -258,7 +266,7 @@ Added 2026-10-07 by owner decision: technicians often sell plans in the field an
 ### 8.10.1 Branded documents `[MVP]`
 Added 2026-10-07 by owner decision; scope corrected the same day.
 - FR-BRD-01 On every paid plan (all plans are paid), invoices show the business's logo, name, address and license and carry no product branding at all, including in file metadata.
-- FR-BRD-02 Logo upload: PNG, JPEG or SVG up to 1 MB, stored in the private bucket, shown on screen to members and embedded in invoices; a preview before saving.
+- FR-BRD-02 Logo upload: PNG or JPEG up to 1 MB (PDFs cannot embed SVG), stored in the private bucket, shown on screen to members and embedded in invoices; a preview before saving.
 - FR-BRD-03 Everything else a customer sees (service records, statements, the customer portal, emails and texts) carries the business's name and license (CR-03) and a small "Powered by" product credit, unless the business bought white label (D-14). White label removes the credit everywhere and puts the business's logo and colors on the office app, technician app, portal and every document. Only the platform can switch white label on (`tenants.white_label_at`, service role).
 - Accept: an invoice for any paid business shows its logo and contains no occurrence of the product name; a service record PDF shows the credit without white label and none with it.
 

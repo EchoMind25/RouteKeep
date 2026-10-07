@@ -10,6 +10,19 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "Billing: invoices, payments and money reports",
+    items: [
+      "Billing in the main menu. Invoice finished visits turns every finished visit into an invoice, or one invoice per month, quarter or year for plans billed that way. Running it twice never bills anything twice.",
+      "Cash a technician took at the door is applied to that visit's invoice on its own.",
+      "Record cash, check or other payments, give a credit with a reason, or void an invoice made in error. Every one is kept in the invoice's history.",
+      "Collections lists what is late, oldest first. Reports, Money shows revenue by month, money owed by age and production by technician.",
+      "Upload your logo in Settings. Invoices show your logo, name and license and nothing of ours.",
+      "Customer pages show their invoices and what they owe.",
+      "Fixed: after a form showed an error, a radio choice such as Check could quietly switch back to the first option.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Technicians can add customers, with commission",
     items: [
       "Turn it on in Settings, Sales, and set what a sale earns: a flat amount, a percent of the first service, or both.",

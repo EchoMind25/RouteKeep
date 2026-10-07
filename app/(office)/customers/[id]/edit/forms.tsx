@@ -22,7 +22,7 @@ export function CustomerEditForm({ initial }: { initial: Record<string, string> 
         <div className="flex gap-6" role="radiogroup" aria-label="Customer type">
           {(["residential", "commercial"] as const).map((k) => (
             <label key={k} className="flex items-center gap-2 font-medium">
-              <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} className="size-4 accent-accent" />
+              <input type="radio" name="kind" value={k} defaultChecked={kind === k} onChange={() => setKind(k)} className="size-4 accent-accent" />
               {k === "residential" ? "Home" : "Business"}
             </label>
           ))}

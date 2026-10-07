@@ -94,4 +94,12 @@ was opened.
   each clash and the two choices (take the field's version, or keep the
   office's) are derived from the PRD's conflict rule alone. Records are never
   discarded by a choice, which follows from FR-REC-03 and CR-04.
-
+- Billing (FR-BIL-01/03/04/06/08): invoice-per-visit versus invoice-per-period,
+  the run as one transaction per item, the ledger as the only source of
+  balances, and the aging buckets come from the PRD, DB-04 to DB-06 and
+  RESEARCH R-BUG notes on billing runs that stall on one bad item. Screens
+  use the app's own table, panel and form patterns. No competitor billing
+  screen, invoice or help page was looked at.
+- Invoice PDF and logo (FR-BRD-01/02): layout is a plain letter invoice built
+  from our tokens; the no-product-branding rule and PNG/JPEG limit come from
+  the owner's decision and react-pdf's format support.
