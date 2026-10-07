@@ -206,7 +206,10 @@ function DoneScreen({ stop, draft, label }: { stop: SnapshotStop; draft: Draft |
 
 function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: Draft; state: TechState; info: SnapshotInfo; step: StepId }) {
   const { store, engine } = useTech();
-  const [open, setOpen] = useState<string | null>(null);
+  // Which product card is open. Undefined until someone picks: then the first
+  // card still missing something opens, so a stop resumed after the app was
+  // killed lands on the field the technician was typing in.
+  const [open, setOpen] = useState<string | null | undefined>(undefined);
   const index = Math.max(0, STEPS.findIndex((s) => s.id === step));
   const current = STEPS[index]!;
   const update = (patch: Partial<Draft>) => void store.putDraft({ ...draft, ...patch });
@@ -407,11 +410,13 @@ function ProductsStep(props: {
   draft: Draft;
   state: TechState;
   info: SnapshotInfo;
-  open: string | null;
+  open: string | null | undefined;
   setOpen: (key: string | null) => void;
   onChange: (applications: ApplicationEntry[]) => void;
 }) {
-  const { stop, draft, state, info, open, setOpen, onChange } = props;
+  const { stop, draft, state, info, setOpen, onChange } = props;
+  const incomplete = missingFields(draft, stop, state.products, info)[0]?.key ?? null;
+  const open = props.open === undefined ? incomplete : props.open;
   const [picking, setPicking] = useState(draft.applications.length === 0);
   const [query, setQuery] = useState("");
   const last = state.mixes.get(stop.propertyId) ?? [];

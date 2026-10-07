@@ -18,7 +18,7 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S13 Reports | | not started | | |
 | S14 Settings | 2026-10-06 | partial | Edit and retire technicians, products and service types; member role changes | Business, team invites, technicians, plans, products |
 | S15 Import, S16 Export | | not started | | M5, schema ready |
-| S17 Technician day | 2026-10-06 | interim | Offline PWA (M3) | Online list with navigate links, clearly labelled |
-| S18 Stop flow | | not started | | M3 |
+| S17 Technician day | 2026-10-07 | done | | Offline-first; the page carries no route data, so the saved copy works for any day. A sign-in lands on /tech by client-side navigation, outside the worker's scope, so `serviceWorker.ready` never settles there: the app messages the worker on activation instead |
+| S18 Stop flow | 2026-10-07 | done | Photo and signature upload, PDF record (stage 3) | A resumed stop opens the product card that still needs input; card state was in memory only and a killed tab came back collapsed |
 | S19, S20 Portal | | not started | | M6 |
 | S21 Design primitives | | not started | | |

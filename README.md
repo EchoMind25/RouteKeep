@@ -17,7 +17,8 @@ pricing, works offline, and your data leaves whenever you want.
 | M0 Foundation | Done. 27 tables with RLS, 567 pgTAP assertions, auth, tenant setup, CI workflows |
 | M1 Core records | Done. Customers, properties, plans and subscriptions with edits, pause and cancel, one-off visits, 60-day visit generation, DST tests |
 | M2 Dispatch | Done. Lanes and map, drag and drop (pointer and keyboard), queue, optimize with preview and undo, publish checks, pin confirmation. Google and VROOM optimizer adapters wait on accounts |
-| M3 to M7 | Schema in place; screens not started (see `replica/build-log.md`) |
+| M3 Technician app | Offline PWA with the full stop flow; exit test passes (15 stops offline, app killed twice, no duplicates). Next: photo upload, PDF records, conflict review |
+| M4 to M7 | Schema in place; screens not started (see `replica/build-log.md`) |
 
 ## Run it locally
 

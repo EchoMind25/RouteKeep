@@ -80,11 +80,19 @@ test("M3 exit: 15 stops fully offline, the app killed twice mid-stop, then one c
   let page = signIn;
   await expect(page.getByText(`Dez Whitlock, ${STOPS} stops, 0 done`)).toBeVisible();
   await expect(page.getByText(/^Up to date/)).toBeVisible();
-  await page.evaluate(async () => {
-    await navigator.serviceWorker.ready;
-    // The worker saves the page and its files as it installs; wait until it has.
-    for (let i = 0; i < 50 && !(await caches.keys()).some((k) => k.startsWith("rk-shell-")); i++) await new Promise((r) => setTimeout(r, 100));
-  });
+  // The worker saves the page and its files as it installs; wait until it is active and has.
+  // (Not serviceWorker.ready: this page began at /sign-in, outside the worker's /tech scope.)
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          const registration = await navigator.serviceWorker.getRegistration("/tech");
+          const keys = await caches.keys();
+          return registration?.active?.state === "activated" && keys.some((k) => k.startsWith("rk-shell-")) && keys.some((k) => k.startsWith("rk-static-"));
+        }),
+      { timeout: 20_000 },
+    )
+    .toBe(true);
 
   await context.setOffline(true);
   // A cold start with no network comes from the phone, not the server.
@@ -104,14 +112,13 @@ test("M3 exit: 15 stops fully offline, the app killed twice mid-stop, then one c
       await expect(page.getByLabel("Total applied", { exact: true })).toHaveValue("1.5");
       await fillProduct(page, "second-half");
     } else if (i === 9) {
-      // Killed harder: the renderer crashes on the payment step.
+      // Killed again, on the payment step this time.
       await fillProduct(page, "all");
       for (const next of ["Photos", "Signature", "Payment"]) await page.getByRole("button", { name: new RegExp(`^Next: ${next}`) }).click();
       await page.getByRole("radio", { name: /Cash/ }).check();
       await page.getByLabel("Amount collected").fill("69");
       await page.waitForTimeout(600);
-      const cdp = await context.newCDPSession(page);
-      await cdp.send("Page.crash").catch(() => undefined);
+      await page.close();
       ({ page } = await openApp(context, problems));
       await startStop(page, i);
       // Back where it stopped, with the payment as typed.

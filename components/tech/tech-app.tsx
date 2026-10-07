@@ -31,11 +31,17 @@ function registerWorker(version: string) {
   if (!publicEnv.production || !("serviceWorker" in navigator)) return;
   navigator.serviceWorker
     .register(`/sw.js?v=${encodeURIComponent(version)}`, { scope: "/tech" })
-    .then(async (registration) => {
-      await navigator.serviceWorker.ready;
+    .then((registration) => {
       // Everything this page loaded, so a cold start offline finds it all.
+      // Not `serviceWorker.ready`: after sign-in this page was created at
+      // /sign-in, outside the worker's scope, so `ready` would never settle.
       const urls = performance.getEntriesByType("resource").map((e) => e.name);
-      (registration.active ?? navigator.serviceWorker.controller)?.postMessage({ type: "warm", urls });
+      const warm = (worker: ServiceWorker) => worker.postMessage({ type: "warm", urls });
+      if (registration.active) warm(registration.active);
+      const pending = registration.installing ?? registration.waiting;
+      pending?.addEventListener("statechange", () => {
+        if (pending.state === "activated") warm(pending);
+      });
     })
     .catch(() => undefined);
 }

@@ -57,3 +57,18 @@ opened.
 - No basemap by default: the tile host is the owner's choice (D-08) because it
   sees which areas are viewed.
 
+## 2026-10-07: technician app (M3)
+
+Inputs: `docs/PRD.md` FR-TEC-01..11, FR-REC-01, FR-REC-05, NFR-01, NFR-02,
+CR-01, CR-05; RESEARCH R-BUG-01, R-BUG-07 as summarised there; Utah Admin.
+Code R68-7-11(11) fields via RESEARCH 7.1; MDN and W3C service worker and
+IndexedDB documentation. No competitor app, account, screenshot or help page
+was opened.
+
+- Flow order and step names come from FR-TEC-03 as written. Layout is our
+  own: one column, a progress bar, the primary action at the bottom.
+- Target site and pest suggestions are generic industry terms, written fresh.
+- Sync: snapshot down and idempotent mutations up, our own design from the
+  PRD's conflict rule (NFR-02); textbook outbox pattern.
+- Outdoor mode uses the outdoor token set designed in M1.
+

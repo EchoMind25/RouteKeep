@@ -10,6 +10,18 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "Technician app that works offline",
+    items: [
+      "Technicians install the app from the browser and open it straight to today's route. It works with no signal at all.",
+      "Each stop walks through arrive, checklist, products, photos, signature, payment and complete, and is saved on the phone as it is typed.",
+      "Products remember what was used at the property last time and read the mix back in plain words, so a decimal is never misread.",
+      "A stop cannot be completed while a required record field is missing; the app names the field.",
+      "Work done offline uploads by itself when the phone reconnects. If the office changed a stop in the meantime, the work is kept and flagged for review.",
+      "Outdoor mode for bright sun, in the app's settings.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Dispatch board",
     items: [
       "The schedule shows each technician's route beside a map. Pick a stop in either place to find it in the other.",

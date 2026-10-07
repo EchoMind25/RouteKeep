@@ -18,22 +18,22 @@ FR-SUB-04 One-off appointments without a subscription.,plans and appointments,mu
 "FR-DSP-04 Always-visible queue of unscheduled, skipped, and cancelled work (R-PAIN-08).",dispatch,must,yes,yes,"Queue beside the map, always in view at desktop width; items drag onto routes"
 "FR-DSP-05 The same stop sequence number appears on map, list, and technician app (R-BUG-06).",dispatch,must,yes,yes,"Number = place in route; same order query on board, map and technician list"
 FR-DSP-06 Flag any stop whose travel leg is more than 3x the route median before publishing.,dispatch,must,yes,yes,Long-drive badge and map ring; publishing lists flagged stops first; the stop after a wrong pin is not blamed
-"FR-TEC-01 Installable PWA. Today's and tomorrow's routes, customers, properties, products, and notes sync at shift start and incrementally.",technician app,must,yes,no,
-FR-TEC-02 All screens read from local storage. No screen blocks on the network.,technician app,must,yes,no,
-"FR-TEC-03 Stop flow: Arrive, checklist, Products, Photos, Signature, Payment, Complete.",technician app,must,yes,no,
-FR-TEC-04 Every field edit persists locally within 500 ms. Killing or backgrounding the app at any step loses nothing (R-BUG-01).,technician app,must,yes,no,
-"FR-TEC-05 Persistent sync chip: ""All saved on device"" plus count waiting to upload.",technician app,must,yes,no,
-"FR-TEC-06 Product entry: favorites, last-used mix for the property, unit-typed inputs with live conversion preview (R-BUG-07).",technician app,must,yes,no,
-FR-TEC-07 A stop cannot be completed if a required record field (CR-01) is missing. Show exactly which field.,technician app,must,yes,no,
-"FR-TEC-08 Payment in the field: online only via Stripe-hosted fields, or ""charge card on file"" or ""invoice later"" queued with a `client_payment_key`. Never capture card numbers offline.",technician app,must,yes,no,
-"FR-TEC-09 Photos and signatures store locally, upload in the background, and survive app restarts.",technician app,must,yes,no,
-FR-TEC-10 One-tap navigate to the stop in the device's maps app.,technician app,must,yes,partial,Navigate link in the interim online day view
-FR-TEC-11 Outdoor high-contrast mode; primary actions bottom-anchored; touch targets at least 48 px.,technician app,must,yes,partial,Outdoor high-contrast tokens and 48 px targets; mode toggle in M3
-FR-REC-01 Each completed service produces an application record per product with all CR-01 fields.,application records,must,yes,no,
+"FR-TEC-01 Installable PWA. Today's and tomorrow's routes, customers, properties, products, and notes sync at shift start and incrementally.",technician app,must,yes,yes,"Installable PWA (manifest, icons, service worker scoped to /tech). Today's and tomorrow's route, products, last mixes and notes sync at start and every minute"
+FR-TEC-02 All screens read from local storage. No screen blocks on the network.,technician app,must,yes,yes,Every screen reads the IndexedDB copy; the network is only used in the background
+"FR-TEC-03 Stop flow: Arrive, checklist, Products, Photos, Signature, Payment, Complete.",technician app,must,yes,yes,"Arrive, Checklist, Products, Photos, Signature, Payment, Complete; skip with a reason"
+FR-TEC-04 Every field edit persists locally within 500 ms. Killing or backgrounding the app at any step loses nothing (R-BUG-01).,technician app,must,yes,yes,Drafts written on every change; draft and queued upload saved in one transaction; e2e kills the tab twice mid-stop and loses nothing
+"FR-TEC-05 Persistent sync chip: ""All saved on device"" plus count waiting to upload.",technician app,must,yes,yes,"Chip: All saved on this phone, waiting count, offline, sign-in and server states"
+"FR-TEC-06 Product entry: favorites, last-used mix for the property, unit-typed inputs with live conversion preview (R-BUG-07).",technician app,must,yes,yes,"Used here last time, the technician's usual products, search; unit selects with a plain-words preview"
+FR-TEC-07 A stop cannot be completed if a required record field (CR-01) is missing. Show exactly which field.,technician app,must,yes,yes,Review step lists missing CR-01 fields per product with a jump to fix; the server runs the same check
+"FR-TEC-08 Payment in the field: online only via Stripe-hosted fields, or ""charge card on file"" or ""invoice later"" queued with a `client_payment_key`. Never capture card numbers offline.",technician app,must,yes,partial,"Invoice later, cash and check with client payment keys; card online waits for Stripe (M4). No card fields anywhere"
+"FR-TEC-09 Photos and signatures store locally, upload in the background, and survive app restarts.",technician app,must,yes,partial,Photos (shrunk) and signatures stored on the phone and survive restarts; background upload next
+FR-TEC-10 One-tap navigate to the stop in the device's maps app.,technician app,must,yes,yes,"Navigate opens Apple Maps on Apple devices, Google Maps elsewhere; call button"
+FR-TEC-11 Outdoor high-contrast mode; primary actions bottom-anchored; touch targets at least 48 px.,technician app,must,yes,yes,"Outdoor mode switch (set before first paint), 48 px targets, primary action bottom-anchored"
+FR-REC-01 Each completed service produces an application record per product with all CR-01 fields.,application records,must,yes,yes,"One record per product per completed stop, CR-01 snapshot filled by the server"
 FR-REC-02 PDF service record for the customer with business name and license number.,application records,must,yes,no,
 "FR-REC-03 Records are immutable after 24 h; amendments are new rows linked to the original, with an audit entry.",application records,must,yes,partial,DB-08 lock and amendment rows enforced in DB; UI in M3
 FR-REC-04 Record state template is per tenant state. Utah template ships first.,application records,must,yes,partial,"state_template column, Utah default"
-FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-application customer statement.,application records,must,yes,partial,Enforced by CHECK and domain helper; prompt UI in M3
+FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-application customer statement.,application records,must,yes,yes,Restricted-use Danger products require the statement checkbox; DB CHECK backs it
 "FR-REC-06 Report: product usage by date range, product, EPA number, technician; exportable CSV and PDF.",application records,must,yes,no,
 "FR-BIL-01 Invoices generated on service completion or on a billing schedule, one per subscription period.",billing,must,yes,no,
 FR-BIL-02 Autopay by card or ACH using Stripe-hosted setup and stored mandates.,billing,must,yes,no,
@@ -87,13 +87,13 @@ CR-12 Audit log on financial and compliance tables,compliance,must,n/a,yes,Audit
 "CR-13 Publish Terms, Privacy Policy, a DPA, and a subprocessor list before the first customer. Templates are acceptable for customer 1; attorney review is deferred risk (D-13)",compliance,must,n/a,no,"floor, not traded for cost"
 CR-14 No card surcharge feature in MVP. Offer ACH as the low-fee option instead,compliance,must,n/a,no,"floor, not traded for cost"
 CR-15 MFA available for owner and admin roles,compliance,must,n/a,no,"floor, not traded for cost"
-NFR-01 Offline: full route day with zero connectivity; zero data loss on app kill.,non-functional,should,n/a,no,
-NFR-02 Sync conflicts: server wins on schedule fields; client wins on field-captured records; conflicts go to a review queue.,non-functional,should,n/a,no,
+NFR-01 Offline: full route day with zero connectivity; zero data loss on app kill.,non-functional,should,n/a,yes,"15-stop route completed fully offline in e2e, tab killed twice, one clean upload, no duplicates"
+NFR-02 Sync conflicts: server wins on schedule fields; client wins on field-captured records; conflicts go to a review queue.,non-functional,should,n/a,partial,"Server wins on schedule, device on records; conflicts stored in sync_conflicts; office review screen next"
 NFR-03 Performance: office interactions p95 under 300 ms; technician route opens under 1 s from local data; optimize one technician with 60 stops under 15 s.,non-functional,should,n/a,partial,Optimizing 60 stops: well under 1 s (unit test); 125 stops under 5 s. Office p95 and technician route timing not measured yet
 NFR-04 Reliability: billing and messaging jobs idempotent and resumable; public status page.,non-functional,should,n/a,no,
 NFR-05 Accessibility: WCAG 2.2 AA on office and portal; color-blind-safe route colors.,non-functional,should,n/a,partial,axe WCAG 2.2 AA on every built screen at 1440 and 390 px
 NFR-06 Observability: Sentry on web and PWA; structured logs with tenant and request ids; job failure dashboard.,non-functional,should,n/a,no,
-"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,partial,Geocoder and RouteOptimizer interfaces; others follow their milestones
+"NFR-07 Portability: provider interfaces for hosting-specific code, routing, sync, geocoding, messaging, payments.",non-functional,should,n/a,partial,"Geocoder, RouteOptimizer and SyncProvider interfaces; others follow their milestones"
 "NFR-08 Privacy: only addresses and coordinates go to Google; no customer names, phones, or notes. Subprocessors listed in `docs/VENDORS.md`.",non-functional,should,n/a,yes,Geocoder sends address only (unit tested)
 Door-to-door sales app with contracts,sales,could,yes,skip,PRD non-goal for MVP (P3)
 Fleet GPS tracking add-on,dispatch,could,yes,skip,PRD non-goal for MVP (P3)

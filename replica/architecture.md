@@ -13,7 +13,7 @@ Reads `replica/recon.md` and `docs/PRD.md` (normative). Last updated 2026-10-06.
 | Data access | Kysely over `pg`, queries wrapped in `withRls` (role `authenticated` + verified JWT claims) | Typed SQL with transactions; RLS still applies. PRD allows drizzle or kysely; kysely keeps SQL migrations the single source of truth (types are generated from them) |
 | Auth | Supabase Auth, email one-time code; MFA available later (CR-15) | Code entry works inside an installed iOS PWA, where magic links open Safari instead |
 | Jobs | Inngest (durable steps) for generation, billing, messaging, import | D-04: nothing over 20 s in a request |
-| Offline | PowerSync behind a `SyncProvider` interface (M3) | D-06 |
+| Offline | `SyncProvider` interface (D-06). Built: our own adapter (snapshot of today and tomorrow down, ordered idempotent mutations up), IndexedDB on the device, a hand-written service worker. PowerSync (D-06's choice) needs an account the owner creates; it can replace the adapter without touching the stop flow | D-06, NFR-07 |
 | Routing | `RouteOptimizer` interface. Built: a local estimate adapter (straight-line legs x 1.35 at 40 km/h; window-aware construction, then relocate search scored on late stops, lateness, then driving; never returns a worse day than the current order). Google and VROOM adapters wait for an account or server to verify against | D-07, NFR-07 |
 | Maps | MapLibre GL 6 via react-map-gl. Style URL is configuration; empty means a plain background and no tile requests. The worker file is copied to `public/vendor` at build so it loads from our own domain. Google Geocoding behind `Geocoder` (address only) | D-08, NFR-08 |
 | Drag and drop | dnd-kit (pointer and keyboard sensors, screen-reader announcements with customer names) | FR-DSP-02, NFR-05 |
@@ -90,7 +90,14 @@ Dispatch (M2), all for owner, admin, office and dispatcher; each write locks the
 | `publishRouteAction` | records the published order and how many FR-DSP-06 warnings were accepted |
 | `confirmPinAction` | FR-CRM-02: place, confirm and optionally lock a property pin (a locked pin moves only by unlocking in the same save) |
 
-Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6), PowerSync upload endpoint (M3).
+Technician sync (M3), JSON, `Cache-Control: private, no-store`, cross-origin requests refused:
+
+| Route | Does |
+| --- | --- |
+| `GET /api/tech/sync` | snapshot: today's and tomorrow's stops (numbers as on the board), products, last mix per property, favorites, business and applicator details (CR-01, CR-03). 409 for a login with no technician profile |
+| `POST /api/tech/upload` | up to 50 mutations (arrive, complete, skip) in order, each in its own transaction, answered one by one: applied, duplicate, conflict, rejected or retry |
+
+Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 
 ## 5. The parts that bite
 
@@ -98,7 +105,7 @@ Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/
 - Idempotency: every retryable write has a client key with a unique constraint; generation, ledger posting and webhook intake are all upserts or dedupes.
 - Concurrency: version columns bumped by trigger; no-op updates and job bookkeeping (`generated_through`, `sequence`) do not count as edits. Route order is protected differently: a board write locks the route rows it touches (always in technician-id order, so two dispatchers cannot deadlock) and compares the lane's current order with the order the dispatcher saw. Comparing the order itself also catches changes made elsewhere, such as a skip on the visit page.
 - Stop numbers (FR-DSP-05): a stop's number is its place in the lane, ordered by `sequence`, then window start, then id, the same query on the board, the map and the technician app. Publishing writes 1..n so the stored sequence matches.
-- Offline (M3): the hardest part; PowerSync, local-first reads, persisted drafts, upload queue, conflict review queue (NFR-02).
+- Offline (M3): every screen reads the device copy; drafts are written on every change; a draft and its queued upload commit in one IndexedDB transaction; the outbox carries client keys, so a lost answer and a retry produce one record (ENG-01). Server wins on schedule fields, the device on field records; collisions are kept and queued in `sync_conflicts` (NFR-02). The service worker keeps only the /tech page and hashed static files; it never caches API responses.
 - Money (M4): Stripe idempotency keys from row ids, webhook dedupe, ledger as the only source for balances and reports.
 - Multi-tenancy: composite foreign keys plus RLS plus grants, all tested per table.
 
@@ -109,7 +116,7 @@ Planned routes: `/api/inngest` (job runner), `/api/webhooks/stripe` (M4), `/api/
 | M0 Foundation | S01, S02 | Done: schema, RLS, pgTAP, auth, tenant setup, CI |
 | M1 Core records | S03, S06, S07, S08, S14 | Done: customers, properties, plans, subscriptions with edits, pause and cancel, one-off visits, generation, DST tests |
 | M2 Dispatch | S04 board, S05, S09 | Done: lanes and map with shared selection, drag by pointer or keyboard (within and between lanes, to other days, from the queue), optimize preview, save and undo, publish with the long-leg check, pin confirmation. Remaining: Google and VROOM optimizer adapters (owner accounts) |
-| M3 Technician PWA | S17, S18 | Online day list as a stopgap |
+| M3 Technician PWA | S17, S18 | Exit test passes: 15 stops offline, tab killed twice, one clean upload. Remaining: photo and signature upload, PDF service record, conflict review screen, CR-02 warnings |
 | M4 Money | S11, S12 | Schema and constraints in place |
 | M5 Migration and export | S15, S16 | Schema in place |
 | M6 Messaging and portal | S19, S20 | Schema in place |
