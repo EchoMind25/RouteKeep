@@ -82,6 +82,8 @@ export interface BlobEntry {
   blob: Blob;
   contentType: string;
   capturedAt: string;
+  /** Set when its stop is completed or skipped: only then is it sent (a photo deleted before that never leaves the phone). */
+  ready: boolean;
   uploadedAt: string | null;
 }
 
@@ -223,18 +225,24 @@ export class TechStore {
       const sent = !this.state.outbox.some((o) => o.appointmentId === d.appointmentId);
       return sent && (d.completedAt || d.skippedAt) && (!server || server.status === "completed");
     });
-    const tx = db.transaction(["meta", "stops", "products", "mixes", "drafts"], "readwrite");
+    // Their files go too, once sent; a file never marked ready was deleted from the stop or never needed.
+    const done = new Set(finished.map((d) => d.appointmentId));
+    const released = [...this.state.blobs.values()].filter((b) => done.has(b.appointmentId) && (b.uploadedAt || !b.ready));
+    const tx = db.transaction(["meta", "stops", "products", "mixes", "drafts", "blobs"], "readwrite");
     await Promise.all([
       tx.objectStore("stops").clear().then(() => Promise.all(stops.map((s) => tx.objectStore("stops").put(s)))),
       tx.objectStore("products").clear().then(() => Promise.all(products.map((p) => tx.objectStore("products").put(p)))),
       tx.objectStore("mixes").clear().then(() => Promise.all(mixes.map((m) => tx.objectStore("mixes").put(m)))),
       tx.objectStore("meta").put({ key: "info", value: info }),
       ...finished.map((d) => tx.objectStore("drafts").delete(d.appointmentId)),
+      ...released.map((b) => tx.objectStore("blobs").delete(b.key)),
     ]);
     await tx.done;
     const drafts = new Map(this.state.drafts);
     for (const d of finished) drafts.delete(d.appointmentId);
-    this.set({ info, stops, products, mixes: new Map(mixes.map((m) => [m.propertyId, m.mixes])), drafts });
+    const blobs = new Map(this.state.blobs);
+    for (const b of released) blobs.delete(b.key);
+    this.set({ info, stops, products, mixes: new Map(mixes.map((m) => [m.propertyId, m.mixes])), drafts, blobs });
   }
 
   /** ENG-09: written on every change, not on submit. */
@@ -250,21 +258,63 @@ export class TechStore {
    * Saves a draft and queues its upload in one transaction: both happen or
    * neither, so a stop can never look finished with nothing queued to send.
    */
-  async record(draft: Draft, mutation: Mutation): Promise<void> {
+  async record(draft: Draft, mutation: Mutation, readyBlobs: readonly string[] = []): Promise<void> {
     const next = { ...draft, updatedAt: new Date().toISOString() };
     const entry: OutboxEntry = { key: mutation.key, appointmentId: mutation.appointmentId, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
+    const ready = readyBlobs.flatMap((k) => (this.state.blobs.has(k) ? [{ ...this.state.blobs.get(k)!, ready: true }] : []));
     const db = await this.conn();
     const write = (async () => {
-      const tx = db.transaction(["drafts", "outbox"], "readwrite");
+      const tx = db.transaction(["drafts", "outbox", "blobs"], "readwrite");
       await tx.objectStore("drafts").put(next);
       const seq = await tx.objectStore("outbox").add(entry);
+      for (const b of ready) await tx.objectStore("blobs").put(b);
       await tx.done;
       return seq;
     })();
     const seq = await this.track(write);
     const drafts = new Map(this.state.drafts);
     drafts.set(next.appointmentId, next);
-    this.set({ drafts, outbox: [...this.state.outbox, { ...entry, seq }] });
+    const blobs = new Map(this.state.blobs);
+    for (const b of ready) blobs.set(b.key, b);
+    this.set({ drafts, blobs, outbox: [...this.state.outbox, { ...entry, seq }] });
+  }
+
+  /** Files that are finished and not yet sent, oldest first. */
+  pendingBlobs(): BlobEntry[] {
+    return [...this.state.blobs.values()].filter((b) => b.ready && !b.uploadedAt).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  }
+
+  /** The server will never take this file (its visit is gone, or the type is refused): stop sending it, and say so. */
+  async markRejected(key: string, message: string): Promise<void> {
+    const entry = this.state.blobs.get(key);
+    if (!entry) return;
+    const db = await this.conn();
+    const stuck = { ...entry, ready: false };
+    const notice: Notice = { key: `file-${key}`, appointmentId: entry.appointmentId, status: "rejected", message, at: new Date().toISOString() };
+    const tx = db.transaction(["blobs", "notices"], "readwrite");
+    await tx.objectStore("blobs").put(stuck);
+    await tx.objectStore("notices").put(notice);
+    await tx.done;
+    const blobs = new Map(this.state.blobs);
+    blobs.set(key, stuck);
+    this.set({ blobs, notices: [...this.state.notices, notice] });
+  }
+
+  /** A file reached the server. Once its stop is finished here too, the phone lets go of it. */
+  async markUploaded(key: string): Promise<void> {
+    const entry = this.state.blobs.get(key);
+    if (!entry) return;
+    const db = await this.conn();
+    const blobs = new Map(this.state.blobs);
+    if (this.state.drafts.has(entry.appointmentId)) {
+      const uploaded = { ...entry, uploadedAt: new Date().toISOString() };
+      await db.put("blobs", uploaded);
+      blobs.set(key, uploaded);
+    } else {
+      await db.delete("blobs", key);
+      blobs.delete(key);
+    }
+    this.set({ blobs });
   }
 
   async enqueue(mutation: Mutation): Promise<void> {

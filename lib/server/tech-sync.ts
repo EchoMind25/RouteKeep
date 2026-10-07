@@ -350,6 +350,7 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
         arrived_at: sql`coalesce(arrived_at, ${new Date(mutation.at)}::timestamptz)`,
         tech_notes: mutation.notes,
         checklist_results: JSON.stringify(mutation.checklist),
+        signer_name: mutation.signerName ?? null,
       })
       .where("id", "=", visit.id)
       .execute();

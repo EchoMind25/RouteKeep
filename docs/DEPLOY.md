@@ -35,10 +35,15 @@ secret only the owner can create. Budget references are PRD section 5.
    Not yet verified on a hosted project: if Supabase refuses the `grant`, skip
    this step and use the default pooler user; RLS still applies because every
    request switches to `authenticated` in `withRls`.
-7. API settings: remove `public` from the Data API's exposed schemas. The app
+7. Storage: create a **private** bucket named `attachments` (or set
+   `STORAGE_BUCKET`). Photos, signatures and service records go there through
+   the server with the service role key; no browser ever gets a storage key.
+   Not yet exercised against a hosted project: after setup, complete one test
+   stop with a photo and open it from the visit page to confirm.
+8. API settings: remove `public` from the Data API's exposed schemas. The app
    talks to Postgres directly; RLS and grants are designed to be safe either way,
    but there is no reason to expose it.
-8. Before the first real customer record: upgrade to Pro ($25/month) and run a
+9. Before the first real customer record: upgrade to Pro ($25/month) and run a
    test restore (CR-09, BUD-02). Then delete `.github/workflows/supabase-keepalive.yml`.
 
 ## 2. Netlify (Free, D-03)

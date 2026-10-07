@@ -136,6 +136,8 @@ export const mutation = z.discriminatedUnion("kind", [
     checklist: z.array(z.object({ label: z.string().trim().min(1).max(200), done: z.boolean() })).max(50),
     notes: z.string().trim().max(4000).nullable(),
     payment: paymentInput,
+    /** The name given with the signature, if the customer signed (FR-TEC-03). */
+    signerName: z.string().trim().min(1).max(120).nullable().optional(),
   }),
   z.object({ kind: z.literal("skip"), ...base, reason: z.string().trim().min(1).max(500) }),
 ]);

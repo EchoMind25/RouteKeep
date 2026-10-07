@@ -160,5 +160,11 @@ export function buildComplete(draft: Draft, stop: SnapshotStop, info: SnapshotIn
     checklist: Object.entries(draft.checklist).map(([label, done]) => ({ label, done })),
     notes: draft.notes.trim() || null,
     payment,
+    signerName: draft.signature?.signerName.trim() || null,
   };
+}
+
+/** Photos and signature that go with the stop once it is finished (FR-TEC-09). */
+export function attachmentKeys(draft: Draft): string[] {
+  return [...draft.photos, ...(draft.signature ? [draft.signature.key] : [])];
 }

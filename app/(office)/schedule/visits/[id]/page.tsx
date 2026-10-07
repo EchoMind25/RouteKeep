@@ -7,8 +7,10 @@ import { Alert, Details, Panel, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatCents } from "@/lib/domain/money";
 import { listTechnicians } from "@/lib/server/catalog";
+import { getServiceRecord } from "@/lib/server/records";
 import { getVisit } from "@/lib/server/visits";
 import { APPOINTMENT_STATUS, formatLocalDate, formatWindow } from "@/lib/ui/format";
+import { ServiceRecordPanel } from "./service-record";
 import { ReasonForm, RescheduleForm, RestoreForm } from "./visit-forms";
 
 export const metadata: Metadata = { title: "Visit" };
@@ -28,8 +30,9 @@ export default async function VisitPage({ params, searchParams }: { params: Prom
   const { id } = await params;
   const done = DONE[(await searchParams).done ?? ""];
   if (!UUID.test(id)) notFound();
-  const [visit, technicians] = await Promise.all([getVisit(member, id), listTechnicians(member, { activeOnly: true })]);
-  if (!visit) notFound();
+  const [visit, technicians, record] = await Promise.all([getVisit(member, id), listTechnicians(member, { activeOnly: true }), getServiceRecord(member, id)]);
+  if (!visit || !record) notFound();
+  const worked = record.applications.length > 0 || record.attachments.length > 0 || Boolean(record.visit.arrivedAt) || visit.status === "completed";
 
   const status = APPOINTMENT_STATUS[visit.status] ?? APPOINTMENT_STATUS.scheduled!;
   const editable = visit.status === "scheduled" || visit.status === "unscheduled";
@@ -91,6 +94,8 @@ export default async function VisitPage({ params, searchParams }: { params: Prom
               </div>
             </Panel>
           ) : null}
+
+          {worked ? <ServiceRecordPanel record={record} /> : null}
 
           {!editable && !restorable ? <Alert>This visit is {status.label.toLowerCase()} and can no longer be changed here.</Alert> : null}
         </div>

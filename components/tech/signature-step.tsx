@@ -45,7 +45,7 @@ export function SignatureStep({ stop, draft, blobs, onChange }: { stop: Snapshot
     const blob = await new Promise<Blob | null>((resolve) => c.toBlob(resolve, "image/png"));
     if (!blob) return;
     const k = draft.signature?.key ?? key("signature");
-    await store.putBlob({ key: k, appointmentId: stop.id, kind: "signature", blob, contentType: "image/png", capturedAt: new Date().toISOString(), uploadedAt: null });
+    await store.putBlob({ key: k, appointmentId: stop.id, kind: "signature", blob, contentType: "image/png", capturedAt: new Date().toISOString(), ready: false, uploadedAt: null });
     onChange({ key: k, signerName: name });
   }
 

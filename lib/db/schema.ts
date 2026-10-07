@@ -109,6 +109,7 @@ export interface Appointments {
   sequence: number | null;
   service_type_id: string;
   shadow: Generated<boolean>;
+  signer_name: string | null;
   skip_reason: string | null;
   source: Generated<string>;
   status: Generated<string>;

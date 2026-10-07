@@ -18,6 +18,11 @@ const schema = z
     // D-07. Only the built-in estimate exists so far; the Google and VROOM
     // adapters are added once there is an account or server to verify them against.
     ROUTE_OPTIMIZER: z.enum(["estimate", "google", "vroom"]).default("estimate"),
+    // FR-TEC-09: where photos and signatures go. Defaults to Supabase Storage,
+    // or to files on this machine when AUTH_MODE=local (development and tests).
+    STORAGE_PROVIDER: z.enum(["supabase", "local"]).optional(),
+    STORAGE_BUCKET: z.string().min(3).max(63).default("attachments"),
+    LOCAL_STORAGE_DIR: z.string().min(1).default(".local/storage"),
     NETLIFY: z.string().optional(),
     CONTEXT: z.string().optional(),
   })
@@ -32,6 +37,11 @@ const schema = z
       }
       const blocked = localAuthBlockReason({ databaseUrl: e.DATABASE_URL, netlify: e.NETLIFY, context: e.CONTEXT });
       if (blocked) ctx.addIssue({ code: "custom", path: ["AUTH_MODE"], message: blocked });
+    }
+    // Files on this machine are for development only, with the same guard as local sign-in.
+    if (e.STORAGE_PROVIDER === "local") {
+      const blocked = localAuthBlockReason({ databaseUrl: e.DATABASE_URL, netlify: e.NETLIFY, context: e.CONTEXT });
+      if (blocked) ctx.addIssue({ code: "custom", path: ["STORAGE_PROVIDER"], message: blocked.replace("Local sign-in", "Local file storage") });
     }
   });
 
@@ -49,6 +59,11 @@ export function env(): Env {
     cached = parsed.data;
   }
   return cached;
+}
+
+/** The storage adapter in effect: explicit, or local files exactly when sign-in is local. */
+export function storageProvider(e: Env = env()): "supabase" | "local" {
+  return e.STORAGE_PROVIDER ?? (e.AUTH_MODE === "local" ? "local" : "supabase");
 }
 
 export function parseEnvForTest(source: Record<string, string | undefined>) {

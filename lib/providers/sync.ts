@@ -1,3 +1,4 @@
+import type { BlobEntry } from "@/lib/sync/client-store";
 import { SYNC_PROTOCOL, type Mutation, type MutationResult, type Snapshot, type UploadResponse } from "@/lib/sync/protocol";
 
 // D-06, NFR-07: how the technician app reaches the server. The built-in
@@ -21,6 +22,8 @@ export interface SyncProvider {
   pull(): Promise<Snapshot>;
   /** Sends queued work in order; one answer per mutation. */
   push(mutations: Mutation[]): Promise<MutationResult[]>;
+  /** Sends one photo or signature (FR-TEC-09); safe to repeat. */
+  uploadFile(file: BlobEntry): Promise<"applied" | "duplicate" | "rejected">;
 }
 
 async function failure(response: Response): Promise<SyncHttpError> {
@@ -45,5 +48,18 @@ export const httpSync: SyncProvider = {
     });
     if (!response.ok) throw await failure(response);
     return ((await response.json()) as UploadResponse).results;
+  },
+  async uploadFile(file) {
+    const form = new FormData();
+    form.set("key", file.key);
+    form.set("appointmentId", file.appointmentId);
+    form.set("kind", file.kind);
+    form.set("capturedAt", file.capturedAt);
+    form.set("file", new File([file.blob], `${file.key}`, { type: file.contentType }));
+    const response = await fetch("/api/tech/attachments", { method: "POST", cache: "no-store", credentials: "same-origin", body: form });
+    // The server will never take it (gone visit, wrong type): stop trying, keep it on the phone.
+    if (response.status === 422 || response.status === 413 || response.status === 415) return "rejected";
+    if (!response.ok) throw await failure(response);
+    return ((await response.json()) as { status: "applied" | "duplicate" }).status;
   },
 };

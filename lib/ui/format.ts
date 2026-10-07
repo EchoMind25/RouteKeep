@@ -24,6 +24,12 @@ export function formatTime(time: string | null | undefined): string {
   return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
+/** An instant shown on the business's own clock, e.g. "Oct 6, 2026, 9:05 AM" (ENG-05: never the server's zone). */
+export function formatInstant(instant: Date | string | null | undefined, timeZone: string): string {
+  if (!instant) return "";
+  return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(instant));
+}
+
 export function formatWindow(start: string | null | undefined, end: string | null | undefined): string {
   if (!start && !end) return "Any time";
   if (start && end) return `${formatTime(start)} - ${formatTime(end)}`;

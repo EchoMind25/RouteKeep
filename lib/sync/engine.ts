@@ -119,6 +119,12 @@ export class SyncEngine {
         // The server is struggling with something; leave the rest for the next round.
         if (results.some((r) => r.status === "retry")) break;
       }
+      // Then photos and signatures of finished stops (FR-TEC-09), one at a time.
+      for (const file of this.store.pendingBlobs()) {
+        const status = await this.provider.uploadFile(file);
+        if (status === "rejected") await this.store.markRejected(file.key, `A ${file.kind} could not be sent. It is still on this phone; tell the office.`);
+        else await this.store.markUploaded(file.key);
+      }
       await this.store.saveSnapshot(await this.provider.pull());
       this.failures = 0;
       this.set({ online: true, lastSyncAt: new Date().toISOString(), error: null, signedOut: false, notLinked: false });

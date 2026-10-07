@@ -100,7 +100,8 @@ export function TechApp({ userId, appVersion }: { userId: string; appVersion: st
 
 /** FR-TEC-05: always says whether work is safe, and how much is still to upload. */
 export function SyncChip({ state, sync }: { state: TechState; sync: SyncState }) {
-  const waiting = state.outbox.length;
+  // Mutations and finished files alike: everything not yet on the server.
+  const waiting = state.outbox.length + [...state.blobs.values()].filter((b) => b.ready && !b.uploadedAt).length;
   const { engine } = useTech();
   const waitingText = waiting ? `${waiting} waiting to upload` : null;
   let icon = <CloudCheck size={18} aria-hidden />;
@@ -287,7 +288,7 @@ function Settings({ open, onOpenChange, state }: { open: boolean; onOpenChange: 
     form?.requestSubmit();
   }
 
-  const waiting = state.outbox.length;
+  const waiting = state.outbox.length + [...state.blobs.values()].filter((b) => b.ready && !b.uploadedAt).length;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import type { APIRequestContext } from "@playwright/test";
 import { adminQuery, denverToday, OFFICE, seedDispatchDay } from "./db";
-import { expect, signInAs, test } from "./fixtures";
+import { expect, expectAccessible, signInAs, test } from "./fixtures";
 
 // The technician app's sync API (FR-TEC-01, NFR-01, NFR-02, ENG-01, FR-TEC-07).
 // Exercised over HTTP with a real session, against a real database.
@@ -166,4 +168,94 @@ test("FR-TEC-01: a login without a technician profile gets a clear answer", asyn
   const response = await page.request.get("/api/tech/sync");
   expect(response.status()).toBe(409);
   expect((await response.json()).error).toContain("not linked to a technician");
+});
+
+/** The text of a PDF made with the built-in fonts: inflate each stream, read its hex strings. */
+function pdfText(pdf: Buffer): string {
+  let text = "";
+  for (const m of pdf.toString("latin1").matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    try {
+      const content = inflateSync(Buffer.from(m[1]!, "latin1")).toString("latin1");
+      text += [...content.matchAll(/<([0-9a-fA-F]+)>/g)].map((h) => Buffer.from(h[1]!, "hex").toString("latin1")).join("");
+    } catch {
+      // Not a content stream (an image, a font): nothing to read.
+    }
+  }
+  return text;
+}
+
+// A 1x1 PNG, enough to stand in for a photo or a signature.
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+
+test("FR-TEC-09, FR-REC-02, CR-03: files upload once; the office sees the record and gets the PDF", async ({ page, browser }) => {
+  const today = denverToday();
+  const day = await seedDispatchDay({
+    date: today,
+    techs: ["Anika Sorensen"],
+    techLogins: [0],
+    products: [{ name: "Test Perimeter Concentrate" }],
+    stops: [{ name: "Marisol Quintero", lat: OFFICE.lat, lng: OFFICE.lng, tech: 0 }],
+  });
+  const visit = day.stopIds[0]!;
+  await signInAs(page, day.techEmails[0]!);
+  const at = new Date().toISOString();
+  const done = await statuses(
+    await upload(page.request, [
+      {
+        kind: "complete",
+        key: key("complete"),
+        appointmentId: visit,
+        date: today,
+        at,
+        applications: [application(day.productIds[0]!)],
+        checklist: [],
+        notes: "Webs under the eaves",
+        payment: { method: "invoice_later" },
+        signerName: "Marisol Quintero",
+      },
+    ]),
+  );
+  expect(done[0]!.status).toBe("applied");
+
+  const send = (k: string, kind: string, file: { name: string; mimeType: string; buffer: Buffer }) =>
+    page.request.post("/api/tech/attachments", { multipart: { key: k, appointmentId: visit, kind, capturedAt: at, file } });
+  const signatureKey = key("signature");
+  const photoKey = key("photo");
+  expect(await (await send(signatureKey, "signature", { name: "s.png", mimeType: "image/png", buffer: PNG })).json()).toMatchObject({ status: "applied" });
+  expect(await (await send(photoKey, "photo", { name: "p.png", mimeType: "image/png", buffer: PNG })).json()).toMatchObject({ status: "applied" });
+  // A retry after a lost answer lands once.
+  expect(await (await send(photoKey, "photo", { name: "p.png", mimeType: "image/png", buffer: PNG })).json()).toMatchObject({ status: "duplicate" });
+  expect((await send(key("photo"), "photo", { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("hello") })).status()).toBe(415);
+  const files = await adminQuery<{ path: string; kind: string; sha256: string }>("select path, kind, sha256 from public.attachments where owner_id = $1 order by kind", [visit]);
+  expect(files.map((f) => f.kind)).toEqual(["photo", "signature"]);
+  for (const f of files) expect(existsSync(`.local/storage/${f.path}`)).toBe(true);
+
+  // Technicians do not hand out records; the office does (customers get theirs in M6).
+  expect((await page.request.get(`/api/records/${visit}`)).status()).toBe(403);
+
+  const officeContext = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+  const office = await officeContext.newPage();
+  await signInAs(office, day.email);
+  await office.goto(`/schedule/visits/${visit}`);
+  const record = office.getByRole("region", { name: "Service record" });
+  await expect(record.getByText("Test Perimeter Concentrate")).toBeVisible();
+  await expect(record.getByText("Marisol Quintero")).toBeVisible();
+  await expect(record.getByRole("img", { name: /^Photo 1/ })).toBeVisible();
+  await expect(record.getByRole("img", { name: "Signature of Marisol Quintero" })).toBeVisible();
+  await expectAccessible(office);
+
+  const pdf = await office.request.get(`/api/records/${visit}`);
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()["content-type"]).toBe("application/pdf");
+  const body = await pdf.body();
+  expect(body.subarray(0, 5).toString()).toBe("%PDF-");
+  const text = pdfText(body);
+  // CR-03 on the record, CR-01 fields in it.
+  for (const expected of ["Dispatch Test Pest", "Pesticide business license UT-BUS-0001", "Marisol Quintero", "EPA registration no.", "0-200", "license UT-APP-1000", "Foundation perimeter", "Ants"]) {
+    expect(text).toContain(expected);
+  }
+  const image = await office.request.get(`/api/attachments/${(await adminQuery<{ id: string }>("select id from public.attachments where client_key = $1", [photoKey]))[0]!.id}`);
+  expect(image.status()).toBe(200);
+  expect(image.headers()["content-type"]).toBe("image/png");
+  await officeContext.close();
 });

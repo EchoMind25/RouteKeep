@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { formatCents } from "@/lib/domain/money";
 import { STEPS, type ApplicationEntry, type Draft, type SnapshotInfo, type StepId, type TechState } from "@/lib/sync/client-store";
 import type { SnapshotProduct, SnapshotStop } from "@/lib/sync/protocol";
-import { buildComplete, key, missingFields, newApplication, newDraft, paymentProblem } from "@/lib/sync/stop-draft";
+import { attachmentKeys, buildComplete, key, missingFields, newApplication, newDraft, paymentProblem } from "@/lib/sync/stop-draft";
 import { formatWindow } from "@/lib/ui/format";
 import { ApplicationEditor } from "./application-editor";
 import { useTech } from "./context";
@@ -149,7 +149,8 @@ function SkipDialog({ stop, draft, open, onOpenChange }: { stop: SnapshotStop; d
   async function skip() {
     const now = new Date();
     const base = draft ?? { ...newDraft(stop, now), arrivedAt: null };
-    await store.record({ ...base, skippedAt: now.toISOString() }, { kind: "skip", key: key("skip"), appointmentId: stop.id, date: stop.date, at: now.toISOString(), reason: text });
+    // Photos taken before the skip (a locked gate, say) go with it.
+    await store.record({ ...base, skippedAt: now.toISOString() }, { kind: "skip", key: key("skip"), appointmentId: stop.id, date: stop.date, at: now.toISOString(), reason: text }, attachmentKeys(base));
     engine.request();
     onOpenChange(false);
     go({ stopId: null, step: null });
@@ -223,7 +224,7 @@ function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: D
 
   async function complete() {
     const mutation = buildComplete(draft, stop, info, new Date());
-    await store.record({ ...draft, completedAt: mutation.at, rejection: null, step: "review" }, mutation);
+    await store.record({ ...draft, completedAt: mutation.at, rejection: null, step: "review" }, mutation, attachmentKeys(draft));
     engine.request();
     go({ stopId: null, step: null });
   }

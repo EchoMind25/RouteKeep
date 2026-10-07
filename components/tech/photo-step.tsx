@@ -42,7 +42,7 @@ export function PhotoStep({ stop, draft, blobs, onChange }: { stop: SnapshotStop
     for (const file of Array.from(files)) {
       const blob = await shrink(file);
       const k = key("photo");
-      await store.putBlob({ key: k, appointmentId: stop.id, kind: "photo", blob, contentType: blob.type || "image/jpeg", capturedAt: new Date().toISOString(), uploadedAt: null });
+      await store.putBlob({ key: k, appointmentId: stop.id, kind: "photo", blob, contentType: blob.type || "image/jpeg", capturedAt: new Date().toISOString(), ready: false, uploadedAt: null });
       keys.push(k);
     }
     onChange([...draft.photos, ...keys]);

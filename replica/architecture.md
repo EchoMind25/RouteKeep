@@ -95,6 +95,9 @@ Technician sync (M3), JSON, `Cache-Control: private, no-store`, cross-origin req
 | Route | Does |
 | --- | --- |
 | `GET /api/tech/sync` | snapshot: today's and tomorrow's stops (numbers as on the board), products, last mix per property, favorites, business and applicator details (CR-01, CR-03). 409 for a login with no technician profile |
+| `POST /api/tech/attachments` | one photo or signature (JPEG, PNG or WebP, under 10 MB) for a visit; stored under a path the server builds; idempotent by client key |
+| `GET /api/attachments/:id` | the file, for any member who may see the row (RLS) |
+| `GET /api/records/:id` | FR-REC-02 PDF service record of a completed visit, office roles; built-in PDF fonts, nothing fetched |
 | `POST /api/tech/upload` | up to 50 mutations (arrive, complete, skip) in order, each in its own transaction, answered one by one: applied, duplicate, conflict, rejected or retry |
 
 Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).

@@ -13,7 +13,7 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S07 Customer detail | 2026-10-06 | partial | Edit, add property, timeline beyond visits, skip/pause/cancel | |
 | S08 New customer + plan | 2026-10-06 | done | | Schedule preview uses the same recurrence code as generation |
 | S09 Property pin | 2026-10-07 | done | A street map needs `NEXT_PUBLIC_MAP_STYLE_URL` | A page, not a dialog: the map needs room. Keyboard path: pan to the crosshair, or type coordinates |
-| S10 Appointment | | not started | | Next: edit one / this and future (FR-SUB-03) |
+| S10 Appointment | 2026-10-07 | done | | Move, skip, cancel, restore; the service record (products, notes, photos, signature) and its PDF once the stop is done |
 | S11 Billing, S12 Take payment | | not started | | M4, schema ready |
 | S13 Reports | | not started | | |
 | S14 Settings | 2026-10-06 | partial | Edit and retire technicians, products and service types; member role changes | Business, team invites, technicians, plans, products |

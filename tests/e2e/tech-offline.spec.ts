@@ -8,6 +8,8 @@ import { expect, test } from "./fixtures";
 // exactly 15 completed stops, each with its record, and no duplicates.
 
 const STOPS = 15;
+// A small PNG (8x8, solid) standing in for a photo.
+const PHOTO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGNocFDAihiGlgQA+gM4Acru2/oAAAAASUVORK5CYII=", "base64");
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 
 /** Same rules as the shared fixture, per page, except that the network being down is expected here. */
@@ -130,13 +132,24 @@ test("M3 exit: 15 stops fully offline, the app killed twice mid-stop, then one c
       continue;
     } else {
       await fillProduct(page, "all");
+      if (i === 2) {
+        // FR-TEC-09: a photo taken offline waits on the phone and uploads later.
+        await page.getByRole("button", { name: /^Next: Photos/ }).click();
+        await page.locator("#photo-input").setInputFiles({ name: "gate.png", mimeType: "image/png", buffer: PHOTO });
+        await expect(page.getByRole("img", { name: "Photo 1" })).toBeVisible();
+        await page.getByRole("button", { name: /^Next: Signature/ }).click();
+        for (const next of ["Payment", "Complete"]) await page.getByRole("button", { name: new RegExp(`^Next: ${next}`) }).click();
+        await page.getByRole("button", { name: "Complete stop" }).click();
+        await expect(page.getByRole("list", { name: "Stops" })).toBeVisible();
+        continue;
+      }
     }
     await finishStop(page);
   }
 
   await expect(page.getByText(`Dez Whitlock, ${STOPS} stops, ${STOPS} done`)).toBeVisible();
-  // FR-TEC-05: offline, and every arrival and completion waiting to upload.
-  await expect(page.getByText(`Offline, ${STOPS * 2} waiting to upload`)).toBeVisible();
+  // FR-TEC-05: offline, and every arrival, completion and the photo waiting to upload.
+  await expect(page.getByText(`Offline, ${STOPS * 2 + 1} waiting to upload`)).toBeVisible();
   const [before] = await adminQuery<{ done: number; records: number }>(
     `select (select count(*)::int from public.appointments where tenant_id = $1 and status = 'completed') as done,
             (select count(*)::int from public.applications where tenant_id = $1) as records`,
@@ -157,6 +170,8 @@ test("M3 exit: 15 stops fully offline, the app killed twice mid-stop, then one c
     [day.tenantId],
   );
   expect(after).toEqual({ done: STOPS, records: STOPS, keys: STOPS, per_stop: 1, arrived: STOPS, cash: 1 });
+  const photos = await adminQuery<{ owner_id: string; kind: string }>("select owner_id, kind from public.attachments where tenant_id = $1", [day.tenantId]);
+  expect(photos).toEqual([{ owner_id: day.stopIds[1], kind: "photo" }]);
 
   // A second sync changes nothing: every key has been used once.
   await page.getByRole("button", { name: /All saved on this phone/ }).click();
