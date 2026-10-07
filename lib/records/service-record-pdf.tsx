@@ -86,6 +86,7 @@ function RecordDocument({ record, signature }: { record: ServiceRecord; signatur
                 <Row label="Applied" value={formatInstant(a.appliedAt, tz)} />
                 <Row label="Applicator" value={`${a.applicatorName ?? ""}${a.applicatorLicenseNo ? `, license ${a.applicatorLicenseNo}` : ""}`} />
                 {a.restrictedUse ? <Row label="Restricted use" value={a.customerStatementAt ? `Written statement given ${formatInstant(a.customerStatementAt, tz)}` : "Yes"} /> : null}
+                {a.history.length ? <Row label="Amended" value={formatInstant(a.recordedAt, tz)} /> : null}
               </View>
             ))}
           </View>

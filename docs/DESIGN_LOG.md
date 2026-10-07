@@ -75,6 +75,9 @@ was opened.
   RESEARCH R-COMP-01, the 20 hour warning from the PRD. Counting from the
   arrival when no earlier application time is entered is our own choice, so
   the phone can never warn late. Wording written fresh.
+- Record amendments (FR-REC-03): new version per correction with a reason,
+  history kept, from the PRD rule and DB-08. Which fields may change (what
+  was applied and when, never who or where) is our own reading of CR-01.
 - Product usage report (FR-REC-06): columns follow the CR-01 field list and
   RESEARCH R-COMP-02; totals by product and EPA number because that is how
   the PRD names the report. Layout is the app's own table pattern. No

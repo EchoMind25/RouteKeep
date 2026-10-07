@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
 import { businessHeader } from "@/lib/server/business";
+import { isCurrentVersion } from "@/lib/server/records";
 import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records";
 import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
@@ -136,7 +137,8 @@ export async function getTechSnapshot(m: MemberSession, now: Date = new Date()):
         ])
         .where("a.property_id", "in", propertyIds)
         .where("x.imported", "=", false)
-        .where("x.amended_from", "is", null)
+        // FR-REC-03: an amended record prefills as amended, never as first typed.
+        .where(isCurrentVersion("x"))
         .orderBy("x.applied_at", "desc")
         .limit(propertyIds.length * 12)
         .execute();
@@ -161,12 +163,13 @@ export async function getTechSnapshot(m: MemberSession, now: Date = new Date()):
 
     const favorites = (
       await tx
-        .selectFrom("applications")
-        .select(["product_id", sql<number>`count(*)::int`.as("uses")])
-        .where("technician_id", "=", tech.id)
-        .where("product_id", "is not", null)
-        .where("applied_at", ">", sql<Date>`now() - interval '90 days'`)
-        .groupBy("product_id")
+        .selectFrom("applications as x")
+        .select(["x.product_id", sql<number>`count(*)::int`.as("uses")])
+        .where("x.technician_id", "=", tech.id)
+        .where(isCurrentVersion("x"))
+        .where("x.product_id", "is not", null)
+        .where("x.applied_at", ">", sql<Date>`now() - interval '90 days'`)
+        .groupBy("x.product_id")
         .orderBy("uses", "desc")
         .limit(6)
         .execute()

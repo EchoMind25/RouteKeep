@@ -1,6 +1,6 @@
 "use client";
 
-import { cloneElement, isValidElement, useId, type ComponentProps, type ReactElement, type ReactNode } from "react";
+import { cloneElement, isValidElement, useId, useLayoutEffect, useRef, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const control = [
@@ -19,9 +19,32 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
   return <textarea className={cn(control, "min-h-20 px-3 py-2", className)} {...props} />;
 }
 
-export function Select({ className, children, ...props }: ComponentProps<"select">) {
+export function Select({ className, children, ref, ...props }: ComponentProps<"select">) {
+  const own = useRef<HTMLSelectElement | null>(null);
+  const { defaultValue, value } = props;
+  // Compared as text, so an array default does not count as new on every render.
+  const wantedKey = defaultValue === undefined ? undefined : (Array.isArray(defaultValue) ? defaultValue : [defaultValue]).map(String).join("\u0000");
+  // React applies a select's defaultValue only when it mounts, unlike inputs.
+  // After a failed server action the form is reset to its defaults, which are
+  // now the submitted values (lib/forms.ts); without this the choice made
+  // before submitting would silently snap back to the original one.
+  useLayoutEffect(() => {
+    const select = own.current;
+    if (!select || value !== undefined || wantedKey === undefined) return;
+    const wanted = wantedKey.split("\u0000");
+    for (const option of select.options) option.defaultSelected = wanted.includes(option.value);
+    if (!select.multiple) select.value = wanted[0] ?? "";
+  }, [wantedKey, value]);
   return (
-    <select className={cn(control, "h-10 px-2.5 md:h-9", className)} {...props}>
+    <select
+      ref={(node) => {
+        own.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
+      className={cn(control, "h-10 px-2.5 md:h-9", className)}
+      {...props}
+    >
       {children}
     </select>
   );

@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
+import { isCurrentVersion } from "@/lib/server/records";
 import type { ConflictDetails } from "@/lib/server/tech-sync";
 
 // NFR-02: the office's queue of field work recorded on a phone after the
@@ -42,7 +43,7 @@ export async function listReview(m: MemberSession): Promise<ReviewItem[]> {
       .select([
         "x.id", "x.kind", "x.details", "x.appointment_id", "a.tz", "a.cancel_reason", "c.display_name as customer_name", "t.name as service_type_name",
         "tech.display_name as technician_name",
-        sql<number>`(select count(*)::int from public.applications ap where ap.appointment_id = a.id)`.as("records"),
+        sql<number>`(select count(*)::int from public.applications ap where ap.appointment_id = a.id and ${isCurrentVersion("ap")})`.as("records"),
       ])
       .where("x.resolved_at", "is", null)
       .orderBy("x.created_at")

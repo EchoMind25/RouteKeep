@@ -5,6 +5,7 @@ import { withRls } from "@/lib/db/rls";
 import { addDays, parseLocalTime, zonedTimeToInstant } from "@/lib/domain/time";
 import type { UsageFilters, UsageReport, UsageTotal } from "@/lib/reports/product-usage";
 import { businessHeader } from "@/lib/server/business";
+import { isCurrentVersion } from "@/lib/server/records";
 
 const MIDNIGHT = parseLocalTime("00:00");
 const num = (v: string | null) => (v === null ? null : Number(v));
@@ -19,7 +20,7 @@ export async function productUsage(m: MemberSession, filters: UsageFilters, limi
       .where("a.applied_at", ">=", zonedTimeToInstant(filters.from, MIDNIGHT, tz))
       .where("a.applied_at", "<", zonedTimeToInstant(addDays(filters.to, 1), MIDNIGHT, tz))
       // An amended record counts once, as amended: only the end of each chain.
-      .where((eb) => eb.not(eb.exists(eb.selectFrom("applications as b").select("b.id").whereRef("b.tenant_id", "=", "a.tenant_id").whereRef("b.amended_from", "=", "a.id"))));
+      .where(isCurrentVersion("a"));
     if (filters.productId) base = base.where("a.product_id", "=", filters.productId);
     if (filters.technicianId) base = base.where("a.technician_id", "=", filters.technicianId);
 

@@ -23,6 +23,7 @@ const DONE: Record<string, string> = {
   skipped: "Visit skipped. It stays in the needs-attention list until someone deals with it.",
   cancelled: "Visit cancelled. Nothing is charged; you can restore it below.",
   restored: "Visit restored.",
+  amended: "Amendment saved. The record shows the corrected version; the earlier one stays on file.",
 };
 
 export default async function VisitPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ done?: string }> }) {
@@ -95,7 +96,7 @@ export default async function VisitPage({ params, searchParams }: { params: Prom
             </Panel>
           ) : null}
 
-          {worked ? <ServiceRecordPanel record={record} /> : null}
+          {worked ? <ServiceRecordPanel record={record} canAmend /> : null}
 
           {!editable && !restorable ? <Alert>This visit is {status.label.toLowerCase()} and can no longer be changed here.</Alert> : null}
         </div>

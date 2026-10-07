@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "Correcting a record",
+    items: [
+      "Amend a product record from the visit page: change what was applied, how much, where on the property and when, and say why.",
+      "The original stays on file under Earlier versions, and every amendment is logged with who made it.",
+      "The customer's PDF, the product usage report and the technician app all use the corrected version.",
+      "Fixed: after a form showed an error, a dropdown could jump back to its first choice instead of keeping yours.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Reports: product usage",
     items: [
       "Reports in the main menu, starting with product usage: what was applied, how much and where, for any range up to a year.",
