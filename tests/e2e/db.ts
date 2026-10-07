@@ -29,12 +29,31 @@ export interface SeededDay {
   email: string;
   tenantId: string;
   techIds: string[];
+  /** Sign-in emails for technicians given a login (`techLogins`), by tech index. */
+  techEmails: (string | null)[];
   stopIds: string[];
   customerIds: string[];
   propertyIds: string[];
+  productIds: string[];
 }
 
-export async function seedDispatchDay(opts: { date: string; techs: string[]; stops: SeedStop[]; officeLocation?: { lat: number; lng: number } | null }): Promise<SeededDay> {
+export interface SeedProduct {
+  name: string;
+  kind?: "pesticide" | "minimum_risk" | "fertilizer" | "other";
+  epaRegNo?: string | null;
+  signalWord?: "caution" | "warning" | "danger" | "danger_poison" | null;
+  restrictedUse?: boolean;
+}
+
+export async function seedDispatchDay(opts: {
+  date: string;
+  techs: string[];
+  stops: SeedStop[];
+  officeLocation?: { lat: number; lng: number } | null;
+  /** Indexes of technicians who get their own login. */
+  techLogins?: number[];
+  products?: SeedProduct[];
+}): Promise<SeededDay> {
   const client = new pg.Client({ connectionString: adminUrl });
   await client.connect();
   const email = uniqueEmail("dispatch");
@@ -45,6 +64,9 @@ export async function seedDispatchDay(opts: { date: string; techs: string[]; sto
   const propertyIds = opts.stops.map(() => randomUUID());
   const stopIds = opts.stops.map(() => randomUUID());
   const office = opts.officeLocation === undefined ? OFFICE : opts.officeLocation;
+  const techEmails = opts.techs.map((_, i) => (opts.techLogins?.includes(i) ? uniqueEmail(`tech${i}`) : null));
+  const techUserIds = techEmails.map((e) => (e ? randomUUID() : null));
+  const productIds = (opts.products ?? []).map(() => randomUUID());
   try {
     await client.query("begin");
     await client.query("insert into auth.users (id, email, aud, role, email_confirmed_at) values ($1, $2, 'authenticated', 'authenticated', now())", [userId, email]);
@@ -60,9 +82,22 @@ export async function seedDispatchDay(opts: { date: string; techs: string[]; sto
     );
     await client.query("insert into public.memberships (tenant_id, user_id, role, email, display_name) values ($1, $2, 'owner', $3, 'Dispatch Owner')", [tenantId, userId, email]);
     for (const [i, name] of opts.techs.entries()) {
+      const login = techUserIds[i];
+      if (login) {
+        await client.query("insert into auth.users (id, email, aud, role, email_confirmed_at) values ($1, $2, 'authenticated', 'authenticated', now())", [login, techEmails[i]]);
+        await client.query("insert into public.memberships (tenant_id, user_id, role, email, display_name) values ($1, $2, 'technician', $3, $4)", [tenantId, login, techEmails[i], name]);
+      }
       await client.query(
-        "insert into public.technicians (id, tenant_id, display_name, applicator_license_no, license_expiry, color_index) values ($1, $2, $3, $4, current_date + 400, $5)",
-        [techIds[i], tenantId, name, `UT-APP-${1000 + i}`, i % 12],
+        "insert into public.technicians (id, tenant_id, user_id, display_name, applicator_license_no, license_expiry, color_index) values ($1, $2, $3, $4, $5, current_date + 400, $6)",
+        [techIds[i], tenantId, login, name, `UT-APP-${1000 + i}`, i % 12],
+      );
+    }
+    for (const [i, p] of (opts.products ?? []).entries()) {
+      const kind = p.kind ?? "pesticide";
+      await client.query(
+        `insert into public.products (id, tenant_id, name, kind, epa_reg_no, signal_word, restricted_use, default_mix_rate, default_mix_unit, default_amount_unit)
+         values ($1, $2, $3, $4, $5, $6, $7, 0.5, 'fl_oz_per_gal', 'gal')`,
+        [productIds[i], tenantId, p.name, kind, p.epaRegNo === undefined ? (kind === "pesticide" ? `0-${200 + i}` : null) : p.epaRegNo, p.signalWord === undefined ? "caution" : p.signalWord, p.restrictedUse ?? false],
       );
     }
     // A new business starts with default service types; use its general pest service.
@@ -125,7 +160,23 @@ export async function seedDispatchDay(opts: { date: string; techs: string[]; sto
   } finally {
     await client.end();
   }
-  return { email, tenantId, techIds, stopIds, customerIds, propertyIds };
+  return { email, tenantId, techIds, techEmails, stopIds, customerIds, propertyIds, productIds };
+}
+
+/** Runs one statement as the local superuser (assertions and setup in specs). */
+export async function adminQuery<T extends pg.QueryResultRow>(text: string, values: unknown[] = []): Promise<T[]> {
+  const client = new pg.Client({ connectionString: adminUrl });
+  await client.connect();
+  try {
+    return (await client.query<T>(text, values)).rows;
+  } finally {
+    await client.end();
+  }
+}
+
+/** Today's date where the seeded businesses are (America/Denver). */
+export function denverToday(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 /** Reads back a lane in the order every screen shows it (sequence, window, id). */

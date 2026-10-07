@@ -89,6 +89,7 @@ export interface Applications {
 export interface Appointments {
   arrived_at: Timestamp | null;
   cancel_reason: string | null;
+  checklist_results: Json | null;
   client_key: Generated<string>;
   completed_at: Timestamp | null;
   created_at: Generated<Timestamp>;
@@ -112,6 +113,7 @@ export interface Appointments {
   source: Generated<string>;
   status: Generated<string>;
   subscription_id: string | null;
+  tech_notes: string | null;
   technician_id: string | null;
   tenant_id: Generated<string>;
   tz: string;
@@ -551,6 +553,21 @@ export interface Subscriptions {
   version: Generated<number>;
 }
 
+export interface SyncConflicts {
+  appointment_id: string;
+  client_key: string;
+  created_at: Generated<Timestamp>;
+  details: Generated<Json>;
+  id: Generated<string>;
+  kind: string;
+  resolution: string | null;
+  resolved_at: Timestamp | null;
+  resolved_by: string | null;
+  technician_id: string | null;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Technicians {
   active: Generated<boolean>;
   applicator_license_no: string;
@@ -633,6 +650,7 @@ export interface DB {
   service_plans: ServicePlans;
   service_types: ServiceTypes;
   subscriptions: Subscriptions;
+  sync_conflicts: SyncConflicts;
   technicians: Technicians;
   tenants: Tenants;
   webhook_events: WebhookEvents;

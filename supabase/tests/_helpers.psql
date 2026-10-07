@@ -252,6 +252,9 @@ begin
 
   insert into public.exports (tenant_id) values (v_tenant);
 
+  insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
+  values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
+
   return jsonb_build_object(
     'tenant', v_tenant,
     'owner', v_owner, 'admin', v_admin, 'office', v_office, 'dispatcher', v_dispatch, 'tech_user', v_tech_user,
