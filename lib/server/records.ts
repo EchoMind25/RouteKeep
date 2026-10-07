@@ -64,7 +64,7 @@ export interface ServiceRecord {
     serviceType: string;
     technicianName: string | null;
   };
-  business: { name: string; licenseNo: string; address: string; state: string };
+  business: { name: string; licenseNo: string; address: string; state: string; whiteLabel: boolean };
   /** Current versions only, in the order applied. */
   applications: (RecordVersion & {
     /** Earlier versions, newest first (FR-REC-03). */
@@ -208,7 +208,7 @@ export async function getServiceRecord(m: MemberSession, appointmentId: string):
         serviceType: v.service_type_name,
         technicianName: v.technician_name,
       },
-      business: { name: business.name, licenseNo: business.licenseNo, address: business.address, state: business.state },
+      business: { name: business.name, licenseNo: business.licenseNo, address: business.address, state: business.state, whiteLabel: business.whiteLabel },
       applications,
       attachments: attachments.map((a) => ({ id: a.id, kind: a.kind, capturedAt: a.captured_at })),
     };

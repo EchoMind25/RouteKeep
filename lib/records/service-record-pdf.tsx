@@ -3,6 +3,7 @@ import { Document, Font, Image, Page, StyleSheet, Text, View, renderToBuffer } f
 import tokens from "@/replica/design/tokens.json";
 import { amountLabel, areaLabel, formatNumber, isAmountUnit, isAreaUnit, isMixUnit, mixLabel } from "@/lib/domain/units";
 import type { ServiceRecord } from "@/lib/server/records";
+import { BRAND } from "@/lib/brand";
 import { formatInstant, formatLocalDate, SIGNAL_WORD } from "@/lib/ui/format";
 
 // FR-REC-02, CR-01, CR-03: the service record the customer receives. Business
@@ -112,6 +113,8 @@ function RecordDocument({ record, signature }: { record: ServiceRecord; signatur
         <View style={s.footer} fixed>
           <Text>
             {business.name}, license {business.licenseNo}
+            {/* FR-BRD-03: the product credit, unless the business bought white label (D-14). */}
+            {business.whiteLabel ? "" : `. Powered by ${BRAND.name}`}
           </Text>
           <Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
         </View>

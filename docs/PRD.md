@@ -64,7 +64,7 @@ Door-to-door sales app (canvassing, territories, door contracts; technician sale
 | D-11 | Pricing: Starter $79/month (up to 300 active customers), Pro $179 (up to 1,500), Growth $349 (up to 5,000). Unlimited users. Month to month. No setup fee | Keeps the per-customer-count model users like (R-PRICE-07) | After 5 customers |
 | D-12 | Billing for Routewright's own subscription uses Stripe Billing on the platform account | Standard | Never |
 | D-13 | Deferred spend: trademark filing, attorney review, SOC 2, QuickBooks sync, Apple and Google developer accounts | Not required to sign customer 1 | First revenue |
-| D-14 | White label as a done-for-you service: $2,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, PDFs and statements; their own domain once they own one; setup with the owner (plans, products, technicians, customer list import from their own export); a walkthrough; one year of fix-it support (defects and help, not new features). Owner decision 2026-10-07 | Comparable to a competitor's reported $1,300+ implementation fee (R-PRICE-03) while also covering branding and a support year; roughly 15 to 25 hours of setup work | After 3 white label sales, or if setup regularly runs past 25 hours |
+| D-14 | White label as a done-for-you service: $2,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, portal and every document, with the product credit removed (FR-BRD-03; invoices are branded on every plan, FR-BRD-01); their own domain once they own one; setup with the owner (plans, products, technicians, customer list import from their own export); a walkthrough; one year of fix-it support (defects and help, not new features). Owner decision 2026-10-07 | Comparable to a competitor's reported $1,300+ implementation fee (R-PRICE-03) while also covering branding and a support year; roughly 15 to 25 hours of setup work | After 3 white label sales, or if setup regularly runs past 25 hours |
 
 ## 5. Budget constraint
 
@@ -256,10 +256,11 @@ Added 2026-10-07 by owner decision: technicians often sell plans in the field an
 - FR-EXP-03 Export format is documented and is itself a valid import source (FR-MIG-02).
 
 ### 8.10.1 Branded documents `[MVP]`
-Added 2026-10-07 by owner decision.
-- FR-BRD-01 On every paid plan (all plans are paid), a business uploads its logo and sets its business details; customer-facing PDFs (service records, invoices, statements) show the business's logo, name, address and license and carry no product branding at all, including in file metadata.
-- FR-BRD-02 Logo upload: PNG, JPEG or SVG up to 1 MB, stored in the private bucket, shown on screen to members and embedded in PDFs; a preview before saving.
-- Accept: a PDF generated for a business with a logo shows that logo and contains no occurrence of the product name.
+Added 2026-10-07 by owner decision; scope corrected the same day.
+- FR-BRD-01 On every paid plan (all plans are paid), invoices show the business's logo, name, address and license and carry no product branding at all, including in file metadata.
+- FR-BRD-02 Logo upload: PNG, JPEG or SVG up to 1 MB, stored in the private bucket, shown on screen to members and embedded in invoices; a preview before saving.
+- FR-BRD-03 Everything else a customer sees (service records, statements, the customer portal, emails and texts) carries the business's name and license (CR-03) and a small "Powered by" product credit, unless the business bought white label (D-14). White label removes the credit everywhere and puts the business's logo and colors on the office app, technician app, portal and every document. Only the platform can switch white label on (`tenants.white_label_at`, service role).
+- Accept: an invoice for any paid business shows its logo and contains no occurrence of the product name; a service record PDF shows the credit without white label and none with it.
 
 ### 8.10.2 Public site `[MVP]`
 Added 2026-10-07 by owner decision.

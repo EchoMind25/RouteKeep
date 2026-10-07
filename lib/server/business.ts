@@ -9,10 +9,12 @@ export interface BusinessHeader {
   state: string;
   timezone: string;
   address: string;
+  /** FR-BRD-03: white label bought (D-14); no product credit anywhere customers look. */
+  whiteLabel: boolean;
 }
 
 export async function businessHeader(tx: Tx): Promise<BusinessHeader> {
-  const tenant = await tx.selectFrom("tenants").select(["name", "business_license_no", "state", "timezone"]).executeTakeFirstOrThrow();
+  const tenant = await tx.selectFrom("tenants").select(["name", "business_license_no", "state", "timezone", "white_label_at"]).executeTakeFirstOrThrow();
   const office = await tx
     .selectFrom("offices")
     .select(["address_line1", "address_line2", "city", "region", "postal_code"])
@@ -23,6 +25,7 @@ export async function businessHeader(tx: Tx): Promise<BusinessHeader> {
     licenseNo: tenant.business_license_no,
     state: tenant.state,
     timezone: tenant.timezone,
+    whiteLabel: tenant.white_label_at !== null,
     address: office ? formatAddress({ line1: office.address_line1, line2: office.address_line2, city: office.city, region: office.region, postalCode: office.postal_code }) : "",
   };
 }

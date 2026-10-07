@@ -270,7 +270,7 @@ export default function LandingPage() {
               <h2 id="pricing-title" className="text-3xl font-semibold tracking-tight md:text-4xl">
                 Pest control software pricing, posted.
               </h2>
-              <p className="text-lg text-fg-muted">Priced by active customers, not seats. Unlimited users. Month to month, no setup fee.</p>
+              <p className="text-lg text-fg-muted">Priced by active customers, not seats. Unlimited users. Your logo on every invoice. Month to month, no setup fee.</p>
             </div>
             <ol className="grid items-end gap-4 md:grid-cols-[1fr_1.12fr_1fr]">
               {PLANS.map((p) => {
@@ -307,7 +307,7 @@ export default function LandingPage() {
                 Want it under your own name?
               </h2>
               <p className="max-w-[46ch] text-lg text-fg-muted">
-                We&apos;ll white label it for you. Your logo, your colors, your web address. Your customers never see ours.
+                Every plan puts your logo on invoices. White label goes all the way: your logo, your colors, your web address on everything. Your customers never see ours.
               </p>
               <p className="flex items-baseline gap-2">
                 <span className="text-5xl font-semibold tracking-tight tabular">{formatCents(WHITE_LABEL.cents).replace(".00", "")}</span>

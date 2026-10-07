@@ -632,6 +632,10 @@ export interface Tenants {
   tech_sales_enabled: Generated<boolean>;
   timezone: string;
   updated_at: Generated<Timestamp>;
+  /**
+   * D-14: white label purchased; removes the product credit from everything customers see (FR-BRD-03).
+   */
+  white_label_at: Timestamp | null;
 }
 
 export interface WebhookEvents {

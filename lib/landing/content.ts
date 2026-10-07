@@ -13,7 +13,7 @@ export const PLANS = [
 export const WHITE_LABEL = {
   cents: 200000,
   includes: [
-    "Your logo, colors and company name on the office app, the tech app, every PDF and every statement",
+    "Your logo, colors and company name on the office app, the tech app, the customer portal and every document, with our name taken off",
     "Your own web address once you own one",
     "Setup done with you: plans, products, techs and your customer list brought over",
     "A walkthrough for you and your office, on a call or in person",
@@ -60,8 +60,12 @@ export const FAQS: Faq[] = [
     a: "Being built now. Invoices and autopay come first through Stripe, then email and text reminders. Card numbers will only ever go through Stripe's own secure form, never through us.",
   },
   {
+    q: "Will my invoices show my logo?",
+    a: "Yes, on every plan. Invoices carry your logo and business details and nothing of ours. Service records and other customer messages show your name and license with a small Powered by note, unless you go white label.",
+  },
+  {
     q: "What does the $2,000 white label package include?",
-    a: "Your brand on everything your office, techs and customers see, set up with you, your customer list moved over, and a full year of fix-it support. It's a one time fee. Your regular monthly plan still applies after that.",
+    a: "Your brand on everything your office, techs and customers see, with our name removed everywhere. Set up with you, your customer list moved over, and a full year of fix-it support. It's a one time fee. Your regular monthly plan still applies after that.",
   },
   {
     q: "Who sees my customer data?",
