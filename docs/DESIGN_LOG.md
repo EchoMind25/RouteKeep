@@ -75,6 +75,10 @@ was opened.
   RESEARCH R-COMP-01, the 20 hour warning from the PRD. Counting from the
   arrival when no earlier application time is entered is our own choice, so
   the phone can never warn late. Wording written fresh.
+- Product usage report (FR-REC-06): columns follow the CR-01 field list and
+  RESEARCH R-COMP-02; totals by product and EPA number because that is how
+  the PRD names the report. Layout is the app's own table pattern. No
+  competitor report, export or screenshot was looked at.
 - Field work review (NFR-02): the queue, its one-sentence explanation of
   each clash and the two choices (take the field's version, or keep the
   office's) are derived from the PRD's conflict rule alone. Records are never

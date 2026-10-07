@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir _helpers.psql
-select plan(45);
+select plan(46);
 
 create temp table fx on commit drop as
 select pg_temp.seed_tenant('a') as a, pg_temp.seed_tenant('b') as b;
@@ -174,6 +174,10 @@ select throws_ok(
   format($$insert into public.applications (appointment_id, client_key, amended_from, imported)
            values (%L, 'amend-2', %L, true)$$, (select appointment from ids), (select application from ids)),
   '23514', null, 'FR-REC-03: an amendment must say why');
+select throws_ok(
+  format($$insert into public.applications (appointment_id, client_key, amended_from, amendment_reason, imported)
+           values (%L, 'amend-3', %L, 'Second try', true)$$, (select appointment from ids), (select application from ids)),
+  '23505', null, 'FR-REC-03: a record is amended once; a later correction amends the amendment');
 reset role;
 
 select throws_ok(

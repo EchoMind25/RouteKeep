@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "Reports: product usage",
+    items: [
+      "Reports in the main menu, starting with product usage: what was applied, how much and where, for any range up to a year.",
+      "Narrow it to one product or one technician. Totals are listed per product and EPA number.",
+      "Download every record as CSV, with all the fields a state inspector asks for, or as a PDF with your business name and license on each page.",
+      "An amended record counts once, as amended.",
+      "Service record PDFs now show your business name, license and page numbers at the foot of every page.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Technician app that works offline",
     items: [
       "Technicians install the app from the browser and open it straight to today's route. It works with no signal at all.",

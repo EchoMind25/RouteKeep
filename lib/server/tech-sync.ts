@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
+import { businessHeader } from "@/lib/server/business";
 import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records";
 import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
@@ -33,22 +34,6 @@ async function technicianFor(tx: Tx, userId: string) {
     .select(["id", "display_name", "applicator_license_no", "license_expiry"])
     .where("user_id", "=", userId)
     .executeTakeFirst();
-}
-
-async function business(tx: Tx) {
-  const tenant = await tx.selectFrom("tenants").select(["name", "business_license_no", "state", "timezone"]).executeTakeFirstOrThrow();
-  const office = await tx
-    .selectFrom("offices")
-    .select(["address_line1", "address_line2", "city", "region", "postal_code"])
-    .where("is_primary", "=", true)
-    .executeTakeFirst();
-  return {
-    name: tenant.name,
-    licenseNo: tenant.business_license_no,
-    state: tenant.state,
-    timezone: tenant.timezone,
-    address: office ? formatAddress({ line1: office.address_line1, line2: office.address_line2, city: office.city, region: office.region, postalCode: office.postal_code }) : "",
-  };
 }
 
 const num = (v: string | number | null) => (v === null ? null : Number(v));
@@ -193,7 +178,7 @@ export async function getTechSnapshot(m: MemberSession, now: Date = new Date()):
       today,
       days,
       technician: { id: tech.id, name: tech.display_name, licenseNo: tech.applicator_license_no, licenseExpiry: tech.license_expiry },
-      business: await business(tx),
+      business: await businessHeader(tx),
       stops,
       products,
       lastMixes,
@@ -279,7 +264,7 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
   const tech = (await tx.selectFrom("technicians").select(["display_name", "applicator_license_no"]).where("id", "=", techId).executeTakeFirstOrThrow())!;
-  const biz = await business(tx);
+  const biz = await businessHeader(tx);
   const applicationAddress = formatAddress({ line1: visit.address_line1, line2: visit.address_line2, city: visit.city, region: visit.region, postalCode: visit.postal_code });
   const customerAddress =
     visit.billing_address_line1 && visit.billing_city && visit.billing_region && visit.billing_postal_code

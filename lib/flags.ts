@@ -8,8 +8,8 @@ export const FLAGS = {
   offlineTechApp: true,
   /** M4: invoices, autopay, ledger screens. */
   billing: false,
-  /** M4+: revenue, AR aging, product usage. */
-  reports: false,
+  /** The Reports area. On since 2026-10-07 with product usage (FR-REC-06); billing reports join it with `billing`. */
+  reports: true,
   /** M5: import wizard and export. */
   migration: false,
   /** M6: customer portal. */

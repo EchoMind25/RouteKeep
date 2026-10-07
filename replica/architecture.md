@@ -99,6 +99,7 @@ Technician sync (M3), JSON, `Cache-Control: private, no-store`, cross-origin req
 | `GET /api/attachments/:id` | the file, for any member who may see the row (RLS) |
 | `GET /api/records/:id` | FR-REC-02 PDF service record of a completed visit, office roles; built-in PDF fonts, nothing fetched |
 | `POST /api/tech/upload` | up to 50 mutations (arrive, complete, skip) in order, each in its own transaction, answered one by one: applied, duplicate, conflict, rejected or retry |
+| `GET /api/reports/product-usage` | FR-REC-06 for office roles: `format=csv` (every record, every CR-01 field, up to 100,000 rows) or `format=pdf` (totals and up to 5,000 applications); same filters as the screen |
 
 Field work review (M3, NFR-02), office roles: `resolveReviewAction` takes one queued clash and either marks the visit as the phone recorded it (done or skipped, by that technician, on that day, out of the route order) or keeps the office's version. The field records stay on the visit either way; the row records who decided, when and what. A second decision on the same item is refused.
 
@@ -122,7 +123,7 @@ Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 | M0 Foundation | S01, S02 | Done: schema, RLS, pgTAP, auth, tenant setup, CI |
 | M1 Core records | S03, S06, S07, S08, S14 | Done: customers, properties, plans, subscriptions with edits, pause and cancel, one-off visits, generation, DST tests |
 | M2 Dispatch | S04 board, S05, S09 | Done: lanes and map with shared selection, drag by pointer or keyboard (within and between lanes, to other days, from the queue), optimize preview, save and undo, publish with the long-leg check, pin confirmation. Remaining: Google and VROOM optimizer adapters (owner accounts) |
-| M3 Technician PWA | S17, S18 | Exit test passes: 15 stops offline, tab killed twice, one clean upload. Done: photos and signatures, PDF service record, conflict review, CR-02 deadlines on the phone and in the office. Remaining: record amendments (FR-REC-03 screen), product usage report (FR-REC-06) |
+| M3 Technician PWA | S17, S18 | Exit test passes: 15 stops offline, tab killed twice, one clean upload. Done: photos and signatures, PDF service record, conflict review, CR-02 deadlines on the phone and in the office. Product usage report (FR-REC-06) done. Remaining: record amendments (FR-REC-03 screen) |
 | M4 Money | S11, S12 | Schema and constraints in place |
 | M5 Migration and export | S15, S16 | Schema in place |
 | M6 Messaging and portal | S19, S20 | Schema in place |

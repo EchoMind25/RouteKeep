@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { inflateSync } from "node:zlib";
 import type { APIRequestContext } from "@playwright/test";
 import { adminQuery, denverToday, OFFICE, seedDispatchDay } from "./db";
 import { expect, expectAccessible, signInAs, test } from "./fixtures";
+import { pdfText } from "./pdf";
 
 // The technician app's sync API (FR-TEC-01, NFR-01, NFR-02, ENG-01, FR-TEC-07).
 // Exercised over HTTP with a real session, against a real database.
@@ -169,20 +169,6 @@ test("FR-TEC-01: a login without a technician profile gets a clear answer", asyn
   expect(response.status()).toBe(409);
   expect((await response.json()).error).toContain("not linked to a technician");
 });
-
-/** The text of a PDF made with the built-in fonts: inflate each stream, read its hex strings. */
-function pdfText(pdf: Buffer): string {
-  let text = "";
-  for (const m of pdf.toString("latin1").matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
-    try {
-      const content = inflateSync(Buffer.from(m[1]!, "latin1")).toString("latin1");
-      text += [...content.matchAll(/<([0-9a-fA-F]+)>/g)].map((h) => Buffer.from(h[1]!, "hex").toString("latin1")).join("");
-    } catch {
-      // Not a content stream (an image, a font): nothing to read.
-    }
-  }
-  return text;
-}
 
 // A 1x1 PNG, enough to stand in for a photo or a signature.
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");

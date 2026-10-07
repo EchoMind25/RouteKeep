@@ -4,6 +4,7 @@ import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 import { formatAddress } from "@/lib/domain/contact";
 import { RECORD_WARN_HOURS, recordDeadline, recordTiming } from "@/lib/domain/records";
+import { businessHeader } from "@/lib/server/business";
 
 // What was done at a visit, as the record shows it (FR-REC-01, FR-REC-02,
 // CR-01, CR-03): the visit page and the PDF read the same thing.
@@ -72,12 +73,7 @@ export async function getServiceRecord(m: MemberSession, appointmentId: string):
       .where("a.id", "=", appointmentId)
       .executeTakeFirst();
     if (!v) return null;
-    const tenant = await tx.selectFrom("tenants").select(["name", "business_license_no", "state"]).executeTakeFirstOrThrow();
-    const office = await tx
-      .selectFrom("offices")
-      .select(["address_line1", "address_line2", "city", "region", "postal_code"])
-      .where("is_primary", "=", true)
-      .executeTakeFirst();
+    const business = await businessHeader(tx);
     const applications = await tx
       .selectFrom("applications")
       .select([
@@ -115,12 +111,7 @@ export async function getServiceRecord(m: MemberSession, appointmentId: string):
         serviceType: v.service_type_name,
         technicianName: v.technician_name,
       },
-      business: {
-        name: tenant.name,
-        licenseNo: tenant.business_license_no,
-        state: tenant.state,
-        address: office ? formatAddress({ line1: office.address_line1, line2: office.address_line2, city: office.city, region: office.region, postalCode: office.postal_code }) : "",
-      },
+      business: { name: business.name, licenseNo: business.licenseNo, address: business.address, state: business.state },
       applications: applications.map((a) => ({
         id: a.id,
         productName: a.product_name ?? "Unnamed product",

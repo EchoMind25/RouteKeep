@@ -16,7 +16,7 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S09 Property pin | 2026-10-07 | done | A street map needs `NEXT_PUBLIC_MAP_STYLE_URL` | A page, not a dialog: the map needs room. Keyboard path: pan to the crosshair, or type coordinates |
 | S10 Appointment | 2026-10-07 | done | | Move, skip, cancel, restore; the service record (products, notes, photos, signature) and its PDF once the stop is done; CR-02 record status while started and on each record |
 | S11 Billing, S12 Take payment | | not started | | M4, schema ready |
-| S13 Reports | | not started | | |
+| S13 Reports | 2026-10-07 | partial | Revenue, money owed and production reports (M4, FR-BIL-08) | Product usage (FR-REC-06) with CSV and PDF. react-pdf drops bottom-anchored fixed elements (the footer) when the Page has a line height; it now sits on a content wrapper, which fixed the service record PDF's missing footer too |
 | S14 Settings | 2026-10-06 | partial | Edit and retire technicians, products and service types; member role changes | Business, team invites, technicians, plans, products |
 | S15 Import, S16 Export | | not started | | M5, schema ready |
 | S17 Technician day | 2026-10-07 | done | | Offline-first; the page carries no route data, so the saved copy works for any day. A sign-in lands on /tech by client-side navigation, outside the worker's scope, so `serviceWorker.ready` never settles there: the app messages the worker on activation instead. Stops from an earlier day still on the phone are listed (and openable) even when today is empty; CR-02 deadline badges from 20 h |
