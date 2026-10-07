@@ -75,6 +75,10 @@ was opened.
   RESEARCH R-COMP-01, the 20 hour warning from the PRD. Counting from the
   arrival when no earlier application time is entered is our own choice, so
   the phone can never warn late. Wording written fresh.
+- Technician sales and commission (FR-SAL-01..04): from the owner's own
+  experience as a technician paid on sales; rule shape (flat plus percent of
+  the first service) and the approval states are our own. No competitor
+  screen or help page was used.
 - Record amendments (FR-REC-03): new version per correction with a reason,
   history kept, from the PRD rule and DB-08. Which fields may change (what
   was applied and when, never who or where) is our own reading of CR-01.

@@ -3,7 +3,7 @@
 Path in repo: `docs/PRD.md`
 Status: v1.0, normative
 Background and evidence: `docs/RESEARCH.md` (IDs such as `R-PAIN-01` refer to that file)
-Last updated: 2026-10-06
+Last updated: 2026-10-07 (v1.1: technician sales and commission, owner decision)
 
 ## 0. How to use this file (for Claude and other agents)
 
@@ -35,7 +35,7 @@ First market: Utah and the Mountain West.
 - G-05 Zero duplicate charges. Zero cross-tenant data exposure.
 
 ### Non-goals for MVP
-Door-to-door sales app, commissions, marketplace, multi-branch roll-ups, general ledger, payroll, inventory, voice or IVR, custom report builder, white-label portal domains, non-US tenants, native app store binaries, SOC 2 audit, AI features.
+Door-to-door sales app (canvassing, territories, door contracts; technician sales of a plan at a stop are in scope, see 8.5.1), marketplace, multi-branch roll-ups, general ledger, payroll, inventory, voice or IVR, custom report builder, white-label portal domains, non-US tenants, native app store binaries, SOC 2 audit, AI features.
 
 ## 3. Personas
 
@@ -133,7 +133,8 @@ Every table has `id uuid pk`, `tenant_id uuid not null`, `created_at`, `updated_
 | offices | address, business_license_no |
 | memberships | user_id, role (owner, admin, office, dispatcher, technician) |
 | technicians | user_id, applicator_license_no, license_expiry, categories |
-| customers | name, billing contact, sms_consent_at, sms_consent_source, email_opt_in, external_ref |
+| commissions | technician_id, customer_id, subscription_id, basis_cents, flat_cents, pct, amount_cents, status (FR-SAL-02) |
+| customers | name, billing contact, sms_consent_at, sms_consent_source, email_opt_in, external_ref, sold_by_technician_id |
 | properties | customer_id, address, location geography(Point), geocode_confidence, location_locked, access_notes, sq_ft, lawn_area_sq_ft, external_ref |
 | service_types | name, category (pest, lawn, termite, mosquito) |
 | service_plans | service_type_id, price, rrule, initial_price |
@@ -210,6 +211,14 @@ Constraints (MUST exist as database constraints, not only app checks):
 - FR-TEC-10 One-tap navigate to the stop in the device's maps app.
 - FR-TEC-11 Outdoor high-contrast mode; primary actions bottom-anchored; touch targets at least 48 px.
 - Accept: Playwright test completes a 15-stop route fully offline, kills the tab mid-form twice, reconnects, and the server shows 15 complete stops with all records and no duplicates.
+
+### 8.5.1 Technician sales and commission `[MVP]`
+Added 2026-10-07 by owner decision: technicians often sell plans in the field and are paid a commission on them.
+- FR-SAL-01 Owner setting, off by default: technicians may add customers. Commission rule per tenant: a flat amount per sale plus a percent of the plan's first service price; either may be zero.
+- FR-SAL-02 A technician adds a customer, property and optional plan from the technician app (needs a connection). The customer records the selling technician; technicians can credit only themselves. The office may credit a technician when entering a sale for them. One commission per customer, computed by the database from the rule at the time of sale; nobody can set the amount by hand.
+- FR-SAL-03 Commission status: waiting for approval, approved, paid, void. The office approves, marks paid (payroll happens outside the product) or voids with a reason. Paid is final. Amounts never change after the sale. Every change is audited.
+- FR-SAL-04 Technicians see their own sales and commission status. The office sees commissions by date, technician and status, with CSV.
+- Accept: a technician with sales on adds a customer with a plan and sees the commission the rule gives; with sales off they cannot; the office approves and pays it; the amount cannot be edited.
 
 ### 8.6 Application records `[MVP]`
 - FR-REC-01 Each completed service produces an application record per product with all CR-01 fields.

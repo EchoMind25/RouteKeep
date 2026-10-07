@@ -21,5 +21,6 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S15 Import, S16 Export | | not started | | M5, schema ready |
 | S17 Technician day | 2026-10-07 | done | | Offline-first; the page carries no route data, so the saved copy works for any day. A sign-in lands on /tech by client-side navigation, outside the worker's scope, so `serviceWorker.ready` never settles there: the app messages the worker on activation instead. Stops from an earlier day still on the phone are listed (and openable) even when today is empty; CR-02 deadline badges from 20 h |
 | S18 Stop flow | 2026-10-07 | done | | A resumed stop opens the product card that still needs input; card state was in memory only and a killed tab came back collapsed |
+| S18b Technician sale | 2026-10-07 | done | Offline queueing of a sale | FR-SAL: the office new-customer form in a technician mode (no assignment fields, commission preview), at /sales/new, plus My sales. A separate page from /tech so the offline app's cached shell never stands in for it |
 | S19, S20 Portal | | not started | | M6 |
 | S21 Design primitives | | not started | | |

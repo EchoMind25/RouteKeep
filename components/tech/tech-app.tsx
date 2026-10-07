@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowsClockwise, CaretRight, CheckCircle, CloudCheck, CloudSlash, Gear, SignOut, Sun, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, CaretRight, CheckCircle, CloudCheck, CloudSlash, CurrencyDollar, Gear, SignOut, Sun, UserPlus, WarningCircle, X } from "@phosphor-icons/react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +142,7 @@ export function SyncChip({ state, sync }: { state: TechState; sync: SyncState })
 function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; day: "today" | "tomorrow" }) {
   const { store } = useTech();
   const [settings, setSettings] = useState(false);
+  const [needsSignal, setNeedsSignal] = useState(false);
   const info = state.info;
   const date = info ? (day === "tomorrow" ? info.days[1] : info.days[0]) : null;
   const now = useNow();
@@ -155,10 +156,30 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
     <div className="grid gap-4 px-4 pt-4 pb-10">
       <header className="flex items-center justify-between gap-3">
         <BrandMark />
-        <Button variant="ghost" size="icon" aria-label="Settings" onClick={() => setSettings(true)} className="size-12">
-          <Gear size={22} aria-hidden />
-        </Button>
+        <div className="flex items-center gap-1">
+          {info?.canSell ? (
+            // FR-SAL-02: adding a customer needs the office's systems, so it needs a connection.
+            <Button asChild variant="ghost" size="icon" className="size-12">
+              <a
+                href="/sales/new"
+                aria-label="New customer"
+                onClick={(event) => {
+                  if (navigator.onLine) return;
+                  event.preventDefault();
+                  setNeedsSignal(true);
+                }}
+              >
+                <UserPlus size={22} aria-hidden />
+              </a>
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="icon" aria-label="Settings" onClick={() => setSettings(true)} className="size-12">
+            <Gear size={22} aria-hidden />
+          </Button>
+        </div>
       </header>
+
+      {needsSignal ? <Alert tone="warning">Adding a customer needs a connection. Your route keeps working offline; try again when you have signal.</Alert> : null}
 
       <SyncChip state={state} sync={sync} />
 
@@ -331,6 +352,11 @@ function Settings({ open, onOpenChange, state }: { open: boolean; onOpenChange: 
             </span>
             <span className={cn("rounded-pill px-2 py-0.5 text-sm font-semibold", outdoor ? "bg-fg text-canvas" : "bg-sunken text-fg-muted")}>{outdoor ? "On" : "Off"}</span>
           </button>
+          {state.info?.canSell ? (
+            <a href="/sales" className="flex min-h-12 items-center gap-3 rounded-control border border-line px-4 py-3 font-semibold">
+              <CurrencyDollar size={22} aria-hidden /> My sales and commission
+            </a>
+          ) : null}
           {offline ? <Alert tone="warning">Signing out needs a connection. Everything stays saved on this phone until then.</Alert> : null}
           {confirming && waiting ? (
             <Alert tone="danger" title={`${waiting} ${waiting === 1 ? "change has" : "changes have"} not uploaded yet`}>

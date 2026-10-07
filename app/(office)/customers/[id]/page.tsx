@@ -12,6 +12,8 @@ import { describeRule } from "@/lib/domain/recurrence";
 import { instantToZoned, parseLocalDate } from "@/lib/domain/time";
 import { needsPinConfirmation } from "@/lib/providers/geocoder";
 import { getCustomer, propertyAddress } from "@/lib/server/customers";
+import { saleFor } from "@/lib/server/sales";
+import { COMMISSION_STATUS } from "@/lib/domain/commission";
 import { APPOINTMENT_STATUS, BILLING_MODE, formatLocalDate, formatWindow, SUBSCRIPTION_STATUS } from "@/lib/ui/format";
 
 export const metadata: Metadata = { title: "Customer" };
@@ -31,7 +33,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   const member = await requireMember(OFFICE_ROLES);
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  const data = await getCustomer(member, id);
+  const [data, sale] = await Promise.all([getCustomer(member, id), saleFor(member, id)]);
   if (!data) notFound();
   const { customer, properties, subscriptions, upcoming, history } = data;
   const query = await searchParams;
@@ -168,6 +170,15 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                   },
                   { label: "Promotions", value: customer.email_opt_in ? "Opted in" : "Not opted in" },
                   ...(customer.notes ? [{ label: "Notes", value: <span className="whitespace-pre-line">{customer.notes}</span> }] : []),
+                  // FR-SAL-02: who made the sale, and what it earned.
+                  ...(sale
+                    ? [
+                        {
+                          label: "Sold by",
+                          value: `${sale.technicianName}${sale.amountCents !== null ? `, ${formatCents(sale.amountCents)} commission (${(COMMISSION_STATUS[sale.status ?? ""]?.label ?? "").toLowerCase()})` : ""}`,
+                        },
+                      ]
+                    : []),
                 ]}
               />
             </div>

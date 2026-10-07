@@ -15,7 +15,7 @@ export default async function NewCustomerPage() {
   const [plans, technicians, tenant] = await Promise.all([
     listPlans(member, { activeOnly: true }),
     listTechnicians(member, { activeOnly: true }),
-    withRls(member.claims, (tx) => tx.selectFrom("tenants").select("state").executeTakeFirstOrThrow()),
+    withRls(member.claims, (tx) => tx.selectFrom("tenants").select(["state", "tech_sales_enabled"]).executeTakeFirstOrThrow()),
   ]);
 
   return (
@@ -42,6 +42,7 @@ export default async function NewCustomerPage() {
         today={todayIn(member.timezone)}
         defaultRegion={tenant.state}
         canSell={member.role !== "dispatcher"}
+        sellers={tenant.tech_sales_enabled ? technicians.map((t) => ({ id: t.id, name: t.display_name })) : undefined}
       />
     </div>
   );

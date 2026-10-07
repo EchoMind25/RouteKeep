@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-07",
+    title: "Technicians can add customers, with commission",
+    items: [
+      "Turn it on in Settings, Sales, and set what a sale earns: a flat amount, a percent of the first service, or both.",
+      "Technicians tap New customer in their app to add a customer and sell a plan on the spot. The sale is credited to them and they see the commission before saving.",
+      "Approve, mark paid or void commissions in Reports, Commissions, and download them as CSV for payroll. Amounts never change after the sale.",
+      "The office can credit a technician when entering a sale they phoned in.",
+    ],
+  },
+  {
+    date: "2026-10-07",
     title: "Correcting a record",
     items: [
       "Amend a product record from the visit page: change what was applied, how much, where on the property and when, and say why.",

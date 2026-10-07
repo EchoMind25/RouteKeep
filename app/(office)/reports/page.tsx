@@ -1,4 +1,4 @@
-import { CaretRight, Flask } from "@phosphor-icons/react/ssr";
+import { CaretRight, Flask, HandCoins } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,6 +24,18 @@ export default async function ReportsPage() {
             <span className="grid min-w-0 flex-1 gap-0.5">
               <span className="font-semibold">Product usage</span>
               <span className="text-sm text-fg-muted">What was applied, how much and where, by date range, product, EPA number and technician.</span>
+            </span>
+            <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
+          </Link>
+        </li>
+        <li>
+          <Link href="/reports/commissions" className="flex items-center gap-4 rounded-panel border border-line bg-surface p-5 hover:border-line-strong">
+            <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent-soft text-accent" aria-hidden>
+              <HandCoins size={22} />
+            </span>
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <span className="font-semibold">Commissions</span>
+              <span className="text-sm text-fg-muted">Customers technicians added, what each sale earned, and what has been approved and paid.</span>
             </span>
             <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
           </Link>
