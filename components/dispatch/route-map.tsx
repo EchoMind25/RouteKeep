@@ -204,11 +204,17 @@ export function RouteMap(props: {
       ) : null}
       {numbered.map((s) => (
         <Marker key={s.id} longitude={s.lng} latitude={s.lat} anchor="bottom" offset={[0, -6]}>
+          {/* A pointer shortcut only: the same "show on the map" button is in the
+              lane list for keyboard and screen reader users (WCAG 2.5.8
+              equivalent control), so pins stay out of the tab order and the
+              accessibility tree, where dense pins would only add noise. */}
           <button
             type="button"
+            tabIndex={-1}
+            aria-hidden
             onClick={() => props.onSelect(s.id)}
-            aria-label={`Stop ${s.number}, ${s.name}`}
-            className="grid h-5 min-w-5 place-items-center rounded-pill border border-surface px-1 text-[11px] leading-none font-bold tabular shadow-raised"
+            title={`Stop ${s.number}, ${s.name}`}
+            className="grid h-6 min-w-6 place-items-center rounded-pill border border-surface px-1 text-xs leading-none font-bold tabular shadow-raised"
             style={{ backgroundColor: color(s.colorIndex), color: s.colorIndex !== null ? `var(--rk-route-ink-${s.colorIndex % 12})` : "var(--rk-surface)" }}
           >
             {s.number}

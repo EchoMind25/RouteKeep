@@ -10,8 +10,8 @@ export const FLAGS = {
   billing: true,
   /** The Reports area. On since 2026-10-07 with product usage (FR-REC-06); billing reports join it with `billing`. */
   reports: true,
-  /** M5: import wizard and export. */
-  migration: false,
+  /** M5: the import wizard (export is never flagged: leaving is promised from day one). On since 2026-10-08. */
+  migration: true,
   /** M6: customer portal. */
   portal: false,
 } as const;

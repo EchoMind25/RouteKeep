@@ -239,6 +239,7 @@ export interface Exports {
   format_version: Generated<string>;
   id: Generated<string>;
   path: string | null;
+  progress: Generated<Json>;
   requested_by: Generated<string | null>;
   size_bytes: number | null;
   status: Generated<string>;

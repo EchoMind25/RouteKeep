@@ -11,6 +11,8 @@ const TABS = [
   { href: "/settings/plans", label: "Plans" },
   { href: "/settings/products", label: "Products" },
   { href: "/settings/sales", label: "Sales" },
+  { href: "/settings/import", label: "Import" },
+  { href: "/settings/export", label: "Export" },
   { href: "/settings/changes", label: "What's new" },
 ];
 
@@ -19,7 +21,7 @@ export function SettingsNav() {
   return (
     <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto border-b border-line">
       {TABS.map((t) => {
-        const active = pathname === t.href;
+        const active = t.href === "/settings" ? pathname === t.href : pathname === t.href || pathname.startsWith(`${t.href}/`);
         return (
           <Link
             key={t.href}

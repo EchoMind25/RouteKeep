@@ -115,3 +115,8 @@ was opened.
   readable size, each piece has a numbered plain-words label, and touch
   screens tilt with scroll. The neighborhood route plays from script with the
   path's measured length so iOS Safari draws it the same as desktop.
+- Import and export (PRD section 9, 8.10), 2026-10-08: the wizard's steps,
+  checks, dry run totals, reconcile and 7-day undo come from the PRD. Column
+  synonyms are common spreadsheet header words, not taken from any vendor's
+  export (FR-MIG-03: a vendor preset is built from a real customer's own file).
+  The export layout and docs/EXPORT_FORMAT.md are our own.

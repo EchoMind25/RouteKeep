@@ -9,6 +9,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-08",
+    title: "Import your customer list, export everything",
+    items: [
+      "Settings, Import: upload a CSV from your old software or a spreadsheet. Columns are matched for you; change any match before anything happens.",
+      "Every row is checked first. You see how many customers, plans and open balances will come over, and you can download only the rows that need fixing, with the reason on each.",
+      "Import brings over customers, service addresses, plans with their next service date and upcoming visits, and what each customer owes. The same file twice adds nothing.",
+      "Changed your mind? Undo an import for 7 days. Customers you have already worked with are kept.",
+      "Settings, Export: one ZIP with all your data, your customer list ready to import anywhere, every application record as a PDF per month, and all photos and signatures.",
+    ],
+  },
+  {
     date: "2026-10-07",
     title: "AI plan for routes",
     items: [

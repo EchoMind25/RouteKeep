@@ -664,7 +664,7 @@ function Lane(props: {
   return (
     <section ref={setNodeRef} aria-labelledby={headingId} className={cn("min-w-0 overflow-hidden rounded-panel border bg-surface", isOver ? "border-accent" : "border-line", props.selected && "ring-2 ring-fg")}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-[12rem] flex-1 items-center gap-3">
           {props.colorIndex !== undefined ? (
             <span className="grid size-8 shrink-0 place-items-center rounded-pill text-xs font-bold" style={{ backgroundColor: `var(--rk-route-${props.colorIndex})`, color: `var(--rk-route-ink-${props.colorIndex})` }} aria-hidden>
               {initials(props.title)}
