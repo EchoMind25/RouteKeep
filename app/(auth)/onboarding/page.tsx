@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Set up your business" };
 
 export default async function OnboardingPage() {
   const user = await requireUser();
-  if (await getMemberSession()) redirect("/");
+  if (await getMemberSession()) redirect("/app");
   return (
     <div className="grid gap-8">
       <div className="grid gap-2">

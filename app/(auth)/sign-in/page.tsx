@@ -13,7 +13,7 @@ const DEMO_ACCOUNTS = [
 ];
 
 export default async function SignInPage() {
-  if (await getUserSession()) redirect("/");
+  if (await getUserSession()) redirect("/app");
   const local = authMode() === "local";
   return (
     <div className="grid gap-6">

@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // pg loads optional native bindings at runtime; keep it out of the bundle.
   serverExternalPackages: ["pg"],
+  // Short ways into the app: /login and /app both end at sign-in or the right home.
+  async redirects() {
+    return [{ source: "/login", destination: "/app", permanent: false }];
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

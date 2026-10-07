@@ -3,7 +3,7 @@
 Path in repo: `docs/PRD.md`
 Status: v1.0, normative
 Background and evidence: `docs/RESEARCH.md` (IDs such as `R-PAIN-01` refer to that file)
-Last updated: 2026-10-07 (v1.1: technician sales and commission, owner decision)
+Last updated: 2026-10-07 (v1.2: white label offer, branded documents, public site; v1.1: technician sales and commission)
 
 ## 0. How to use this file (for Claude and other agents)
 
@@ -35,7 +35,7 @@ First market: Utah and the Mountain West.
 - G-05 Zero duplicate charges. Zero cross-tenant data exposure.
 
 ### Non-goals for MVP
-Door-to-door sales app (canvassing, territories, door contracts; technician sales of a plan at a stop are in scope, see 8.5.1), marketplace, multi-branch roll-ups, general ledger, payroll, inventory, voice or IVR, custom report builder, white-label portal domains, non-US tenants, native app store binaries, SOC 2 audit, AI features.
+Door-to-door sales app (canvassing, territories, door contracts; technician sales of a plan at a stop are in scope, see 8.5.1), marketplace, multi-branch roll-ups, general ledger, payroll, inventory, voice or IVR, custom report builder, self-serve white label (white label is a done-for-you service, see D-14), non-US tenants, native app store binaries, SOC 2 audit, AI features.
 
 ## 3. Personas
 
@@ -64,6 +64,7 @@ Door-to-door sales app (canvassing, territories, door contracts; technician sale
 | D-11 | Pricing: Starter $79/month (up to 300 active customers), Pro $179 (up to 1,500), Growth $349 (up to 5,000). Unlimited users. Month to month. No setup fee | Keeps the per-customer-count model users like (R-PRICE-07) | After 5 customers |
 | D-12 | Billing for Routewright's own subscription uses Stripe Billing on the platform account | Standard | Never |
 | D-13 | Deferred spend: trademark filing, attorney review, SOC 2, QuickBooks sync, Apple and Google developer accounts | Not required to sign customer 1 | First revenue |
+| D-14 | White label as a done-for-you service: $2,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, PDFs and statements; their own domain once they own one; setup with the owner (plans, products, technicians, customer list import from their own export); a walkthrough; one year of fix-it support (defects and help, not new features). Owner decision 2026-10-07 | Comparable to a competitor's reported $1,300+ implementation fee (R-PRICE-03) while also covering branding and a support year; roughly 15 to 25 hours of setup work | After 3 white label sales, or if setup regularly runs past 25 hours |
 
 ## 5. Budget constraint
 
@@ -253,6 +254,17 @@ Added 2026-10-07 by owner decision: technicians often sell plans in the field an
 - FR-EXP-01 Owner can export the entire tenant at any time: every table as CSV and JSON, attachments as a ZIP, application records as PDFs.
 - FR-EXP-02 Export completes in under 10 minutes for 10,000 customers and is delivered by expiring link.
 - FR-EXP-03 Export format is documented and is itself a valid import source (FR-MIG-02).
+
+### 8.10.1 Branded documents `[MVP]`
+Added 2026-10-07 by owner decision.
+- FR-BRD-01 On every paid plan (all plans are paid), a business uploads its logo and sets its business details; customer-facing PDFs (service records, invoices, statements) show the business's logo, name, address and license and carry no product branding at all, including in file metadata.
+- FR-BRD-02 Logo upload: PNG, JPEG or SVG up to 1 MB, stored in the private bucket, shown on screen to members and embedded in PDFs; a preview before saving.
+- Accept: a PDF generated for a business with a logo shows that logo and contains no occurrence of the product name.
+
+### 8.10.2 Public site `[MVP]`
+Added 2026-10-07 by owner decision.
+- FR-WEB-01 A public landing page at `/`: what the product does, posted pricing (D-11), the white label offer (D-14), and a FAQ. Indexable, with structured data (SoftwareApplication, FAQPage), a sitemap, robots rules that keep the app private, a social card and `/llms.txt` for AI assistants. Every claim matches what is built; nothing invented (no reviews, no customer logos until real).
+- FR-WEB-02 Signed-in work starts at `/app`. `app.` and `login.` subdomains of the owner's domain open the app directly; `/login` does the same on any host.
 
 ### 8.11 Later phases
 - `[P2]` QuickBooks Online sync; dunning workflows; bait station barcodes and inspections; termite diagrams; lawn depth (area-based rates, multi-round programs, weather); online booking widget; review requests; multi-state record templates; public API and webhooks; AI intake and note drafting; Capacitor native wrapper; VROOM adapter in production.

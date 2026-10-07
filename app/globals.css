@@ -28,6 +28,13 @@
   --text-xl--line-height: 28px;
   --text-2xl: 28px;
   --text-2xl--line-height: 34px;
+  /* Display sizes, for the public landing page only. */
+  --text-3xl: 36px;
+  --text-3xl--line-height: 40px;
+  --text-4xl: 48px;
+  --text-4xl--line-height: 52px;
+  --text-5xl: 60px;
+  --text-5xl--line-height: 62px;
 
   --radius-control: 6px;
   --radius-panel: 10px;

@@ -7,6 +7,13 @@ import { publicEnv } from "@/lib/public-env";
 // Server Components (which cannot set cookies) always see a valid one.
 // Authorization itself happens next to the data (lib/auth/session.ts, RLS).
 export async function proxy(request: NextRequest) {
+  // app.<domain> and login.<domain> open straight into the app (sign-in when
+  // signed out) instead of the landing page. Works once a custom domain is
+  // connected; *.netlify.app addresses cannot have subdomains, so use /app.
+  const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").toLowerCase();
+  if (request.nextUrl.pathname === "/" && /^(app|login)\./.test(host)) {
+    return NextResponse.redirect(new URL("/app", request.url));
+  }
   if (authMode() !== "supabase" || !publicEnv.supabaseUrl) return NextResponse.next();
 
   let response = NextResponse.next({ request });

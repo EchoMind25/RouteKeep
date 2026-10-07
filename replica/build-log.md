@@ -23,4 +23,5 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S18 Stop flow | 2026-10-07 | done | | A resumed stop opens the product card that still needs input; card state was in memory only and a killed tab came back collapsed |
 | S18b Technician sale | 2026-10-07 | done | Offline queueing of a sale | FR-SAL: the office new-customer form in a technician mode (no assignment fields, commission preview), at /sales/new, plus My sales. A separate page from /tech so the offline app's cached shell never stands in for it |
 | S19, S20 Portal | | not started | | M6 |
+| S22 Landing page | 2026-10-07 | done | Real customer quotes and logos once there are customers | Real product screenshots (light and dark) layered in CSS 3D with pointer tilt; an isometric neighborhood where the route draws as it scrolls in. Animated text never drops below full contrast (axe caught the first version dimming it) |
 | S21 Design primitives | | not started | | |

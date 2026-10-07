@@ -1,0 +1,350 @@
+/* Public landing page. Colours, radii and type come from the app's tokens
+   (app/tokens.css); this file only holds the 3D and motion that Tailwind
+   utilities cannot express. Every animation stops under reduced motion. */
+
+/* Hero: real screens floating in depth -------------------------------------- */
+
+.stage {
+  perspective: 1800px;
+  perspective-origin: 60% 40%;
+}
+
+.rig {
+  --rx: 10deg;
+  --ry: -18deg;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform 700ms var(--rk-ease);
+}
+
+.layer {
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid var(--rk-line);
+  background: var(--rk-surface);
+  box-shadow: 0 30px 60px -20px rgb(21 25 30 / 0.35), 0 12px 24px -12px rgb(21 25 30 / 0.25);
+}
+
+.board {
+  position: relative;
+  border-radius: var(--radius-panel);
+  transform: translateZ(0);
+}
+
+.phone {
+  right: -6%;
+  bottom: -14%;
+  width: 29%;
+  border: 7px solid var(--rk-fg);
+  border-radius: 30px;
+  transform: translateZ(150px) rotateY(-4deg);
+}
+
+.paper {
+  left: -7%;
+  bottom: -18%;
+  width: 36%;
+  border-radius: 4px;
+  transform: translateZ(90px) rotateZ(-5deg) rotateX(6deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .float {
+    animation: float 9s ease-in-out infinite alternate;
+    transform-style: preserve-3d;
+  }
+  .phone {
+    animation: rise-phone 1100ms var(--rk-ease) 200ms both;
+  }
+  .paper {
+    animation: rise-paper 1100ms var(--rk-ease) 380ms both;
+  }
+}
+
+@keyframes float {
+  from {
+    transform: translateY(0) rotateZ(0deg);
+  }
+  to {
+    transform: translateY(-14px) rotateZ(0.6deg);
+  }
+}
+
+@keyframes rise-phone {
+  from {
+    opacity: 0;
+    transform: translateZ(380px) rotateY(-14deg) translateY(40px);
+  }
+}
+
+@keyframes rise-paper {
+  from {
+    opacity: 0;
+    transform: translateZ(260px) rotateZ(-14deg) rotateX(18deg) translateY(50px);
+  }
+}
+
+/* The neighborhood: an isometric block of streets with a route drawing in ---- */
+
+.isoWrap {
+  perspective: 2200px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.plane {
+  position: relative;
+  width: 480px;
+  height: 480px;
+  transform-style: preserve-3d;
+  transform: rotateX(56deg) rotateZ(-40deg);
+  background: var(--rk-line);
+  border-radius: 14px;
+}
+
+.block {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 4px;
+  background: var(--rk-sunken);
+  transform-style: preserve-3d;
+}
+
+.house {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  transform-style: preserve-3d;
+}
+
+.roof,
+.wallS,
+.wallE {
+  position: absolute;
+}
+
+.roof {
+  inset: 0;
+  background: var(--rk-surface);
+  border: 1px solid var(--rk-line-strong);
+  transform: translateZ(var(--h));
+}
+
+.wallS {
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--h);
+  background: var(--rk-line-strong);
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+}
+
+.wallE {
+  right: 0;
+  top: 0;
+  width: var(--h);
+  height: 100%;
+  background: var(--rk-fg-muted);
+  transform-origin: right;
+  transform: rotateY(90deg);
+}
+
+.routeSvg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  transform: translateZ(1px);
+}
+
+.routeLine {
+  fill: none;
+  stroke: var(--rk-accent);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pin {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(2px);
+}
+
+.pinBody {
+  position: absolute;
+  left: -14px;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--rk-accent);
+  color: var(--rk-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 14px -6px rgb(21 25 30 / 0.6);
+  transform-origin: bottom center;
+  /* Stand up from the ground and face the viewer: the plane's tilt, undone. */
+  transform: rotateZ(40deg) rotateX(-56deg) translateY(-6px);
+}
+
+.truck {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 6px;
+  background: var(--rk-fg);
+  border: 3px solid var(--rk-surface);
+  transform: translateZ(4px);
+  offset-rotate: 0deg;
+  opacity: 0;
+}
+
+/* Armed by script only when the scene is off screen, so without JavaScript or
+   with reduced motion the finished route simply shows. */
+@media (prefers-reduced-motion: no-preference) {
+  .scene[data-armed] .routeLine {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .scene[data-armed] .pinBody {
+    opacity: 0;
+  }
+  .scene[data-armed] .stepNum {
+    background: transparent;
+    color: var(--rk-fg);
+  }
+  .scene[data-on] .routeLine {
+    animation: draw 4.2s var(--rk-ease) 300ms forwards;
+  }
+  .scene[data-on] .pinBody {
+    animation: pop 500ms var(--rk-ease) forwards;
+    animation-delay: calc(500ms + var(--i) * 520ms);
+  }
+  .scene[data-on] .truck {
+    animation: drive 4.2s var(--rk-ease) 300ms forwards, show 300ms linear 300ms forwards;
+  }
+  .scene[data-on] .stepNum {
+    animation: light 400ms var(--rk-ease) forwards;
+    animation-delay: calc(var(--i) * 1100ms);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .truck {
+    display: none;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: rotateZ(40deg) rotateX(-56deg) translateY(10px) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: rotateZ(40deg) rotateX(-56deg) translateY(-6px) scale(1);
+  }
+}
+
+@keyframes drive {
+  from {
+    offset-distance: 0%;
+  }
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes show {
+  to {
+    opacity: 1;
+  }
+}
+
+/* A step's number fills in as the route reaches it; the text never dims. */
+@keyframes light {
+  to {
+    background: var(--rk-accent);
+    border-color: var(--rk-accent);
+    color: var(--rk-on-accent);
+  }
+}
+
+.stepNum {
+  background: var(--rk-accent);
+  border-color: var(--rk-accent);
+  color: var(--rk-on-accent);
+}
+
+/* Tilted cards that settle flat as they come into view ------------------------ */
+
+.tilt {
+  transform-style: preserve-3d;
+  transition: transform 600ms var(--rk-ease);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tiltParent:hover .tilt {
+    transform: rotateX(4deg) rotateY(-8deg) translateZ(20px);
+  }
+  @supports (animation-timeline: view()) {
+    .settle {
+      animation: settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+  }
+}
+
+/* Motion only: text stays at full contrast the whole way. */
+@keyframes settle {
+  from {
+    transform: perspective(1400px) rotateX(24deg) translateY(60px);
+  }
+  to {
+    transform: perspective(1400px) rotateX(0deg) translateY(0);
+  }
+}
+
+.sheet {
+  transform: perspective(1600px) rotateY(-14deg) rotateX(6deg) rotateZ(1.5deg);
+  box-shadow: -30px 40px 60px -30px rgb(21 25 30 / 0.4);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .sheet {
+      animation: sheet linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 50%;
+    }
+  }
+}
+
+@keyframes sheet {
+  from {
+    transform: perspective(1600px) rotateY(-50deg) rotateX(18deg) rotateZ(6deg) translateX(80px);
+  }
+  to {
+    transform: perspective(1600px) rotateY(-14deg) rotateX(6deg) rotateZ(1.5deg);
+  }
+}

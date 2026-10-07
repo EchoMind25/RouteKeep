@@ -58,7 +58,7 @@ export async function requireMember(allowed?: readonly MemberRole[]): Promise<Me
   await requireUser();
   const member = await getMemberSession();
   if (!member) redirect("/onboarding");
-  if (allowed && !allowed.includes(member.role)) redirect("/?denied=1");
+  if (allowed && !allowed.includes(member.role)) redirect("/app?denied=1");
   return member;
 }
 

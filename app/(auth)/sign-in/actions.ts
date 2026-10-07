@@ -29,7 +29,7 @@ export async function startSignIn(_prev: SignInState, data: FormData): Promise<S
 
   if (authMode() === "local") {
     await signInLocal(email);
-    redirect("/");
+    redirect("/app");
   }
 
   const supabase = await supabaseServer();
@@ -48,7 +48,7 @@ export async function verifyCode(_prev: SignInState, data: FormData): Promise<Si
   const supabase = await supabaseServer();
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error) return { step: "code", email, error: "That code is wrong or has expired. Request a new one." };
-  redirect("/");
+  redirect("/app");
 }
 
 export async function signOut(): Promise<void> {

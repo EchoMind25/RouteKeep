@@ -75,6 +75,10 @@ was opened.
   RESEARCH R-COMP-01, the 20 hour warning from the PRD. Counting from the
   arrival when no earlier application time is entered is our own choice, so
   the phone can never warn late. Wording written fresh.
+- Landing page (FR-WEB-01): our own layout and copy, written from the PRD,
+  the research pain points (no competitor named in a negative way) and real
+  screenshots of this product with demo data. No competitor site, copy or
+  imagery was looked at.
 - Technician sales and commission (FR-SAL-01..04): from the owner's own
   experience as a technician paid on sales; rule shape (flat plus percent of
   the first service) and the approval states are our own. No competitor

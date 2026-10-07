@@ -102,3 +102,6 @@ NFR-06 Observability: Sentry on web and PWA; structured logs with tenant and req
 Door-to-door sales app with contracts,sales,could,yes,skip,PRD non-goal for MVP (P3)
 Fleet GPS tracking add-on,dispatch,could,yes,skip,PRD non-goal for MVP (P3)
 Voice and IVR messaging,messaging,could,yes,skip,PRD non-goal for MVP
+"FR-WEB-01 Public landing page with posted pricing, white label offer, FAQ, structured data, sitemap, robots, social card and llms.txt.",public site,must,n/a,yes,"Static page at /, real product screenshots in CSS 3D, isometric route scene, axe clean, no invented claims; e2e landing.spec"
+FR-WEB-02 Signed-in work starts at /app; app. and login. subdomains and /login open the app directly.,public site,must,n/a,yes,"Proxy redirects app./login. hosts at /; /login redirects; netlify.app hosts cannot have subdomains, so /app until the domain is live"
+"FR-BRD-01 Customer-facing PDFs and statements carry the business's logo and details and no product branding, on every paid plan.",branded documents,must,n/a,partial,"PDFs already carry only the business's name, address and license (no product name, metadata set to the business); logo upload and statements not built"

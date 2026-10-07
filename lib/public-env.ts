@@ -10,6 +10,13 @@ export const publicEnv = {
   mapStyleUrl: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? "",
   /** Set at build (next.config.ts); names the technician app's offline copy. */
   appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? "dev",
+  /**
+   * The public address of the site, for canonical links, the sitemap and
+   * social cards. The Netlify address until the owner's domain is live.
+   */
+  siteUrl: (process.env.NEXT_PUBLIC_SITE_URL || "https://spontaneous-naiad-6d1a16.netlify.app").replace(/\/$/, ""),
+  /** Where "Ask about white label" goes. Empty sends people to sign up instead. */
+  salesEmail: process.env.NEXT_PUBLIC_SALES_EMAIL ?? "",
   /** Production build: the service worker is registered only then, so development never serves stale code. */
   production: process.env.NODE_ENV === "production",
 };

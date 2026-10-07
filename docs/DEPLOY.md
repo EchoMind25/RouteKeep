@@ -94,7 +94,21 @@ pin against a blank background is guesswork. Pick one, then set
 If the style fails to load, the map falls back to the plain background and
 says so; nothing else breaks.
 
-## 6. Later milestones
+## 6. Public landing page and sign-in shortcut
+
+- `NEXT_PUBLIC_SITE_URL`: the public address (canonical links, sitemap, social
+  cards). Leave it empty while you use the Netlify address; set it to
+  `https://yourdomain.com` once the domain is connected, then redeploy.
+- `NEXT_PUBLIC_SALES_EMAIL`: where "Ask about white label" sends people. Empty
+  sends them to sign up instead.
+- Straight into the app: `/app` or `/login` on any address. Once you own a
+  domain, add `app.yourdomain.com` (and `login.yourdomain.com` if you like) as
+  domain aliases in Netlify; both open the app instead of the landing page.
+  A `*.netlify.app` address cannot have subdomains, so use `/app` until then.
+- After the domain is live: add it in Google Search Console and Bing
+  Webmaster Tools and submit `/sitemap.xml`.
+
+## 7. Later milestones
 
 PowerSync (M3), Stripe Connect (M4), Resend and per-tenant 10DLC (M6),
 Sentry. Each gets a row in `docs/VENDORS.md` with its real free-tier limits at
