@@ -89,6 +89,8 @@ export interface Snapshot {
   lastMixes: Record<string, SnapshotMix[]>;
   /** The technician's most used products in the last 90 days. */
   favorites: string[];
+  /** FR-SAL-01: whether the owner lets technicians add customers. Missing on snapshots saved before it existed. */
+  canSell?: boolean;
 }
 
 // Up ----------------------------------------------------------------------------------

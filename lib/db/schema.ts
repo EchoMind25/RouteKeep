@@ -157,6 +157,26 @@ export interface AuditLog {
   updated_at: Generated<Timestamp>;
 }
 
+export interface Commissions {
+  amount_cents: number;
+  basis_cents: number;
+  created_at: Generated<Timestamp>;
+  created_by: Generated<string | null>;
+  customer_id: string;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  flat_cents: number;
+  id: Generated<string>;
+  note: string | null;
+  pct: Numeric;
+  status: Generated<string>;
+  subscription_id: string | null;
+  technician_id: string;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  version: Generated<number>;
+}
+
 export interface CustomerBalances {
   balance_cents: number | null;
   customer_id: string | null;
@@ -190,6 +210,7 @@ export interface Customers {
   sms_consent_at: Timestamp | null;
   sms_consent_source: string | null;
   sms_opted_out_at: Timestamp | null;
+  sold_by_technician_id: string | null;
   source: Generated<string>;
   status: Generated<string>;
   stripe_customer_id: string | null;
@@ -593,6 +614,8 @@ export interface Tenants {
    * ENG-01: a double-submitted signup form creates one tenant, not two.
    */
   client_key: string | null;
+  commission_flat_cents: Generated<number>;
+  commission_pct: Generated<Numeric>;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
@@ -606,6 +629,7 @@ export interface Tenants {
   state: string;
   stripe_account_id: string | null;
   stripe_charges_enabled: Generated<boolean>;
+  tech_sales_enabled: Generated<boolean>;
   timezone: string;
   updated_at: Generated<Timestamp>;
 }
@@ -630,6 +654,7 @@ export interface DB {
   appointments: Appointments;
   attachments: Attachments;
   audit_log: AuditLog;
+  commissions: Commissions;
   customer_balances: CustomerBalances;
   customers: Customers;
   exports: Exports;

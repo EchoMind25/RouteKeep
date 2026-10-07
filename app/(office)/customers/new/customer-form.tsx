@@ -12,6 +12,8 @@ import { describeRule, occurrences } from "@/lib/domain/recurrence";
 import { addDays, isLocalDate, parseLocalDate } from "@/lib/domain/time";
 import { initialFormState } from "@/lib/forms";
 import { formatLocalDate } from "@/lib/ui/format";
+import { commissionBasis, commissionFor, type CommissionRule } from "@/lib/domain/commission";
+import type { FormState } from "@/lib/forms";
 import { createCustomerAction } from "./actions";
 
 export interface PlanOption {
@@ -29,8 +31,16 @@ export function CustomerForm(props: {
   today: string;
   defaultRegion: string;
   canSell: boolean;
+  /** FR-SAL-02: "technician" is a sale made in the field, credited to whoever is signed in. */
+  mode?: "office" | "technician";
+  /** Office only: technicians a sale can be credited to (when the owner allows technician sales). */
+  sellers?: { id: string; name: string }[];
+  /** Technician only: the owner's rule, to show the commission before saving. */
+  commission?: CommissionRule;
+  action?: (prev: FormState, data: FormData) => Promise<FormState>;
 }) {
-  const [state, action] = useActionState(createCustomerAction, initialFormState);
+  const field = props.mode === "technician";
+  const [state, action] = useActionState(props.action ?? createCustomerAction, initialFormState);
   const v = state.values ?? {};
   const e = state.errors ?? {};
 
@@ -135,6 +145,7 @@ export function CustomerForm(props: {
                     <Field label="First visit" error={e.startDate}>
                       <Input name="startDate" type="date" min={props.today} value={startDate} onChange={(ev) => setStartDate(ev.target.value)} />
                     </Field>
+                    {field ? null : (
                     <Field label="Technician" optional error={e.technicianId}>
                       <Select name="technicianId" defaultValue={v.technicianId ?? ""}>
                         <option value="">Assign later</option>
@@ -145,7 +156,9 @@ export function CustomerForm(props: {
                         ))}
                       </Select>
                     </Field>
+                    )}
                   </div>
+                  {field ? null : (
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Arrival window starts" optional error={e.windowStart}>
                       <Input name="windowStart" type="time" step={900} defaultValue={v.windowStart} />
@@ -154,6 +167,7 @@ export function CustomerForm(props: {
                       <Input name="windowEnd" type="time" step={900} defaultValue={v.windowEnd} />
                     </Field>
                   </div>
+                  )}
                   <Checkbox name="autopay" label="Customer wants autopay" hint="Card or bank details are collected later through Stripe's secure form, never typed here." defaultChecked={v.autopay === "on"} />
                 </>
               ) : null}
@@ -165,7 +179,20 @@ export function CustomerForm(props: {
           ) : null}
         </Fieldset>
 
-        <Field label="Office notes" optional hint="Internal only; customers never see this." error={e.notes}>
+        {props.sellers?.length ? (
+          <Field label="Sold by" optional hint="Credit a technician who made this sale; their commission is worked out from your sales settings." error={e.soldBy}>
+            <Select name="soldBy" defaultValue={v.soldBy ?? ""} className="max-w-80">
+              <option value="">No one</option>
+              {props.sellers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+
+        <Field label={field ? "Notes for the office" : "Office notes"} optional hint="Internal only; customers never see this." error={e.notes}>
           <Textarea name="notes" rows={3} defaultValue={v.notes} />
         </Field>
 
@@ -193,6 +220,12 @@ export function CustomerForm(props: {
               ))}
             </ol>
             <p className="text-sm text-fg-muted">Visits are kept 60 days ahead and move with the plan.</p>
+            {field && props.commission ? (
+              // FR-SAL-01: what this sale earns, before saving. The office approves it.
+              <p className="border-t border-line pt-3">
+                Your commission: <span className="font-semibold tabular">{formatCents(commissionFor(props.commission, commissionBasis(plan)))}</span>
+              </p>
+            ) : null}
           </>
         ) : (
           <p className="text-sm text-fg-muted">Choose a plan to see the first visits here before you save.</p>

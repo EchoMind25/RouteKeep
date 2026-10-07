@@ -186,6 +186,7 @@ export async function getTechSnapshot(m: MemberSession, now: Date = new Date()):
       products,
       lastMixes,
       favorites,
+      canSell: (await tx.selectFrom("tenants").select("tech_sales_enabled").executeTakeFirstOrThrow()).tech_sales_enabled,
     };
   });
 }

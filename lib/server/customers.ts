@@ -145,6 +145,8 @@ export interface NewCustomerInput {
   smsConsent: boolean;
   emailOptIn: boolean;
   notes: string | null;
+  /** FR-SAL-02: the technician credited with this sale, if any. */
+  soldByTechnicianId?: string | null;
   property: { line1: string; line2: string | null; city: string; region: string; postalCode: string; accessNotes: string | null };
   plan: null | {
     planId: string;
@@ -166,7 +168,7 @@ export function displayNameFor(i: Pick<NewCustomerInput, "kind" | "firstName" | 
  * F02: customer, property and (optionally) a plan in one transaction, then the
  * plan's first visits, so the CSR leaves this screen with work on the schedule.
  */
-export async function createCustomer(m: MemberSession, input: NewCustomerInput): Promise<{ customerId: string; visitsCreated: number }> {
+export async function createCustomer(m: MemberSession, input: NewCustomerInput): Promise<{ customerId: string; visitsCreated: number; commissionId: string | null }> {
   // Geocode before opening the transaction: a slow provider must not hold a connection.
   const geo = await geocoder()
     .geocode({ line1: input.property.line1, city: input.property.city, region: input.property.region, postalCode: input.property.postalCode })
@@ -185,10 +187,11 @@ export async function createCustomer(m: MemberSession, input: NewCustomerInput):
         email: input.email,
         phone: input.phone,
         sms_consent_at: input.smsConsent ? now : null,
-        sms_consent_source: input.smsConsent ? `office:${m.userId}` : null,
+        sms_consent_source: input.smsConsent ? `${m.role === "technician" ? "technician" : "office"}:${m.userId}` : null,
         email_opt_in: input.emailOptIn,
         email_opt_in_at: input.emailOptIn ? now : null,
         notes: input.notes,
+        sold_by_technician_id: input.soldByTechnicianId ?? null,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
@@ -212,11 +215,16 @@ export async function createCustomer(m: MemberSession, input: NewCustomerInput):
       .executeTakeFirstOrThrow();
 
     let visitsCreated = 0;
+    let subscriptionId: string | null = null;
     if (input.plan) {
-      const subscriptionId = await sellPlan(tx, { customerId: customer.id, propertyId: property.id, ...input.plan });
+      subscriptionId = await sellPlan(tx, { customerId: customer.id, propertyId: property.id, ...input.plan });
       visitsCreated = (await generateVisits(tx, m.tenantId, { subscriptionIds: [subscriptionId] })).created;
     }
-    return { customerId: customer.id, visitsCreated };
+    // FR-SAL-02: the database works out the commission from the owner's rule.
+    const commissionId = input.soldByTechnicianId
+      ? ((await sql<{ id: string }>`select app.record_sale_commission(${customer.id}::uuid, ${subscriptionId}::uuid) as id`.execute(tx)).rows[0]?.id ?? null)
+      : null;
+    return { customerId: customer.id, visitsCreated, commissionId };
   });
 }
 

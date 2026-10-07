@@ -167,8 +167,8 @@ begin
   values (v_tenant, 'Test perimeter concentrate', 'pesticide', '1000-1', 'caution', 'gal', 0.5, 'fl_oz_per_gal')
   returning id into v_product;
 
-  insert into public.customers (tenant_id, display_name, first_name, last_name, email, phone)
-  values (v_tenant, 'Marisol Quintero ' || p_label, 'Marisol', 'Quintero', 'marisol.' || p_label || '@example.com', '+18015550142')
+  insert into public.customers (tenant_id, display_name, first_name, last_name, email, phone, sold_by_technician_id)
+  values (v_tenant, 'Marisol Quintero ' || p_label, 'Marisol', 'Quintero', 'marisol.' || p_label || '@example.com', '+18015550142', v_tech)
   returning id into v_customer;
 
   insert into public.properties (tenant_id, customer_id, address_line1, city, region, postal_code, location, geocode_confidence)
@@ -251,6 +251,9 @@ begin
   values (v_tenant, v_job, 'customers', 'customers.csv', 1, '{"Name":"Marisol Quintero"}');
 
   insert into public.exports (tenant_id) values (v_tenant);
+
+  insert into public.commissions (tenant_id, technician_id, customer_id, subscription_id, basis_cents, flat_cents, pct, amount_cents)
+  values (v_tenant, v_tech, v_customer, v_sub, 9900, 2500, 10, 3490);
 
   insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
   values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
