@@ -10,13 +10,22 @@ const securityHeaders = [
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
 ];
 
+// Versions the technician app's offline copy: a deploy installs a new service
+// worker and drops the old caches. Netlify and GitHub provide the commit.
+const appVersion = (process.env.COMMIT_REF ?? process.env.GITHUB_SHA ?? Date.now().toString(36)).slice(0, 12);
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   poweredByHeader: false,
   // pg loads optional native bindings at runtime; keep it out of the bundle.
   serverExternalPackages: ["pg"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // The worker must always be fetched fresh, or a deploy could not replace it.
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }, { key: "Service-Worker-Allowed", value: "/tech" }] },
+    ];
   },
 };
 

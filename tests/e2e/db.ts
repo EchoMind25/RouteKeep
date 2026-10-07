@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { uniqueEmail } from "./fixtures";
 
 // Direct database setup for specs that need an exact day of work (dispatch,
 // performance). Each call creates its own business, so specs never share or
@@ -9,6 +8,10 @@ import { uniqueEmail } from "./fixtures";
 const adminUrl = process.env.E2E_ADMIN_DATABASE_URL ?? `postgresql://postgres@127.0.0.1:${process.env.RK_PGPORT ?? 54329}/routekeep`;
 
 export const OFFICE = { lat: 40.2969, lng: -111.6946 };
+
+function uniqueEmail(prefix: string) {
+  return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@e2e.routekeep.test`;
+}
 
 export interface SeedStop {
   name: string;

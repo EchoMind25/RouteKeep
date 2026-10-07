@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import globals from "globals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -30,6 +31,11 @@ const eslintConfig = defineConfig([
         },
       ],
     },
+  },
+  {
+    // The hand-written service worker runs in a worker, not a page.
+    files: ["public/sw.js"],
+    languageOptions: { globals: globals.serviceworker },
   },
   {
     files: ["lib/env.ts", "lib/public-env.ts", "lib/auth-mode.ts", "next.config.ts", "playwright.config.ts", "vitest.config.ts", "scripts/**", "tests/**"],

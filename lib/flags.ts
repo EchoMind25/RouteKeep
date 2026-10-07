@@ -4,8 +4,8 @@
 export const FLAGS = {
   /** M2: map, drag and drop, optimizer. On since 2026-10-07; off falls back to the day list. */
   dispatchBoard: true,
-  /** M3: offline technician PWA. Until then technicians get an online day list. */
-  offlineTechApp: false,
+  /** M3: offline technician PWA. On since 2026-10-07; off falls back to the online day list. */
+  offlineTechApp: true,
   /** M4: invoices, autopay, ledger screens. */
   billing: false,
   /** M4+: revenue, AR aging, product usage. */

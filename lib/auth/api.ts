@@ -14,9 +14,12 @@ export function json(body: unknown, status = 200): NextResponse {
 
 /** The caller as a member, or the JSON response to send instead. */
 export async function apiMember(request: Request, allowed?: readonly MemberRole[]): Promise<MemberSession | NextResponse> {
-  // Cookies are SameSite=Lax already; refusing other origins outright is belt and braces.
+  // Cookies are SameSite=Lax already; refusing other origins outright is belt
+  // and braces. Compare with the Host the browser used (request.url carries
+  // the server's own idea of its address, which differs behind a proxy).
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return json({ error: "Cross-site requests are not accepted." }, 403);
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  if (origin && (!host || new URL(origin).host !== host)) return json({ error: "Cross-site requests are not accepted." }, 403);
   const member = await getMemberSession();
   if (!member) return json({ error: "Sign in again to sync." }, 401);
   if (allowed && !allowed.includes(member.role)) return json({ error: "Your role cannot do this." }, 403);
