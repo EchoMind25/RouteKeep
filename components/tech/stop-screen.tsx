@@ -10,13 +10,14 @@ import { cn } from "@/lib/cn";
 import { formatCents } from "@/lib/domain/money";
 import { STEPS, type ApplicationEntry, type Draft, type SnapshotInfo, type StepId, type TechState } from "@/lib/sync/client-store";
 import type { SnapshotProduct, SnapshotStop } from "@/lib/sync/protocol";
-import { attachmentKeys, buildComplete, key, missingFields, newApplication, newDraft, paymentProblem } from "@/lib/sync/stop-draft";
-import { formatWindow } from "@/lib/ui/format";
+import { attachmentKeys, buildComplete, key, missingFields, newApplication, newDraft, paymentProblem, recordDue } from "@/lib/sync/stop-draft";
+import { formatDeadline, formatWindow } from "@/lib/ui/format";
 import { ApplicationEditor } from "./application-editor";
 import { useTech } from "./context";
 import { PhotoStep } from "./photo-step";
 import { SignatureStep } from "./signature-step";
 import { localStatus } from "./tech-app";
+import { useNow } from "./use-now";
 import { go } from "./use-view";
 
 // One stop (FR-TEC-03): details, then Arrive, Checklist, Products, Photos,
@@ -38,7 +39,7 @@ export function StopScreen({ stop, state, info, step }: { stop: SnapshotStop; st
   const notice = state.notices.find((n) => n.appointmentId === stop.id);
 
   if (status.done) return <DoneScreen stop={stop} draft={draft} label={status.label} />;
-  if (!draft || !step) return <Details stop={stop} draft={draft} notice={notice?.message} />;
+  if (!draft || !step) return <Details stop={stop} draft={draft} notice={notice?.message} timeZone={info.business.timezone} />;
   return <Flow stop={stop} draft={draft} state={state} info={info} step={step} />;
 }
 
@@ -68,12 +69,37 @@ function BottomBar({ children }: { children: ReactNode }) {
   );
 }
 
-function Details({ stop, draft, notice }: { stop: SnapshotStop; draft: Draft | undefined; notice?: string }) {
+/** CR-02: once a stop's records are due within 4 hours, or late, say so where the work is done. */
+function RecordDueAlert({ stop, draft, timeZone }: { stop: SnapshotStop; draft: Draft | undefined; timeZone: string }) {
+  const now = useNow();
+  const due = recordDue(stop, draft, timeZone, now);
+  if (!due || !(due.warn || due.overdue)) return null;
+  const when = formatDeadline(due.due, timeZone, now);
+  return due.overdue ? (
+    <Alert tone="danger" title={`Record overdue since ${when}`}>
+      Records are due within 24 hours of the application. Complete this stop now; the office will see when it was recorded.
+    </Alert>
+  ) : (
+    <Alert tone="warning" title={`Record due by ${when}`}>
+      Records are due within 24 hours of the application. Complete this stop to finish its record.
+    </Alert>
+  );
+}
+
+function Details({ stop, draft, notice, timeZone }: { stop: SnapshotStop; draft: Draft | undefined; notice?: string; timeZone: string }) {
   const { store, engine } = useTech();
   const [skipping, setSkipping] = useState(false);
 
+  // Started already: on this phone, or (after a reinstall or on another phone) as far as the office knows.
+  const started = Boolean(draft) || stop.status === "in_progress";
+
   async function start() {
     if (draft) return go({ stopId: stop.id, step: draft.step });
+    if (stop.status === "in_progress") {
+      // Carry on from the arrival the office already has; no second arrival is sent.
+      await store.putDraft(newDraft(stop, stop.arrivedAt ? new Date(stop.arrivedAt) : new Date()));
+      return go({ stopId: stop.id, step: "checklist" });
+    }
     const fresh = newDraft(stop, new Date());
     await store.record(fresh, { kind: "arrive", key: key("arrive"), appointmentId: stop.id, date: stop.date, at: fresh.arrivedAt! });
     engine.request();
@@ -85,6 +111,7 @@ function Details({ stop, draft, notice }: { stop: SnapshotStop; draft: Draft | u
       <TopBar stop={stop} onBack={() => go({ stopId: null, step: null })} />
       <div className="grid gap-4 p-4">
         {notice ? <Alert tone="warning">{notice}</Alert> : null}
+        <RecordDueAlert stop={stop} draft={draft} timeZone={timeZone} />
         <div className="grid gap-1">
           <p className="text-md">{stop.address}</p>
           <p className="text-fg-muted tabular">
@@ -123,7 +150,7 @@ function Details({ stop, draft, notice }: { stop: SnapshotStop; draft: Draft | u
       </div>
       <BottomBar>
         <Button size="lg" className="flex-1" onClick={() => void start()}>
-          {draft ? "Continue" : "Arrive and start"}
+          {started ? "Continue" : "Arrive and start"}
         </Button>
       </BottomBar>
       <SkipDialog stop={stop} draft={draft} open={skipping} onOpenChange={setSkipping} />
@@ -247,6 +274,7 @@ function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: D
 
       <div className="grid gap-4 p-4">
         {draft.rejection ? <Alert tone="danger" title="The office could not accept this stop">{draft.rejection}</Alert> : null}
+        <RecordDueAlert stop={stop} draft={draft} timeZone={info.business.timezone} />
 
         {current.id === "checklist" ? (
           <>

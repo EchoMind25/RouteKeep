@@ -110,6 +110,7 @@ Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 - Idempotency: every retryable write has a client key with a unique constraint; generation, ledger posting and webhook intake are all upserts or dedupes.
 - Concurrency: version columns bumped by trigger; no-op updates and job bookkeeping (`generated_through`, `sequence`) do not count as edits. Route order is protected differently: a board write locks the route rows it touches (always in technician-id order, so two dispatchers cannot deadlock) and compares the lane's current order with the order the dispatcher saw. Comparing the order itself also catches changes made elsewhere, such as a skip on the visit page.
 - Stop numbers (FR-DSP-05): a stop's number is its place in the lane, ordered by `sequence`, then window start, then id, the same query on the board, the map and the technician app. Publishing writes 1..n so the stored sequence matches.
+- Record deadline (CR-02): counted on the phone from the arrival or any earlier application time, so it can never warn late; in the office from the arrival the server has. A record from the phone counts as made when the stop was finished there, not when it uploaded.
 - Offline (M3): every screen reads the device copy; drafts are written on every change; a draft and its queued upload commit in one IndexedDB transaction; the outbox carries client keys, so a lost answer and a retry produce one record (ENG-01). Server wins on schedule fields, the device on field records; collisions are kept and queued in `sync_conflicts` (NFR-02) for a person to decide at /schedule/review. The service worker keeps only the /tech page and hashed static files; it never caches API responses.
 - Money (M4): Stripe idempotency keys from row ids, webhook dedupe, ledger as the only source for balances and reports.
 - Multi-tenancy: composite foreign keys plus RLS plus grants, all tested per table.
@@ -121,7 +122,7 @@ Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 | M0 Foundation | S01, S02 | Done: schema, RLS, pgTAP, auth, tenant setup, CI |
 | M1 Core records | S03, S06, S07, S08, S14 | Done: customers, properties, plans, subscriptions with edits, pause and cancel, one-off visits, generation, DST tests |
 | M2 Dispatch | S04 board, S05, S09 | Done: lanes and map with shared selection, drag by pointer or keyboard (within and between lanes, to other days, from the queue), optimize preview, save and undo, publish with the long-leg check, pin confirmation. Remaining: Google and VROOM optimizer adapters (owner accounts) |
-| M3 Technician PWA | S17, S18 | Exit test passes: 15 stops offline, tab killed twice, one clean upload. Remaining: photo and signature upload, PDF service record, conflict review screen, CR-02 warnings |
+| M3 Technician PWA | S17, S18 | Exit test passes: 15 stops offline, tab killed twice, one clean upload. Done: photos and signatures, PDF service record, conflict review, CR-02 deadlines on the phone and in the office. Remaining: record amendments (FR-REC-03 screen), product usage report (FR-REC-06) |
 | M4 Money | S11, S12 | Schema and constraints in place |
 | M5 Migration and export | S15, S16 | Schema in place |
 | M6 Messaging and portal | S19, S20 | Schema in place |

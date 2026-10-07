@@ -1,4 +1,4 @@
-import type { LocalDate } from "@/lib/domain/time";
+import { instantToZoned, type LocalDate } from "@/lib/domain/time";
 
 // Display formatting. Calendar dates are formatted at UTC midnight so the
 // weekday never shifts with the viewer's or the server's zone.
@@ -28,6 +28,13 @@ export function formatTime(time: string | null | undefined): string {
 export function formatInstant(instant: Date | string | null | undefined, timeZone: string): string {
   if (!instant) return "";
   return new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(instant));
+}
+
+/** A deadline on the business's clock, short: "9:12 AM" if it falls today there, else "Thu 9:12 AM" (CR-02). */
+export function formatDeadline(instant: Date, timeZone: string, now: Date): string {
+  const time = new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", minute: "2-digit" }).format(instant);
+  if (instantToZoned(instant, timeZone).date === instantToZoned(now, timeZone).date) return time;
+  return `${new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(instant)} ${time}`;
 }
 
 export function formatWindow(start: string | null | undefined, end: string | null | undefined): string {

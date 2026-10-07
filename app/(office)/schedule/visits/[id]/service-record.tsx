@@ -1,7 +1,7 @@
 import { FilePdf } from "@phosphor-icons/react/ssr";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Details, Panel } from "@/components/ui/layout";
+import { Alert, Details, Panel } from "@/components/ui/layout";
 import { amountLabel, areaLabel, formatNumber, isAmountUnit, isAreaUnit, isMixUnit, mixLabel } from "@/lib/domain/units";
 import type { ServiceRecord } from "@/lib/server/records";
 import { formatInstant, SIGNAL_WORD } from "@/lib/ui/format";
@@ -33,6 +33,15 @@ export function ServiceRecordPanel({ record }: { record: ServiceRecord }) {
       }
     >
       <div className="grid gap-5 px-5 py-4">
+        {visit.recordDue ? (
+          // CR-02: started on a phone, not finished. The phone may hold a finished record that has not uploaded yet.
+          <Alert
+            tone={visit.recordDue.overdue ? "danger" : visit.recordDue.warn ? "warning" : "neutral"}
+            title={`${visit.recordDue.overdue ? "Record overdue since" : "Record due by"} ${formatInstant(visit.recordDue.due, tz)}`}
+          >
+            Records are due within 24 hours of the application. Nothing has reached the office for this visit yet.
+          </Alert>
+        ) : null}
         <Details
           items={[
             ...(visit.arrivedAt ? [{ label: "Arrived", value: formatInstant(visit.arrivedAt, tz) }] : []),
@@ -43,11 +52,10 @@ export function ServiceRecordPanel({ record }: { record: ServiceRecord }) {
         />
 
         {applications.length === 0 ? (
-          <p className="text-fg-muted">No products recorded for this visit.</p>
+          <p className="text-fg-muted">{visit.status === "in_progress" ? "No products have reached the office yet." : "No products recorded for this visit."}</p>
         ) : (
           <ul className="grid gap-4" aria-label="Products applied">
             {applications.map((a) => {
-              const lateHours = a.appliedAt ? (a.recordedAt.getTime() - a.appliedAt.getTime()) / 3_600_000 : 0;
               return (
                 <li key={a.id} className="grid gap-2 rounded-control border border-line p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -57,8 +65,8 @@ export function ServiceRecordPanel({ record }: { record: ServiceRecord }) {
                       {a.signalWord ? <Badge>{SIGNAL_WORD[a.signalWord] ?? a.signalWord}</Badge> : null}
                       {a.restrictedUse ? <Badge tone="warning">Restricted use</Badge> : null}
                       {a.amendedFrom ? <Badge tone="accent">Amendment</Badge> : null}
-                      {/* CR-02: a record must reach the office within 24 hours of the application. */}
-                      {lateHours > 24 ? <Badge tone="danger">Recorded {Math.round(lateHours)} h after application</Badge> : null}
+                      {/* CR-02: a record must be made within 24 hours of the application. */}
+                      {a.timing?.late ? <Badge tone="danger">Recorded {Math.round(a.timing.hoursAfter)} h after application</Badge> : null}
                     </div>
                   </div>
                   <Details
@@ -69,6 +77,12 @@ export function ServiceRecordPanel({ record }: { record: ServiceRecord }) {
                       { label: "Target sites", value: a.targetSites.join(", ") },
                       { label: "Target pests", value: a.targetPests.join(", ") },
                       { label: "Applied", value: formatInstant(a.appliedAt, tz) },
+                      {
+                        label: "Recorded",
+                        value: a.timing
+                          ? `${formatInstant(a.timing.madeAt, tz)} (${a.timing.late ? `${Math.round(a.timing.hoursAfter)} h after the application` : "on time"})`
+                          : formatInstant(a.recordedAt, tz),
+                      },
                       { label: "Applicator", value: `${a.applicatorName ?? ""}${a.applicatorLicenseNo ? `, license ${a.applicatorLicenseNo}` : ""}` },
                       ...(a.customerStatementAt ? [{ label: "Customer statement", value: `Given ${formatInstant(a.customerStatementAt, tz)}` }] : []),
                     ]}

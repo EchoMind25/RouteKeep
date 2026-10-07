@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ContactError, formatAddress, formatPhone, normalizeEmail, normalizeUsPhone } from "./contact";
 import { planGeneration, type SubscriptionForGeneration } from "./generation";
 import { centsToInput, formatCents, MoneyError, parseMoneyToCents } from "./money";
-import { CR01_FIELDS, isRecordEditable, missingRecordFields, recordDeadline, requiresCustomerStatement, type ApplicationDraft } from "./records";
+import { CR01_FIELDS, isRecordEditable, missingRecordFields, recordDeadline, recordTiming, requiresCustomerStatement, type ApplicationDraft } from "./records";
 import { parseLocalDate as d, parseLocalTime as t } from "./time";
 import { AMOUNT_UNITS, AREA_UNITS, convert, MIX_UNITS, mixPreview, productNeeded, UnitError, type AmountUnit } from "./units";
 
@@ -178,9 +178,31 @@ describe("application records (CR-01)", () => {
     const applied = new Date("2026-10-06T15:00:00Z");
     expect(recordDeadline(applied, new Date("2026-10-07T10:00:00Z"))).toMatchObject({ warn: false, overdue: false });
     expect(recordDeadline(applied, new Date("2026-10-07T11:30:00Z"))).toMatchObject({ warn: true, overdue: false });
-    expect(recordDeadline(applied, new Date("2026-10-07T15:00:00Z"))).toMatchObject({ overdue: true });
+    expect(recordDeadline(applied, new Date("2026-10-07T15:00:00Z"))).toMatchObject({ overdue: true, due: new Date("2026-10-07T15:00:00Z") });
     expect(isRecordEditable(applied, new Date("2026-10-07T14:59:00Z"))).toBe(true);
     expect(isRecordEditable(applied, new Date("2026-10-07T15:00:00Z"))).toBe(false);
+  });
+});
+
+describe("record timing (CR-02)", () => {
+  const applied = new Date("2026-10-06T15:00:00Z");
+  const base = { appliedAt: applied, capturedAt: applied, recordedAt: new Date("2026-10-09T08:00:00Z"), imported: false, amendedFrom: null };
+
+  it("measures a phone's record from when the stop was finished, not when it uploaded", () => {
+    const timing = recordTiming({ ...base, visitCompletedAt: new Date("2026-10-06T16:30:00Z") });
+    expect(timing).toMatchObject({ hoursAfter: 1.5, late: false, madeAt: new Date("2026-10-06T16:30:00Z") });
+  });
+
+  it("flags a record finished more than 24 hours after the application", () => {
+    expect(recordTiming({ ...base, visitCompletedAt: new Date("2026-10-07T15:30:00Z") })).toMatchObject({ late: true });
+  });
+
+  it("falls back to when the server stored it, and skips imports and amendments", () => {
+    expect(recordTiming({ ...base, capturedAt: null, visitCompletedAt: new Date("2026-10-06T16:00:00Z") })).toMatchObject({ hoursAfter: 65, late: true });
+    expect(recordTiming({ ...base, visitCompletedAt: null })).toMatchObject({ late: true });
+    expect(recordTiming({ ...base, visitCompletedAt: null, imported: true })).toBeNull();
+    expect(recordTiming({ ...base, visitCompletedAt: null, amendedFrom: "00000000-0000-4000-8000-000000000001" })).toBeNull();
+    expect(recordTiming({ ...base, appliedAt: null, visitCompletedAt: null })).toBeNull();
   });
 });
 

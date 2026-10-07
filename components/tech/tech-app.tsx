@@ -12,10 +12,12 @@ import { httpSync } from "@/lib/providers/sync";
 import { publicEnv } from "@/lib/public-env";
 import { TechStore, type TechState } from "@/lib/sync/client-store";
 import { SyncEngine, type SyncState } from "@/lib/sync/engine";
-import { formatLocalDate, formatWindow } from "@/lib/ui/format";
+import { recordDue } from "@/lib/sync/stop-draft";
+import { formatDeadline, formatLocalDate, formatWindow } from "@/lib/ui/format";
 import type { SnapshotStop } from "@/lib/sync/protocol";
 import { TechContext, useTech } from "./context";
 import { StopScreen } from "./stop-screen";
+import { useNow } from "./use-now";
 import { go, useView } from "./use-view";
 
 // The technician app (FR-TEC-01..11). Every screen reads the device copy; the
@@ -142,10 +144,12 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
   const [settings, setSettings] = useState(false);
   const info = state.info;
   const date = info ? (day === "tomorrow" ? info.days[1] : info.days[0]) : null;
+  const now = useNow();
   const stops = state.stops.filter((s) => s.date === date).sort((a, b) => a.number - b.number);
   const done = stops.filter((s) => localStatus(s, state).done).length;
   // Stops from an earlier day that still have work on this phone.
-  const earlier = info ? state.stops.filter((s) => s.date < info.days[0]!) : [];
+  const earlier = info ? state.stops.filter((s) => s.date < info.days[0]!).sort((a, b) => a.date.localeCompare(b.date) || a.number - b.number) : [];
+  const timeZone = info?.business.timezone ?? "UTC";
 
   return (
     <div className="grid gap-4 px-4 pt-4 pb-10">
@@ -202,45 +206,29 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
           </div>
 
           {earlier.length ? (
-            <Alert tone="warning" title="Still on this phone from an earlier day">
-              {earlier.map((s) => s.customerName).join(", ")}
-            </Alert>
+            // Opened from here even when today is empty: their records still have to be finished (CR-02).
+            <section aria-labelledby="earlier-heading" className="grid gap-3">
+              <div className="grid gap-0.5">
+                <h2 id="earlier-heading" className="font-semibold">
+                  From an earlier day
+                </h2>
+                <p className="text-sm text-fg-muted">Kept on this phone until finished and uploaded.</p>
+              </div>
+              <ol className="grid gap-3" aria-labelledby="earlier-heading">
+                {earlier.map((s) => (
+                  <StopCard key={s.id} stop={s} state={state} timeZone={timeZone} now={now} showDate />
+                ))}
+              </ol>
+            </section>
           ) : null}
 
           {stops.length === 0 ? (
             <EmptyState title={day === "today" ? "No stops today" : "No stops tomorrow yet"}>New stops appear here when the office assigns them.</EmptyState>
           ) : (
             <ol className="grid gap-3" aria-label="Stops">
-              {[...earlier, ...stops].map((s) => {
-                const status = localStatus(s, state);
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => go({ stopId: s.id, step: null })}
-                      className={cn("flex w-full items-center gap-3 rounded-panel border border-line p-4 text-left", status.done ? "bg-sunken" : "bg-surface")}
-                    >
-                      <span className={cn("grid size-10 shrink-0 place-items-center rounded-pill text-md font-bold tabular", status.done ? "bg-success-soft text-success" : "bg-fg text-canvas")} aria-hidden>
-                        {status.done ? <CheckCircle size={22} weight="bold" /> : s.number}
-                      </span>
-                      <span className="grid min-w-0 flex-1 gap-0.5">
-                        <span className="sr-only">Stop {s.number}: </span>
-                        <span className="truncate text-md font-semibold">{s.customerName}</span>
-                        <span className="truncate text-sm text-fg-muted">{s.address}</span>
-                        <span className="text-sm text-fg-muted tabular">
-                          {formatWindow(s.windowStart, s.windowEnd)}, {s.serviceType}
-                        </span>
-                        {status.label ? (
-                          <span>
-                            <Badge tone={status.tone}>{status.label}</Badge>
-                          </span>
-                        ) : null}
-                      </span>
-                      <CaretRight size={20} aria-hidden className="shrink-0 text-fg-muted" />
-                    </button>
-                  </li>
-                );
-              })}
+              {stops.map((s) => (
+                <StopCard key={s.id} stop={s} state={state} timeZone={timeZone} now={now} />
+              ))}
             </ol>
           )}
         </>
@@ -248,6 +236,46 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
 
       <Settings open={settings} onOpenChange={setSettings} state={state} />
     </div>
+  );
+}
+
+function StopCard({ stop, state, timeZone, now, showDate = false }: { stop: SnapshotStop; state: TechState; timeZone: string; now: Date; showDate?: boolean }) {
+  const status = localStatus(stop, state);
+  // CR-02: the record's deadline, once it is 20 hours or less away.
+  const due = status.done ? null : recordDue(stop, state.drafts.get(stop.id), timeZone, now);
+  const deadline = due?.overdue ? (
+    <Badge tone="danger">Record overdue</Badge>
+  ) : due?.warn ? (
+    <Badge tone="warning">Record due by {formatDeadline(due.due, timeZone, now)}</Badge>
+  ) : null;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => go({ stopId: stop.id, step: null })}
+        className={cn("flex w-full items-center gap-3 rounded-panel border border-line p-4 text-left", status.done ? "bg-sunken" : "bg-surface")}
+      >
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-pill text-md font-bold tabular", status.done ? "bg-success-soft text-success" : "bg-fg text-canvas")} aria-hidden>
+          {status.done ? <CheckCircle size={22} weight="bold" /> : stop.number}
+        </span>
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span className="sr-only">Stop {stop.number}: </span>
+          <span className="truncate text-md font-semibold">{stop.customerName}</span>
+          <span className="truncate text-sm text-fg-muted">{stop.address}</span>
+          <span className="text-sm text-fg-muted tabular">
+            {showDate ? `${formatLocalDate(stop.date)}, ` : ""}
+            {formatWindow(stop.windowStart, stop.windowEnd)}, {stop.serviceType}
+          </span>
+          {status.label || deadline ? (
+            <span className="flex flex-wrap gap-1.5">
+              {status.label ? <Badge tone={status.tone}>{status.label}</Badge> : null}
+              {deadline}
+            </span>
+          ) : null}
+        </span>
+        <CaretRight size={20} aria-hidden className="shrink-0 text-fg-muted" />
+      </button>
+    </li>
   );
 }
 

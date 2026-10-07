@@ -71,6 +71,10 @@ was opened.
 - Sync: snapshot down and idempotent mutations up, our own design from the
   PRD's conflict rule (NFR-02); textbook outbox pattern.
 - Outdoor mode uses the outdoor token set designed in M1.
+- Record deadline (CR-02): 24 hours from Utah Admin. Code R68-7-11 via
+  RESEARCH R-COMP-01, the 20 hour warning from the PRD. Counting from the
+  arrival when no earlier application time is entered is our own choice, so
+  the phone can never warn late. Wording written fresh.
 - Field work review (NFR-02): the queue, its one-sentence explanation of
   each clash and the two choices (take the field's version, or keep the
   office's) are derived from the PRD's conflict rule alone. Records are never

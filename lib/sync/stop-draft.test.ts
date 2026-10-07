@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SnapshotInfo } from "./client-store";
 import type { SnapshotMix, SnapshotProduct, SnapshotStop } from "./protocol";
-import { buildComplete, missingFields, newApplication, newDraft, paymentProblem } from "./stop-draft";
+import { formatDeadline } from "@/lib/ui/format";
+import { buildComplete, missingFields, newApplication, newDraft, paymentProblem, recordDue } from "./stop-draft";
 
 const info: SnapshotInfo = {
   protocol: 1,
@@ -74,5 +75,37 @@ describe("stop flow rules", () => {
       payment: { method: "check", key: "pay-check-0001", amountCents: 6900, checkNumber: "1042" },
     });
     expect(m.applications[0]).toMatchObject({ mixRate: 0.5, totalAmount: 1.5, areaTreated: 1800, appliedAt: "2026-10-07T15:05:00.000Z", customerStatementAt: null });
+  });
+});
+
+describe("record deadline on the phone (CR-02)", () => {
+  const tz = "America/Denver";
+  const hours = (n: number) => new Date(now.getTime() + n * 3_600_000);
+
+  it("starts at arrival and warns from 20 hours", () => {
+    const draft = newDraft(stop, now);
+    expect(recordDue(stop, undefined, tz, now)).toBeNull();
+    expect(recordDue(stop, draft, tz, hours(19.9))).toMatchObject({ warn: false, overdue: false, due: hours(24) });
+    expect(recordDue(stop, draft, tz, hours(20))).toMatchObject({ warn: true, overdue: false });
+    expect(recordDue(stop, draft, tz, hours(24))).toMatchObject({ warn: false, overdue: true });
+  });
+
+  it("counts from an application time entered as earlier than arrival", () => {
+    const draft = newDraft(stop, now);
+    const entry = { ...newApplication(perimeter, undefined, now, tz), appliedTime: "08:05" };
+    expect(recordDue(stop, { ...draft, applications: [entry] }, tz, now)!.due).toEqual(new Date("2026-10-08T14:05:00.000Z"));
+  });
+
+  it("uses an arrival the office already has, and stops once the stop is finished here", () => {
+    const arrived = { ...stop, status: "in_progress", arrivedAt: "2026-10-06T18:00:00.000Z" };
+    expect(recordDue(arrived, undefined, tz, now)).toMatchObject({ warn: true, due: new Date("2026-10-07T18:00:00.000Z") });
+    expect(recordDue(arrived, { ...newDraft(arrived, now), completedAt: now.toISOString() }, tz, now)).toBeNull();
+    expect(recordDue({ ...arrived, status: "completed" }, undefined, tz, now)).toBeNull();
+    expect(recordDue({ ...arrived, status: "skipped" }, undefined, tz, now)).toBeNull();
+  });
+
+  it("says the deadline on the business's clock", () => {
+    expect(formatDeadline(new Date("2026-10-07T18:00:00.000Z"), tz, now)).toBe("12:00 PM");
+    expect(formatDeadline(new Date("2026-10-08T14:05:00.000Z"), tz, now)).toBe("Thu 8:05 AM");
   });
 });

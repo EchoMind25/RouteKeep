@@ -19,6 +19,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Work done offline uploads by itself when the phone reconnects. If the office changed a stop in the meantime, the work is kept and flagged for review.",
       "Flagged visits appear on the schedule. Mark each one as it happened in the field, or keep the office's change; the product records stay either way.",
       "Outdoor mode for bright sun, in the app's settings.",
+      "Records are due within 24 hours of the application: the app warns 4 hours before and marks a stop overdue after that, and the schedule lists visits started over 20 hours ago that have no record yet.",
     ],
   },
   {

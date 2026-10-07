@@ -10,9 +10,10 @@ import { addDays, isLocalDate, todayIn, type LocalDate } from "@/lib/domain/time
 import { isEnabled } from "@/lib/flags";
 import { publicEnv } from "@/lib/public-env";
 import { getBoard, nextDays } from "@/lib/server/dispatch";
+import { listRecordsDue, type RecordDueVisit } from "@/lib/server/records";
 import { countOpenReview } from "@/lib/server/review";
 import { getDay, type DayStop } from "@/lib/server/schedule";
-import { APPOINTMENT_STATUS, formatLocalDate, formatWindow, pluralize } from "@/lib/ui/format";
+import { APPOINTMENT_STATUS, formatInstant, formatLocalDate, formatWindow, pluralize } from "@/lib/ui/format";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -91,11 +92,52 @@ function Lane({ title, color, stops, empty }: { title: string; color?: number; s
   );
 }
 
+/** Field work that needs a person (CR-02, NFR-02), above either view of the day. */
+function FieldAlerts({ due, review }: { due: RecordDueVisit[]; review: number }) {
+  const shown = due.slice(0, 5);
+  return (
+    <>
+      {due.length ? (
+        // CR-02: started on a phone more than 20 hours ago and no record has reached the office.
+        <Alert
+          tone={due.some((d) => d.overdue) ? "danger" : "warning"}
+          title={due.length === 1 ? "1 started visit has no record yet" : `${due.length} started visits have no record yet`}
+          className="mb-2"
+        >
+          <p>Records are due within 24 hours of the application. Nothing has reached the office for these; the phone may be waiting for a connection.</p>
+          <ul className="mt-1 grid gap-0.5">
+            {shown.map((d) => (
+              <li key={d.id}>
+                <Link href={`/schedule/visits/${d.id}`} className="font-semibold underline-offset-2 hover:underline">
+                  {d.customerName}
+                </Link>
+                {d.technicianName ? `, ${d.technicianName}` : ""}: {d.overdue ? "overdue since" : "due by"} {formatInstant(d.due, d.timeZone)}
+              </li>
+            ))}
+          </ul>
+          {due.length > shown.length ? <p className="mt-1">And {due.length - shown.length} more.</p> : null}
+        </Alert>
+      ) : null}
+      {review > 0 ? (
+        // NFR-02: field work that clashed with an office change waits for a person.
+        <Alert tone="warning" className="mb-2">
+          <Link href="/schedule/review" className="font-semibold underline-offset-2 hover:underline">
+            {review === 1 ? "1 field visit to review" : `${review} field visits to review`}
+          </Link>
+          : finished on a phone after the office changed them.
+        </Alert>
+      ) : null}
+    </>
+  );
+}
+
 export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string; done?: string }> }) {
   const member = await requireMember(OFFICE_ROLES);
   const today = todayIn(member.timezone);
   const { date: raw, done } = await searchParams;
   const date: LocalDate = raw && isLocalDate(raw) ? raw : today;
+  // Started now, awaited with the day's data below.
+  const attention = Promise.all([listRecordsDue(member), countOpenReview(member)]);
 
   const header = (
     <PageHeader
@@ -148,20 +190,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   );
 
   if (isEnabled("dispatchBoard")) {
-    const [board, review] = await Promise.all([getBoard(member, date), countOpenReview(member)]);
+    const [board, [due, review]] = await Promise.all([getBoard(member, date), attention]);
     const nothing = board.technicians.length === 0 && board.stops.length === 0 && board.queue.length === 0;
     return (
       <div className="grid gap-2">
         {header}
-        {review > 0 ? (
-          // NFR-02: field work that clashed with an office change waits for a person.
-          <Alert tone="warning" className="mb-4">
-            <Link href="/schedule/review" className="font-semibold underline-offset-2 hover:underline">
-              {review === 1 ? "1 field visit to review" : `${review} field visits to review`}
-            </Link>
-            : finished on a phone after the office changed them.
-          </Alert>
-        ) : null}
+        <FieldAlerts due={due} review={review} />
         {nothing ? (
           empty
         ) : (
@@ -184,7 +218,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   }
 
   // The day list: what the schedule was before the board, kept behind the flag as a fallback (ENG-10).
-  const day = await getDay(member, date);
+  const [day, [due, review]] = await Promise.all([getDay(member, date), attention]);
   const lanes = day.technicians.map((t) => ({ tech: t, stops: day.stops.filter((s) => s.technicianId === t.id) }));
   const unassigned = day.stops.filter((s) => !s.technicianId);
   const hasAnything = day.stops.length > 0 || day.queue.length > 0;
@@ -192,6 +226,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   return (
     <div className="grid gap-2">
       {header}
+      <FieldAlerts due={due} review={review} />
       {!hasAnything && day.technicians.length === 0 ? (
         empty
       ) : (

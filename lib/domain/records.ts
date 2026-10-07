@@ -86,10 +86,42 @@ export function requiresCustomerStatement(draft: Pick<ApplicationDraft, "restric
   return Boolean(draft.restrictedUse) && (draft.signalWord === "danger" || draft.signalWord === "danger_poison");
 }
 
+const HOUR = 3_600_000;
+/** CR-02 (Utah R68-7-11, R-COMP-01): an application must be recorded within this many hours. */
+export const RECORD_HOURS = 24;
+/** CR-02: warn when this many hours have passed without a record. */
+export const RECORD_WARN_HOURS = 20;
+
 /** CR-02: hours left to record an application, and whether to warn (20 h). */
-export function recordDeadline(appliedAt: Date, now: Date = new Date()): { hoursLeft: number; warn: boolean; overdue: boolean } {
-  const hoursLeft = 24 - (now.getTime() - appliedAt.getTime()) / 3_600_000;
-  return { hoursLeft, warn: hoursLeft <= 4 && hoursLeft > 0, overdue: hoursLeft <= 0 };
+export function recordDeadline(appliedAt: Date, now: Date = new Date()): { hoursLeft: number; due: Date; warn: boolean; overdue: boolean } {
+  const hoursLeft = RECORD_HOURS - (now.getTime() - appliedAt.getTime()) / HOUR;
+  return {
+    hoursLeft,
+    due: new Date(appliedAt.getTime() + RECORD_HOURS * HOUR),
+    warn: hoursLeft <= RECORD_HOURS - RECORD_WARN_HOURS && hoursLeft > 0,
+    overdue: hoursLeft <= 0,
+  };
+}
+
+/**
+ * CR-02 status of a saved record: how long after the application it was
+ * made. A record from the technician app was made when the stop was finished
+ * on the phone (the visit's completion time), whenever it reached the office;
+ * anything else counts from when the server stored it. Imported history and
+ * amendments are not measured.
+ */
+export function recordTiming(record: {
+  appliedAt: Date | null;
+  capturedAt: Date | null;
+  recordedAt: Date;
+  visitCompletedAt: Date | null;
+  imported: boolean;
+  amendedFrom: string | null;
+}): { madeAt: Date; hoursAfter: number; late: boolean } | null {
+  if (!record.appliedAt || record.imported || record.amendedFrom) return null;
+  const madeAt = record.capturedAt && record.visitCompletedAt ? record.visitCompletedAt : record.recordedAt;
+  const hoursAfter = Math.max(0, (madeAt.getTime() - record.appliedAt.getTime()) / HOUR);
+  return { madeAt, hoursAfter, late: hoursAfter > RECORD_HOURS };
 }
 
 /** DB-08 mirror: may this record still be edited in place? */

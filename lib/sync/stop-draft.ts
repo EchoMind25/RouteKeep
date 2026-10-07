@@ -1,5 +1,5 @@
 import { parseMoneyToCents } from "@/lib/domain/money";
-import { missingRecordFields, requiresCustomerStatement, type ApplicationDraft } from "@/lib/domain/records";
+import { missingRecordFields, recordDeadline, requiresCustomerStatement, type ApplicationDraft } from "@/lib/domain/records";
 import { instantToZoned, isLocalTime, zonedTimeToInstant, type LocalDate, type LocalTime } from "@/lib/domain/time";
 import type { ApplicationEntry, Draft, SnapshotInfo } from "./client-store";
 import type { Mutation, SnapshotMix, SnapshotProduct, SnapshotStop } from "./protocol";
@@ -167,4 +167,28 @@ export function buildComplete(draft: Draft, stop: SnapshotStop, info: SnapshotIn
 /** Photos and signature that go with the stop once it is finished (FR-TEC-09). */
 export function attachmentKeys(draft: Draft): string[] {
   return [...draft.photos, ...(draft.signature ? [draft.signature.key] : [])];
+}
+
+export interface RecordDue {
+  /** When the 24 hours run out. */
+  due: Date;
+  warn: boolean;
+  overdue: boolean;
+}
+
+/**
+ * CR-02: when this stop's records are due. Counted from the earliest moment
+ * product can have gone down here (arrival, or an application time entered as
+ * earlier than that), so the warning is never late. Null before anything has
+ * started and once the stop is finished on this phone.
+ */
+export function recordDue(stop: SnapshotStop, draft: Draft | undefined, timeZone: string, now: Date): RecordDue | null {
+  if (draft?.completedAt || draft?.skippedAt || stop.status === "completed") return null;
+  if (!draft && stop.status !== "in_progress") return null;
+  const starts = [draft?.arrivedAt, stop.status === "in_progress" ? stop.arrivedAt : null, ...(draft?.applications ?? []).map((entry) => appliedAt(entry, stop.date, timeZone))]
+    .flatMap((t) => (t ? [new Date(t).getTime()] : []))
+    .filter(Number.isFinite);
+  if (!starts.length) return null;
+  const { due, warn, overdue } = recordDeadline(new Date(Math.min(...starts)), now);
+  return { due, warn, overdue };
 }
