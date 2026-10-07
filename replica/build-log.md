@@ -11,7 +11,7 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S04b Field work review | 2026-10-07 | done | | NFR-02's review queue: reached from a banner on the board. Each item says in one sentence what the phone did and what the office had changed |
 | S05 Optimize preview | 2026-10-07 | done | | The first heuristic made windowed stops late to save distance; proposals are now scored on lateness first and never worse than the current order |
 | S06 Customers | 2026-10-06 | done | Status filter | Search covers name, email, phone digits and street |
-| S07 Customer detail | 2026-10-06 | partial | Edit, add property, timeline beyond visits, skip/pause/cancel | |
+| S07 Customer detail | 2026-10-07 | done | Timeline beyond visits (invoices, payments, messages arrive with M4 and M6) | Edit, consent history, addresses, skip, pause, cancel all covered by e2e |
 | S08 New customer + plan | 2026-10-06 | done | | Schedule preview uses the same recurrence code as generation |
 | S09 Property pin | 2026-10-07 | done | A street map needs `NEXT_PUBLIC_MAP_STYLE_URL` | A page, not a dialog: the map needs room. Keyboard path: pan to the crosshair, or type coordinates |
 | S10 Appointment | 2026-10-07 | done | | Move, skip, cancel, restore; the service record (products, notes, photos, signature) and its PDF once the stop is done; CR-02 record status while started and on each record; amend a record (FR-REC-03) with its earlier versions kept. React re-applies a select's default only on mount, so after a failed submit dropdowns snapped back to their first value; the shared Select now keeps the submitted one |

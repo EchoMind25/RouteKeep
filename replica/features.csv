@@ -4,7 +4,7 @@ FR-SET-02 Invite users with roles. Technicians require applicator license number
 "FR-SET-03 Product catalog with EPA registration number, signal word, restricted-use flag. Seed common products; allow custom.",tenant setup,must,yes,partial,"Catalog with EPA no, signal word, RUP; seed list waits for an owner-verified product list"
 FR-SET-04 Service types and plans with price and recurrence.,tenant setup,must,yes,yes,Presets plus custom RRULE subset
 "FR-SET-05 Connect Stripe (onboarding link). Until connected, billing features show a setup prompt.",tenant setup,must,yes,no,
-"FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,partial,Create and search; edit and add-property screens next
+"FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,yes,"Create, search, edit (version-checked, stale edits refused), consent history kept on opt-out, multiple properties per customer (add and edit addresses); e2e customer-edit and sell-plan"
 "FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,yes,"Geocode with confidence; pin page with drag, click or crosshair placement, typed coordinates, lock; DB refuses moving a locked pin"
 "FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,partial,"Visits only; invoices, payments, messages arrive with M4/M6"
 FR-CRM-04 Record SMS consent with timestamp and source; email opt-in.,customers,must,yes,yes,Consent time and source recorded; email opt-in separate
