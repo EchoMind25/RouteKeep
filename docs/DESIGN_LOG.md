@@ -71,4 +71,8 @@ was opened.
 - Sync: snapshot down and idempotent mutations up, our own design from the
   PRD's conflict rule (NFR-02); textbook outbox pattern.
 - Outdoor mode uses the outdoor token set designed in M1.
+- Field work review (NFR-02): the queue, its one-sentence explanation of
+  each clash and the two choices (take the field's version, or keep the
+  office's) are derived from the PRD's conflict rule alone. Records are never
+  discarded by a choice, which follows from FR-REC-03 and CR-04.
 

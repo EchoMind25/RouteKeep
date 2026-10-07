@@ -17,6 +17,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       "Products remember what was used at the property last time and read the mix back in plain words, so a decimal is never misread.",
       "A stop cannot be completed while a required record field is missing; the app names the field.",
       "Work done offline uploads by itself when the phone reconnects. If the office changed a stop in the meantime, the work is kept and flagged for review.",
+      "Flagged visits appear on the schedule. Mark each one as it happened in the field, or keep the office's change; the product records stay either way.",
       "Outdoor mode for bright sun, in the app's settings.",
     ],
   },

@@ -223,7 +223,32 @@ async function lockVisit(tx: Tx, id: string) {
 type Visit = NonNullable<Awaited<ReturnType<typeof lockVisit>>>;
 const OPEN = ["scheduled", "in_progress"];
 
-async function raiseConflict(tx: Tx, key: string, techId: string, visit: Visit, kind: "completed_after_change" | "skipped_after_change", at: string) {
+/** What the review screen shows: what the phone did, and what the office had (NFR-02). */
+export interface ConflictDetails {
+  device_at: string;
+  device_date: string;
+  server_status: string;
+  server_technician_id: string | null;
+  server_date: string | null;
+  skip_reason?: string;
+}
+
+async function raiseConflict(
+  tx: Tx,
+  key: string,
+  techId: string,
+  visit: Visit,
+  kind: "completed_after_change" | "skipped_after_change",
+  mutation: { at: string; date: string; reason?: string },
+) {
+  const details: ConflictDetails = {
+    device_at: mutation.at,
+    device_date: mutation.date,
+    server_status: visit.status,
+    server_technician_id: visit.technician_id,
+    server_date: visit.local_date,
+    ...(mutation.reason ? { skip_reason: mutation.reason } : {}),
+  };
   await tx
     .insertInto("sync_conflicts")
     .values({
@@ -231,7 +256,7 @@ async function raiseConflict(tx: Tx, key: string, techId: string, visit: Visit, 
       technician_id: techId,
       kind,
       client_key: key,
-      details: JSON.stringify({ device_at: at, server_status: visit.status, server_technician_id: visit.technician_id, server_date: visit.local_date }),
+      details: JSON.stringify(details),
     })
     .onConflict((oc) => oc.constraint("sync_conflicts_client_key").doNothing())
     .execute();
@@ -356,7 +381,7 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
       .execute();
     return { key: mutation.key, status: "applied" };
   }
-  await raiseConflict(tx, mutation.key, techId, visit, "completed_after_change", mutation.at);
+  await raiseConflict(tx, mutation.key, techId, visit, "completed_after_change", mutation);
   return { key: mutation.key, status: "conflict", message: "Saved. The office changed this visit while you were working, so they will review it." };
 }
 
@@ -369,7 +394,7 @@ async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: 
     await tx.updateTable("appointments").set({ status: "skipped", skip_reason: mutation.reason, sequence: null }).where("id", "=", visit.id).execute();
     return { key: mutation.key, status: "applied" };
   }
-  await raiseConflict(tx, mutation.key, techId, visit, "skipped_after_change", mutation.at);
+  await raiseConflict(tx, mutation.key, techId, visit, "skipped_after_change", mutation);
   return { key: mutation.key, status: "conflict", message: "The office changed this visit, so they will review the skip." };
 }
 

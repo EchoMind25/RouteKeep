@@ -100,6 +100,8 @@ Technician sync (M3), JSON, `Cache-Control: private, no-store`, cross-origin req
 | `GET /api/records/:id` | FR-REC-02 PDF service record of a completed visit, office roles; built-in PDF fonts, nothing fetched |
 | `POST /api/tech/upload` | up to 50 mutations (arrive, complete, skip) in order, each in its own transaction, answered one by one: applied, duplicate, conflict, rejected or retry |
 
+Field work review (M3, NFR-02), office roles: `resolveReviewAction` takes one queued clash and either marks the visit as the phone recorded it (done or skipped, by that technician, on that day, out of the route order) or keeps the office's version. The field records stay on the visit either way; the row records who decided, when and what. A second decision on the same item is refused.
+
 Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 
 ## 5. The parts that bite
@@ -108,7 +110,7 @@ Planned routes: `/api/webhooks/stripe` (M4), `/api/webhooks/resend|twilio` (M6).
 - Idempotency: every retryable write has a client key with a unique constraint; generation, ledger posting and webhook intake are all upserts or dedupes.
 - Concurrency: version columns bumped by trigger; no-op updates and job bookkeeping (`generated_through`, `sequence`) do not count as edits. Route order is protected differently: a board write locks the route rows it touches (always in technician-id order, so two dispatchers cannot deadlock) and compares the lane's current order with the order the dispatcher saw. Comparing the order itself also catches changes made elsewhere, such as a skip on the visit page.
 - Stop numbers (FR-DSP-05): a stop's number is its place in the lane, ordered by `sequence`, then window start, then id, the same query on the board, the map and the technician app. Publishing writes 1..n so the stored sequence matches.
-- Offline (M3): every screen reads the device copy; drafts are written on every change; a draft and its queued upload commit in one IndexedDB transaction; the outbox carries client keys, so a lost answer and a retry produce one record (ENG-01). Server wins on schedule fields, the device on field records; collisions are kept and queued in `sync_conflicts` (NFR-02). The service worker keeps only the /tech page and hashed static files; it never caches API responses.
+- Offline (M3): every screen reads the device copy; drafts are written on every change; a draft and its queued upload commit in one IndexedDB transaction; the outbox carries client keys, so a lost answer and a retry produce one record (ENG-01). Server wins on schedule fields, the device on field records; collisions are kept and queued in `sync_conflicts` (NFR-02) for a person to decide at /schedule/review. The service worker keeps only the /tech page and hashed static files; it never caches API responses.
 - Money (M4): Stripe idempotency keys from row ids, webhook dedupe, ledger as the only source for balances and reports.
 - Multi-tenancy: composite foreign keys plus RLS plus grants, all tested per table.
 

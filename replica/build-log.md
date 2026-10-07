@@ -8,6 +8,7 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S02 Create business | 2026-10-06 | done | | Double submit returns the same tenant (client key) |
 | S03 Setup checklist | 2026-10-06 | done | Stripe, 10DLC and import steps (M4 to M6) | |
 | S04 Schedule board | 2026-10-07 | done | Google and VROOM optimizer adapters | Hardest parts: a plain reorder never bumped the route's version (the trigger ignores no-op updates), so writes now compare the lane's order itself; MapLibre 6 looks for its worker next to its own chunk, so the worker is copied to `public/vendor`. 500 stops hydrate with the map drawn in about 0.7 to 1 s locally |
+| S04b Field work review | 2026-10-07 | done | | NFR-02's review queue: reached from a banner on the board. Each item says in one sentence what the phone did and what the office had changed |
 | S05 Optimize preview | 2026-10-07 | done | | The first heuristic made windowed stops late to save distance; proposals are now scored on lateness first and never worse than the current order |
 | S06 Customers | 2026-10-06 | done | Status filter | Search covers name, email, phone digits and street |
 | S07 Customer detail | 2026-10-06 | partial | Edit, add property, timeline beyond visits, skip/pause/cancel | |

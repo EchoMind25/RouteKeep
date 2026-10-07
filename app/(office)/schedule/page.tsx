@@ -4,12 +4,13 @@ import Link from "next/link";
 import { DispatchBoard } from "@/components/dispatch/board";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageHeader } from "@/components/ui/layout";
+import { Alert, EmptyState, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { addDays, isLocalDate, todayIn, type LocalDate } from "@/lib/domain/time";
 import { isEnabled } from "@/lib/flags";
 import { publicEnv } from "@/lib/public-env";
 import { getBoard, nextDays } from "@/lib/server/dispatch";
+import { countOpenReview } from "@/lib/server/review";
 import { getDay, type DayStop } from "@/lib/server/schedule";
 import { APPOINTMENT_STATUS, formatLocalDate, formatWindow, pluralize } from "@/lib/ui/format";
 
@@ -147,11 +148,20 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   );
 
   if (isEnabled("dispatchBoard")) {
-    const board = await getBoard(member, date);
+    const [board, review] = await Promise.all([getBoard(member, date), countOpenReview(member)]);
     const nothing = board.technicians.length === 0 && board.stops.length === 0 && board.queue.length === 0;
     return (
       <div className="grid gap-2">
         {header}
+        {review > 0 ? (
+          // NFR-02: field work that clashed with an office change waits for a person.
+          <Alert tone="warning" className="mb-4">
+            <Link href="/schedule/review" className="font-semibold underline-offset-2 hover:underline">
+              {review === 1 ? "1 field visit to review" : `${review} field visits to review`}
+            </Link>
+            : finished on a phone after the office changed them.
+          </Alert>
+        ) : null}
         {nothing ? (
           empty
         ) : (

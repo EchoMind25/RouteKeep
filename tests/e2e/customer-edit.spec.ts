@@ -21,6 +21,8 @@ test("FR-CRM-01: edit a customer, withdraw text consent, add a second address", 
 
   // A stale form is refused rather than overwriting someone else's change.
   await page.getByRole("region", { name: "Contact" }).getByRole("link", { name: "Edit" }).click();
+  // The link navigates client-side; read the URL only once the form is there.
+  await expect(page.getByLabel("First name")).toBeVisible();
   const stale = await page.context().newPage();
   await stale.goto(page.url());
   await page.getByLabel("Last name").fill("Kowalczyk-Ruiz");
