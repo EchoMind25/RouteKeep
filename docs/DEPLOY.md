@@ -84,8 +84,10 @@ The dispatch board and the pin check work without a basemap, but checking a
 pin against a blank background is guesswork. Pick one, then set
 `NEXT_PUBLIC_MAP_STYLE_URL` in Netlify and redeploy (it is read at build time):
 
-- Simplest: a free open tile host such as OpenFreeMap (no key). The host sees
-  viewers' IP addresses and which areas they view; add it to `docs/VENDORS.md`.
+- Chosen (owner, 2026-10-07): OpenFreeMap, free and keyless. Set
+  `NEXT_PUBLIC_MAP_STYLE_URL=https://tiles.openfreemap.org/styles/liberty`
+  (check the current style URL on openfreemap.org first). The host sees
+  viewers' IP addresses and which areas they view; listed in `docs/VENDORS.md`.
 - Most private: host Protomaps PMTiles for your region on your own storage and
   point a MapLibre style at it. No third party sees anything.
 
