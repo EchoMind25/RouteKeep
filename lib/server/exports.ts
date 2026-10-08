@@ -9,12 +9,11 @@ import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
 import { storage } from "@/lib/providers/storage";
 import { renderUsageReport } from "@/lib/reports/product-usage-pdf";
 import { productUsage } from "@/lib/server/reports";
-import { PDF_ROWS } from "@/lib/reports/product-usage";
 
 // FR-EXP-01..03: the owner can take everything, any time. One ZIP:
 //   tables/<table>.csv and .json  every row the business owns, every column
 //   customers-import.csv          customers in the shape our import reads (FR-EXP-03)
-//   records/<YYYY-MM>.pdf         every application record, a PDF per month
+//   records/<YYYY-MM>[-partNN-of-MM].pdf  every application record, by month, 200 per PDF
 //   attachments/...               photos, signatures and documents as stored
 //   manifest.json, README.txt     what is where (docs/EXPORT_FORMAT.md)
 // Built in short steps (D-04), one part per request; parts are kept in
@@ -24,6 +23,7 @@ import { PDF_ROWS } from "@/lib/reports/product-usage";
 export const EXPORT_FORMAT_VERSION = "1";
 const LINK_DAYS = 7;
 const ATTACHMENTS_PER_PART = 100;
+const RECORDS_PER_PDF = 200;
 
 export class ExportError extends Error {}
 
@@ -61,7 +61,7 @@ export async function requestExport(m: MemberSession): Promise<string> {
     const tz = (await tx.selectFrom("tenants").select("timezone").executeTakeFirstOrThrow()).timezone;
     const months = await tx
       .selectFrom("applications")
-      .select(sql<string>`to_char(applied_at at time zone ${tz}, 'YYYY-MM')`.as("month"))
+      .select([sql<string>`to_char(applied_at at time zone ${tz}, 'YYYY-MM')`.as("month"), sql<number>`count(*)::int`.as("n")])
       .where("applied_at", "is not", null)
       .groupBy(sql`1`)
       .orderBy(sql`1`)
@@ -70,7 +70,12 @@ export async function requestExport(m: MemberSession): Promise<string> {
     const parts = [
       "tables",
       "customers",
-      ...months.map((r) => `records:${r.month}`),
+      // A records PDF takes longer than linear in its rows (200 rows about 4 s,
+      // 600 about 19 s), so a month is split into parts of RECORDS_PER_PDF.
+      ...months.flatMap((r) => {
+        const count = Math.max(1, Math.ceil(r.n / RECORDS_PER_PDF));
+        return Array.from({ length: count }, (_, k) => `records:${r.month}:${k}:${count}`);
+      }),
       ...Array.from({ length: Math.ceil(files / ATTACHMENTS_PER_PART) }, (_, k) => `attachments:${k}`),
       "assemble",
     ];
@@ -133,13 +138,14 @@ async function buildPart(m: MemberSession, exportId: string, part: string, progr
   }
 
   if (part.startsWith("records:")) {
-    const month = part.slice("records:".length);
+    const [, month, k, count] = part.split(":") as [string, string, string, string];
     const from = `${month}-01` as LocalDate;
     const next = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 1)).toISOString().slice(0, 10) as LocalDate;
-    // Large months are split so each PDF stays within the report's row limit.
-    const report = await productUsage(m, { from, to: addDays(next, -1), productId: null, technicianId: null }, PDF_ROWS);
-    out[`records/${month}.pdf`] = new Uint8Array(await renderUsageReport(report));
-    if (report.truncated) out[`records/${month}-NOTE.txt`] = strToU8(`This month has more than ${PDF_ROWS} records. Every record is in tables/applications.csv.`);
+    const report = await productUsage(m, { from, to: addDays(next, -1), productId: null, technicianId: null }, RECORDS_PER_PDF, Number(k) * RECORDS_PER_PDF);
+    // Amended records count once, so a month can come up short of its last part.
+    if (report.rows.length === 0 && Number(k) > 0) return out;
+    const name = Number(count) === 1 ? `records/${month}.pdf` : `records/${month}-part${String(Number(k) + 1).padStart(2, "0")}-of-${String(count).padStart(2, "0")}.pdf`;
+    out[name] = new Uint8Array(await renderUsageReport({ ...report, truncated: false }));
     return out;
   }
 
@@ -236,7 +242,7 @@ function readme(business: string, day: string): string {
     "                     Map points are split into _lat and _lng columns.",
     "customers-import.csv Your customers with their service address, plan, next service and balance, in a shape",
     "                     this app's import reads directly, so this file can start a new account.",
-    "records/             Every pesticide application record, one PDF per month, with your business name and license.",
+    "records/             Every pesticide application record by month (200 per PDF), with your business name and license.",
     "attachments/         Photos, signatures and documents, as they were stored.",
     "manifest.json        The list of files and the format version.",
     "",

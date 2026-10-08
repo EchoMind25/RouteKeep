@@ -4,8 +4,6 @@ import { expect, signInAs, test } from "./fixtures";
 
 // FR-EXP-02: a 10,000-customer business exports in under 10 minutes. Slow, so
 // it runs only when asked: RK_SLOW=1 npx playwright test export-scale.
-// Known failing 2026-10-08: a month of ~4,000 records renders as one PDF and
-// stalls the export; the fix is to split record PDFs into smaller parts.
 test.skip(!process.env.RK_SLOW, "set RK_SLOW=1 to run the export timing test");
 
 test("FR-EXP-02: 10,000 customers, 30,000 visits and 12,000 records export in under 10 minutes", async ({ page }) => {

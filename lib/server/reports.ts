@@ -11,7 +11,8 @@ const MIDNIGHT = parseLocalTime("00:00");
 const num = (v: string | null) => (v === null ? null : Number(v));
 
 /** FR-REC-06: application records in the range (business days, ENG-05), current versions only (FR-REC-03). */
-export async function productUsage(m: MemberSession, filters: UsageFilters, limit: number): Promise<UsageReport> {
+/** `offset` pages through the rows (the export builds a month in parts); totals always cover the whole range. */
+export async function productUsage(m: MemberSession, filters: UsageFilters, limit: number, offset = 0): Promise<UsageReport> {
   return withRls(m.claims, async (tx) => {
     const business = await businessHeader(tx);
     const tz = business.timezone;
@@ -62,6 +63,7 @@ export async function productUsage(m: MemberSession, filters: UsageFilters, limi
       .orderBy("a.applied_at")
       .orderBy("a.id")
       .limit(limit + 1)
+      .offset(offset)
       .execute();
 
     const [product, technician] = await Promise.all([
