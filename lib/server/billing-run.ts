@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import type { Tx } from "@/lib/db/rls";
 import { billingPeriod, periodClosed, type BillingMode } from "@/lib/domain/billing";
 import { parseLocalDate, todayIn, type LocalDate } from "@/lib/domain/time";
+import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { formatLocalDate } from "@/lib/ui/format";
 
 // FR-BIL-01, FR-BIL-03: the billing run. It finds finished visits that are on
@@ -91,6 +92,9 @@ async function postInvoice(tx: Tx, input: { tenantId: string; customerId: string
     .insertInto("ledger_entries")
     .values({ tenant_id: input.tenantId, customer_id: input.customerId, type: "invoice", amount_cents: total, invoice_id: invoice.id, entry_key: `invoice:${invoice.id}`, occurred_at: input.now, source: "billing_run" })
     .execute();
+  // FR-BIL-05: the invoice email waits a few minutes, so cash taken in the
+  // field is applied first; one paid by then is not sent (lib/jobs/outbox.ts).
+  await enqueueEmail(tx, { tenantId: input.tenantId, topic: "invoice.issued", key: invoice.id, payload: { invoiceId: invoice.id }, availableAt: new Date(input.now.getTime() + 10 * 60_000) });
   return invoice.id;
 }
 

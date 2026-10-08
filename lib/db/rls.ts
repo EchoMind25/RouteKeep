@@ -47,3 +47,36 @@ export function pgConstraint(error: unknown): string | undefined {
   const e = error as { constraint?: unknown };
   return typeof e?.constraint === "string" ? e.constraint : undefined;
 }
+
+/** M6: a signed-in portal customer. Set only from a verified portal session (lib/portal/session.ts). */
+export interface PortalClaims {
+  role: "portal";
+  portal_tenant_id: string;
+  portal_customer_id: string;
+}
+
+/**
+ * Runs `fn` as the `portal` role: the only rows visible are the one
+ * customer's (supabase/migrations/20261008140000_portal_messaging.sql).
+ */
+export async function withPortal<T>(claims: PortalClaims, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return pool()
+    .transaction()
+    .execute(async (tx) => {
+      await sql`select
+        set_config('request.jwt.claims', ${JSON.stringify(claims)}, true),
+        set_config('statement_timeout', ${STATEMENT_TIMEOUT}, true),
+        set_config('role', 'portal', true)`.execute(tx);
+      return fn(tx);
+    });
+}
+
+/** Anonymous requests: as `anon`, which can only call the sign-in and unsubscribe functions. */
+export async function withAnon<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return pool()
+    .transaction()
+    .execute(async (tx) => {
+      await sql`select set_config('statement_timeout', ${STATEMENT_TIMEOUT}, true), set_config('role', 'anon', true)`.execute(tx);
+      return fn(tx);
+    });
+}

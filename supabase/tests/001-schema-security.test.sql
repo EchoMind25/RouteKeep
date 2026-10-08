@@ -39,9 +39,10 @@ where n.nspname = 'public' and c.relkind = 'r';
 
 select is(
   (select count(*)::int from pg_policies
-   where schemaname = 'public' and roles <> '{authenticated}'),
+   where schemaname = 'public' and roles <> '{authenticated}'
+     and not (roles = '{portal}' and policyname like 'portal\_%')),
   0,
-  'every policy applies to the authenticated role only'
+  'every policy applies to the authenticated role only, apart from the portal''s own (M6)'
 );
 
 select ok(

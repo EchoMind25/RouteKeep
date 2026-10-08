@@ -12,8 +12,8 @@ export const FLAGS = {
   reports: true,
   /** M5: the import wizard (export is never flagged: leaving is promised from day one). On since 2026-10-08. */
   migration: true,
-  /** M6: customer portal. */
-  portal: false,
+  /** M6: customer portal and email (FR-POR, FR-MSG). On since 2026-10-08; card payments and texts wait for Stripe and an SMS provider. */
+  portal: true,
 } as const;
 
 export type Flag = keyof typeof FLAGS;

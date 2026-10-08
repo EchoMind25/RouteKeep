@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
-import { pgConstraint, pgErrorCode, withRls } from "@/lib/db/rls";
+import { pgConstraint, pgErrorCode, withRls, type Tx } from "@/lib/db/rls";
 import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, RECORD_WARN_HOURS, recordDeadline, recordTiming, requiresCustomerStatement, type ProductKind, type SignalWord } from "@/lib/domain/records";
 import { instantToZoned, zonedTimeToInstant, type LocalDate, type LocalTime } from "@/lib/domain/time";
@@ -136,83 +136,86 @@ function toVersion(a: VersionRow): RecordVersion {
 }
 
 export async function getServiceRecord(m: MemberSession, appointmentId: string): Promise<ServiceRecord | null> {
-  return withRls(m.claims, async (tx) => {
-    const v = await tx
-      .selectFrom("appointments as a")
-      .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "a.customer_id").onRef("c.tenant_id", "=", "a.tenant_id"))
-      .innerJoin("properties as p", (j) => j.onRef("p.id", "=", "a.property_id").onRef("p.tenant_id", "=", "a.tenant_id"))
-      .innerJoin("service_types as t", (j) => j.onRef("t.id", "=", "a.service_type_id").onRef("t.tenant_id", "=", "a.tenant_id"))
-      .leftJoin("technicians as tech", (j) => j.onRef("tech.id", "=", "a.technician_id").onRef("tech.tenant_id", "=", "a.tenant_id"))
-      .select([
-        "a.id", "a.status", "a.local_date", "a.tz", "a.arrived_at", "a.completed_at", "a.tech_notes", "a.checklist_results", "a.signer_name",
-        "c.display_name as customer_name", "t.name as service_type_name", "tech.display_name as technician_name",
-        "p.address_line1", "p.address_line2", "p.city", "p.region", "p.postal_code",
-      ])
-      .where("a.id", "=", appointmentId)
-      .executeTakeFirst();
-    if (!v) return null;
-    const business = await businessHeader(tx);
-    const rows = await tx
-      .selectFrom("applications")
-      .select(VERSION_COLUMNS)
-      .where("appointment_id", "=", appointmentId)
-      .orderBy(sql`coalesce(applied_at, recorded_at)`)
-      .orderBy("recorded_at")
-      .execute();
-    // Chains: an amendment keeps its record's visit, so every version is here.
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    const amended = new Set(rows.flatMap((r) => (r.amended_from ? [r.amended_from] : [])));
-    const applications = rows
-      .filter((r) => !amended.has(r.id))
-      .map((current) => {
-        const history: (typeof rows)[number][] = [];
-        for (let prev = current.amended_from ? byId.get(current.amended_from) : undefined; prev; prev = prev.amended_from ? byId.get(prev.amended_from) : undefined) history.push(prev);
-        const first = history.at(-1) ?? current;
-        return {
-          ...toVersion(current),
-          history: history.map(toVersion),
-          timing: recordTiming({
-            appliedAt: first.applied_at,
-            capturedAt: first.captured_at,
-            recordedAt: first.recorded_at,
-            visitCompletedAt: v.completed_at,
-            imported: first.imported,
-            amendedFrom: null,
-          }),
-        };
-      });
-    const attachments = await tx
-      .selectFrom("attachments")
-      .select(["id", "kind", "captured_at"])
-      .where("owner_type", "=", "appointment")
-      .where("owner_id", "=", appointmentId)
-      .orderBy("captured_at")
-      .execute();
-    const checklist = Array.isArray(v.checklist_results)
-      ? (v.checklist_results as { label?: unknown; done?: unknown }[]).flatMap((c) => (typeof c?.label === "string" ? [{ label: c.label, done: c.done === true }] : []))
-      : [];
-    return {
-      visit: {
-        id: v.id,
-        status: v.status,
-        localDate: v.local_date,
-        timeZone: v.tz,
-        arrivedAt: v.arrived_at,
-        completedAt: v.completed_at,
-        techNotes: v.tech_notes,
-        checklist,
-        signerName: v.signer_name,
-        recordDue: v.status === "in_progress" && v.arrived_at ? recordDeadline(v.arrived_at) : null,
-        customerName: v.customer_name,
-        address: formatAddress({ line1: v.address_line1, line2: v.address_line2, city: v.city, region: v.region, postalCode: v.postal_code }),
-        serviceType: v.service_type_name,
-        technicianName: v.technician_name,
-      },
-      business: { name: business.name, licenseNo: business.licenseNo, address: business.address, state: business.state, whiteLabel: business.whiteLabel },
-      applications,
-      attachments: attachments.map((a) => ({ id: a.id, kind: a.kind, capturedAt: a.captured_at })),
-    };
-  });
+  return withRls(m.claims, (tx) => serviceRecordIn(tx, appointmentId));
+}
+
+/** The record as whoever owns `tx` may see it: a member (withRls) or the customer (withPortal). */
+export async function serviceRecordIn(tx: Tx, appointmentId: string): Promise<ServiceRecord | null> {
+  const v = await tx
+    .selectFrom("appointments as a")
+    .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "a.customer_id").onRef("c.tenant_id", "=", "a.tenant_id"))
+    .innerJoin("properties as p", (j) => j.onRef("p.id", "=", "a.property_id").onRef("p.tenant_id", "=", "a.tenant_id"))
+    .innerJoin("service_types as t", (j) => j.onRef("t.id", "=", "a.service_type_id").onRef("t.tenant_id", "=", "a.tenant_id"))
+    .leftJoin("technicians as tech", (j) => j.onRef("tech.id", "=", "a.technician_id").onRef("tech.tenant_id", "=", "a.tenant_id"))
+    .select([
+      "a.id", "a.status", "a.local_date", "a.tz", "a.arrived_at", "a.completed_at", "a.tech_notes", "a.checklist_results", "a.signer_name",
+      "c.display_name as customer_name", "t.name as service_type_name", "tech.display_name as technician_name",
+      "p.address_line1", "p.address_line2", "p.city", "p.region", "p.postal_code",
+    ])
+    .where("a.id", "=", appointmentId)
+    .executeTakeFirst();
+  if (!v) return null;
+  const business = await businessHeader(tx);
+  const rows = await tx
+    .selectFrom("applications")
+    .select(VERSION_COLUMNS)
+    .where("appointment_id", "=", appointmentId)
+    .orderBy(sql`coalesce(applied_at, recorded_at)`)
+    .orderBy("recorded_at")
+    .execute();
+  // Chains: an amendment keeps its record's visit, so every version is here.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const amended = new Set(rows.flatMap((r) => (r.amended_from ? [r.amended_from] : [])));
+  const applications = rows
+    .filter((r) => !amended.has(r.id))
+    .map((current) => {
+      const history: (typeof rows)[number][] = [];
+      for (let prev = current.amended_from ? byId.get(current.amended_from) : undefined; prev; prev = prev.amended_from ? byId.get(prev.amended_from) : undefined) history.push(prev);
+      const first = history.at(-1) ?? current;
+      return {
+        ...toVersion(current),
+        history: history.map(toVersion),
+        timing: recordTiming({
+          appliedAt: first.applied_at,
+          capturedAt: first.captured_at,
+          recordedAt: first.recorded_at,
+          visitCompletedAt: v.completed_at,
+          imported: first.imported,
+          amendedFrom: null,
+        }),
+      };
+    });
+  const attachments = await tx
+    .selectFrom("attachments")
+    .select(["id", "kind", "captured_at"])
+    .where("owner_type", "=", "appointment")
+    .where("owner_id", "=", appointmentId)
+    .orderBy("captured_at")
+    .execute();
+  const checklist = Array.isArray(v.checklist_results)
+    ? (v.checklist_results as { label?: unknown; done?: unknown }[]).flatMap((c) => (typeof c?.label === "string" ? [{ label: c.label, done: c.done === true }] : []))
+    : [];
+  return {
+    visit: {
+      id: v.id,
+      status: v.status,
+      localDate: v.local_date,
+      timeZone: v.tz,
+      arrivedAt: v.arrived_at,
+      completedAt: v.completed_at,
+      techNotes: v.tech_notes,
+      checklist,
+      signerName: v.signer_name,
+      recordDue: v.status === "in_progress" && v.arrived_at ? recordDeadline(v.arrived_at) : null,
+      customerName: v.customer_name,
+      address: formatAddress({ line1: v.address_line1, line2: v.address_line2, city: v.city, region: v.region, postalCode: v.postal_code }),
+      serviceType: v.service_type_name,
+      technicianName: v.technician_name,
+    },
+    business: { name: business.name, licenseNo: business.licenseNo, address: business.address, state: business.state, whiteLabel: business.whiteLabel },
+    applications,
+    attachments: attachments.map((a) => ({ id: a.id, kind: a.kind, capturedAt: a.captured_at })),
+  };
 }
 
 export interface RecordDueVisit {

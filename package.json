@@ -26,7 +26,8 @@
     "design:tokens": "node scripts/design/build-tokens.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run design:contrast",
     "db:generate": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/generate-demo-visits.ts",
-    "billing:run": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/run-billing.ts"
+    "billing:run": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/run-billing.ts",
+    "messages:run": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/run-messages.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.0",

@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
-import { pgConstraint, pgErrorCode, withRls } from "@/lib/db/rls";
+import { pgConstraint, pgErrorCode, withRls, type Tx } from "@/lib/db/rls";
 import { agingBucket, type AgingBucket } from "@/lib/domain/billing";
 import { formatAddress } from "@/lib/domain/contact";
 import { parseLocalDate, todayIn } from "@/lib/domain/time";
@@ -87,57 +87,60 @@ export interface InvoiceDetail {
 }
 
 export async function getInvoice(m: MemberSession, id: string): Promise<InvoiceDetail | null> {
-  return withRls(m.claims, async (tx) => {
-    const i = await tx
-      .selectFrom("invoices as i")
-      .innerJoin("invoice_balances as b", (j) => j.onRef("b.invoice_id", "=", "i.id").onRef("b.tenant_id", "=", "i.tenant_id"))
-      .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "i.customer_id").onRef("c.tenant_id", "=", "i.tenant_id"))
-      .select([
-        "i.id", "i.number", "i.status", "i.issued_at", "i.due_date", "i.paid_at", "i.void_reason", "i.total_cents", "b.open_cents",
-        "c.id as customer_id", "c.display_name", "c.email", "c.billing_address_line1", "c.billing_address_line2", "c.billing_city", "c.billing_region", "c.billing_postal_code",
-      ])
-      .where("i.id", "=", id)
-      .executeTakeFirst();
-    if (!i) return null;
-    const business = await businessHeader(tx);
-    const logo = await tx.selectFrom("tenants").select("logo_path").executeTakeFirstOrThrow();
-    const property = await tx
-      .selectFrom("properties")
-      .select(["address_line1", "address_line2", "city", "region", "postal_code"])
-      .where("customer_id", "=", i.customer_id)
-      .orderBy("created_at")
-      .executeTakeFirst();
-    const lines = await tx.selectFrom("invoice_lines").select(["id", "description", "quantity", "unit_amount_cents", "amount_cents", "appointment_id"]).where("invoice_id", "=", id).orderBy("created_at").execute();
-    const ledger = await tx
-      .selectFrom("ledger_entries as e")
-      .leftJoin("payments as p", (j) => j.onRef("p.id", "=", "e.payment_id").onRef("p.tenant_id", "=", "e.tenant_id"))
-      .select(["e.id", "e.type", "e.amount_cents", "e.memo", "e.occurred_at", "p.method", "p.check_number"])
-      .where("e.invoice_id", "=", id)
-      .orderBy("e.occurred_at")
-      .execute();
-    const address =
-      i.billing_address_line1 && i.billing_city && i.billing_region && i.billing_postal_code
-        ? formatAddress({ line1: i.billing_address_line1, line2: i.billing_address_line2, city: i.billing_city, region: i.billing_region, postalCode: i.billing_postal_code })
-        : property
-          ? formatAddress({ line1: property.address_line1, line2: property.address_line2, city: property.city, region: property.region, postalCode: property.postal_code })
-          : "";
-    return {
-      id: i.id,
-      number: Number(i.number),
-      status: i.status,
-      issuedAt: i.issued_at,
-      dueDate: i.due_date,
-      paidAt: i.paid_at,
-      voidReason: i.void_reason,
-      totalCents: i.total_cents,
-      openCents: Number(i.open_cents ?? 0),
-      timeZone: business.timezone,
-      customer: { id: i.customer_id, name: i.display_name, address, email: i.email },
-      lines: lines.map((l) => ({ id: l.id, description: l.description, quantity: Number(l.quantity), unitCents: l.unit_amount_cents, amountCents: l.amount_cents, appointmentId: l.appointment_id })),
-      ledger: ledger.map((e) => ({ id: e.id, type: e.type, amountCents: e.amount_cents, memo: e.memo, occurredAt: e.occurred_at, method: e.method, checkNumber: e.check_number })),
-      business: { ...business, logoPath: logo.logo_path },
-    };
-  });
+  return withRls(m.claims, (tx) => invoiceIn(tx, id));
+}
+
+/** The invoice as whoever owns `tx` may see it: a member (withRls) or the customer (withPortal). */
+export async function invoiceIn(tx: Tx, id: string): Promise<InvoiceDetail | null> {
+  const i = await tx
+    .selectFrom("invoices as i")
+    .innerJoin("invoice_balances as b", (j) => j.onRef("b.invoice_id", "=", "i.id").onRef("b.tenant_id", "=", "i.tenant_id"))
+    .innerJoin("customers as c", (j) => j.onRef("c.id", "=", "i.customer_id").onRef("c.tenant_id", "=", "i.tenant_id"))
+    .select([
+      "i.id", "i.number", "i.status", "i.issued_at", "i.due_date", "i.paid_at", "i.void_reason", "i.total_cents", "b.open_cents",
+      "c.id as customer_id", "c.display_name", "c.email", "c.billing_address_line1", "c.billing_address_line2", "c.billing_city", "c.billing_region", "c.billing_postal_code",
+    ])
+    .where("i.id", "=", id)
+    .executeTakeFirst();
+  if (!i) return null;
+  const business = await businessHeader(tx);
+  const logo = await tx.selectFrom("tenants").select("logo_path").executeTakeFirstOrThrow();
+  const property = await tx
+    .selectFrom("properties")
+    .select(["address_line1", "address_line2", "city", "region", "postal_code"])
+    .where("customer_id", "=", i.customer_id)
+    .orderBy("created_at")
+    .executeTakeFirst();
+  const lines = await tx.selectFrom("invoice_lines").select(["id", "description", "quantity", "unit_amount_cents", "amount_cents", "appointment_id"]).where("invoice_id", "=", id).orderBy("created_at").execute();
+  const ledger = await tx
+    .selectFrom("ledger_entries as e")
+    .leftJoin("payments as p", (j) => j.onRef("p.id", "=", "e.payment_id").onRef("p.tenant_id", "=", "e.tenant_id"))
+    .select(["e.id", "e.type", "e.amount_cents", "e.memo", "e.occurred_at", "p.method", "p.check_number"])
+    .where("e.invoice_id", "=", id)
+    .orderBy("e.occurred_at")
+    .execute();
+  const address =
+    i.billing_address_line1 && i.billing_city && i.billing_region && i.billing_postal_code
+      ? formatAddress({ line1: i.billing_address_line1, line2: i.billing_address_line2, city: i.billing_city, region: i.billing_region, postalCode: i.billing_postal_code })
+      : property
+        ? formatAddress({ line1: property.address_line1, line2: property.address_line2, city: property.city, region: property.region, postalCode: property.postal_code })
+        : "";
+  return {
+    id: i.id,
+    number: Number(i.number),
+    status: i.status,
+    issuedAt: i.issued_at,
+    dueDate: i.due_date,
+    paidAt: i.paid_at,
+    voidReason: i.void_reason,
+    totalCents: i.total_cents,
+    openCents: Number(i.open_cents ?? 0),
+    timeZone: business.timezone,
+    customer: { id: i.customer_id, name: i.display_name, address, email: i.email },
+    lines: lines.map((l) => ({ id: l.id, description: l.description, quantity: Number(l.quantity), unitCents: l.unit_amount_cents, amountCents: l.amount_cents, appointmentId: l.appointment_id })),
+    ledger: ledger.map((e) => ({ id: e.id, type: e.type, amountCents: e.amount_cents, memo: e.memo, occurredAt: e.occurred_at, method: e.method, checkNumber: e.check_number })),
+    business: { ...business, logoPath: logo.logo_path },
+  };
 }
 
 export class BillingRefusedError extends Error {

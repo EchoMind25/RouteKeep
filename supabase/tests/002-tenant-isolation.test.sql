@@ -31,13 +31,17 @@ from b_rows;
 
 select pg_temp.login((select (a ->> 'owner')::uuid from fx), (select (a ->> 'tenant')::uuid from fx));
 
+-- Portal sign-in tokens are read by no member at all, only by the functions
+-- that issue and redeem them (008-portal).
 select cmp_ok(
   pg_temp.count_rows(t, (select (a ->> 'tenant')::uuid from fx)), '>', 0::bigint,
   format('%s: owner of A sees A''s rows (control)', t))
-from pg_temp.tenant_tables() t;
+from pg_temp.tenant_tables() t
+where t <> 'portal_tokens';
+select is(pg_temp.count_rows('portal_tokens', (select (a ->> 'tenant')::uuid from fx)), -1::bigint, 'portal_tokens: no member can read sign-in tokens');
 
-select is(
-  pg_temp.count_rows(t, (select (b ->> 'tenant')::uuid from fx)), 0::bigint,
+select ok(
+  pg_temp.count_rows(t, (select (b ->> 'tenant')::uuid from fx)) in (0, -1),
   format('%s: A reads none of B''s rows', t))
 from pg_temp.tenant_tables() t;
 

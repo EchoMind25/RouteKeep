@@ -16,7 +16,7 @@ is created. Figures marked from RESEARCH are third-party summaries dated
 | Inngest | Durable background jobs | Job payloads (ids, not customer details) | Free | Verify at signup | Not created |
 | PowerSync | Offline sync (D-06) | Synced subset of tenant data | Cloud Free | 2 GB/month, 50 peak connections, deactivated after 1 idle week (R-TECH-06, vendor-confirmed) | Not used: the built-in sync adapter covers M3 with no third party. Owner decides whether to add it |
 | Stripe | Payments (M4) and RouteKeep's own subscription billing | Payment details entered in Stripe-hosted fields; customer name and email for receipts | Connect, Standard-style accounts | Processing fees paid by the tenant (R-TECH-07) | Not created |
-| Resend | Email (M6) | Recipient email, message content | Free | Verify at signup | Not created |
+| Resend | Email (M6) | Recipient email, message content (business name, customer first name, visit or invoice details, links) | Free | Verify at signup | Built (`EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`); not verified against a live account. Needs a sending domain the owner controls |
 | Twilio | SMS after 10DLC approval (M6) | Recipient phone, message content | Pay as you go, passed through to tenant | 10DLC brand and campaign fees (R-TECH-10) | Not created |
 | Sentry | Error tracking | Error traces with tenant and request ids; scrub personal data before enabling | Free | Verify at signup | Not configured |
 | GitHub | Code, CI | Source code; no customer data | Free | Actions minutes | In use |

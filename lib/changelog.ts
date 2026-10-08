@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-08",
+    title: "Customer accounts and email",
+    items: [
+      "Customers get an email the day before a visit, a service complete email with their record, and their invoices. Each has your name, license and an unsubscribe link.",
+      "Customers can sign in to their own account with a link sent to their email. They see their next visit, every service record, their invoices, and can ask for service.",
+      "Requests they send show up on the Customers page and on their customer page.",
+      "Settings, Messages shows every message sent or held back, and why. Imported customers get nothing until you press Go live.",
+      "On a customer page, Email a sign-in link sends them their link.",
+    ],
+  },
+  {
+    date: "2026-10-08",
     title: "Import your customer list, export everything",
     items: [
       "Settings, Import: upload a CSV from your old software or a spreadsheet. Columns are matched for you; change any match before anything happens.",

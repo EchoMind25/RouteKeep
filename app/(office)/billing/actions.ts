@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireMember } from "@/lib/auth/session";
 import { parseMoneyToCents } from "@/lib/domain/money";
 import { failure, fieldErrors, formValues, optionalTrimmed, trimmed, type FormState } from "@/lib/forms";
+import { kickOutbox } from "@/lib/messaging/kick";
 import { addCredit, BillingRefusedError, recordPayment, runBillingNow, voidInvoice } from "@/lib/server/billing";
 
 // FR-BIL-01, FR-BIL-06: the office's billing actions. Owner, admin and office;
@@ -29,6 +30,7 @@ const money = z
 export async function runBillingAction(): Promise<void> {
   const member = await requireMember(BILLING_ROLES);
   const result = await runBillingNow(member);
+  if (result.invoicesCreated) kickOutbox(member.tenantId);
   revalidatePath("/billing", "layout");
   redirect(`/billing?ran=${result.invoicesCreated}.${result.paymentsPosted}.${result.failures.length}`);
 }

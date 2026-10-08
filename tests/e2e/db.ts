@@ -198,3 +198,8 @@ export async function laneOrder(techId: string, date: string): Promise<string[]>
     await client.end();
   }
 }
+
+/** A YYYY-MM-DD date plus n days. */
+export function addDaysTo(date: string, n: number): string {
+  return new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+}

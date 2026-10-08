@@ -3,11 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
-import { EmptyState, PageHeader } from "@/components/ui/layout";
+import { Alert, EmptyState, PageHeader } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatPhone } from "@/lib/domain/contact";
 import { searchCustomers } from "@/lib/server/customers";
+import { serviceRequests } from "@/lib/server/messages";
 import { formatLocalDate, pluralize } from "@/lib/ui/format";
 
 export const metadata: Metadata = { title: "Customers" };
@@ -17,7 +18,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const q = params.q?.slice(0, 100) ?? "";
   const page = Number.parseInt(params.page ?? "1", 10) || 1;
-  const result = await searchCustomers(member, { q, page });
+  const [result, requests] = await Promise.all([searchCustomers(member, { q, page }), serviceRequests(member, { open: true })]);
   const pageHref = (n: number) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), page: String(n) })}`;
 
   return (
@@ -33,6 +34,22 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
           </Button>
         }
       />
+
+      {/* FR-POR-02: requests customers sent from their account. */}
+      {requests.length ? (
+        <Alert tone="warning" title={pluralize(requests.length, "service request")} className="mb-4">
+          <ul className="grid gap-1">
+            {requests.slice(0, 5).map((r) => (
+              <li key={r.id}>
+                <Link href={`/customers/${r.customer_id}`} className="font-medium hover:underline">
+                  {r.display_name}
+                </Link>
+                : {r.message.length > 90 ? `${r.message.slice(0, 90)}…` : r.message}
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      ) : null}
 
       <form role="search" action="/customers" className="flex max-w-xl gap-2 pb-4">
         <label htmlFor="customer-search" className="sr-only">

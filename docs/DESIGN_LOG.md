@@ -120,3 +120,8 @@ was opened.
   synonyms are common spreadsheet header words, not taken from any vendor's
   export (FR-MIG-03: a vendor preset is built from a real customer's own file).
   The export layout and docs/EXPORT_FORMAT.md are our own.
+- Portal and email (FR-POR, FR-MSG), 2026-10-08: sign-in by emailed link,
+  the portal's contents and the email set come from the PRD; wording, layout
+  and the "held back, and why" log are our own. No competitor portal, email
+  or help page was looked at. The portal is its own database role so the
+  database, not the page, limits a customer to their own rows.

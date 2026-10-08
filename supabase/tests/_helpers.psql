@@ -260,6 +260,12 @@ begin
   insert into public.route_ai_runs (tenant_id, technician_id, local_date, request_key, expected)
   values (v_tenant, v_tech, date '2026-10-05', 'ai-' || p_label, '[]');
 
+  insert into public.service_requests (tenant_id, customer_id, property_id, request_key, message)
+  values (v_tenant, v_customer, v_property, 'request-' || p_label, 'Wasps by the back door');
+
+  insert into public.portal_tokens (tenant_id, customer_id, token_hash, expires_at)
+  values (v_tenant, v_customer, 'seed-' || p_label, now() + interval '20 minutes');
+
   insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
   values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
 

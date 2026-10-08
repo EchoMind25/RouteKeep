@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
+import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { businessHeader } from "@/lib/server/business";
 import { isCurrentVersion } from "@/lib/server/records";
 import { formatAddress } from "@/lib/domain/contact";
@@ -369,6 +370,8 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
       })
       .where("id", "=", visit.id)
       .execute();
+    // FR-MSG-01: "service complete" goes out once this commits (ENG-04).
+    await enqueueEmail(tx, { tenantId: m.tenantId, topic: "appointment.completed", key: visit.id, payload: { appointmentId: visit.id } });
     return { key: mutation.key, status: "applied" };
   }
   await raiseConflict(tx, mutation.key, techId, visit, "completed_after_change", mutation);

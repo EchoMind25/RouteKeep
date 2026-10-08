@@ -6,7 +6,7 @@ FR-SET-04 Service types and plans with price and recurrence.,tenant setup,must,y
 "FR-SET-05 Connect Stripe (onboarding link). Until connected, billing features show a setup prompt.",tenant setup,must,yes,no,
 "FR-CRM-01 Create, edit, search customers; multiple properties per customer.",customers,must,yes,yes,"Create, search, edit (version-checked, stale edits refused), consent history kept on opt-out, multiple properties per customer (add and edit addresses); e2e customer-edit and sell-plan"
 "FR-CRM-02 On address entry, geocode and show the pin with confidence. Below threshold, require confirmation. Pin is draggable and lockable (R-BUG-05).",customers,must,yes,yes,"Geocode with confidence; pin page with drag, click or crosshair placement, typed coordinates, lock; DB refuses moving a locked pin"
-"FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,partial,"Visits, invoices and balance on the customer page; payments listed per invoice; messages arrive with M6"
+"FR-CRM-03 Timeline per customer: appointments, applications, invoices, payments, messages.",customers,must,yes,yes,"Visits, invoices, balance, messages with outcome, and portal service requests on the customer page"
 FR-CRM-04 Record SMS consent with timestamp and source; email opt-in.,customers,must,yes,yes,Consent time and source recorded; email opt-in separate
 FR-SUB-01 Sell a subscription: initial service plus recurring frequency (RRULE).,plans and appointments,must,yes,yes,Initial visit at initial price; plan terms copied at sale
 "FR-SUB-02 A daily job generates appointments 60 days ahead, idempotently.",plans and appointments,must,yes,partial,Generator and batched job body done; production scheduler (Inngest) not deployed
@@ -43,17 +43,17 @@ FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-ap
 FR-BIL-02 Autopay by card or ACH using Stripe-hosted setup and stored mandates.,billing,must,yes,no,
 FR-BIL-03 Billing runs as one durable step per invoice; a failed item never blocks others; reruns are safe.,billing,must,yes,yes,Each invoice and payment its own transaction; failures recorded in billing_runs; rerun makes nothing twice (e2e)
 FR-BIL-04 Failed payments enter a retry schedule and a collections list.,billing,must,yes,partial,"Collections list by days late, oldest first; retry schedule waits for Stripe (stage 2)"
-FR-BIL-05 Receipts and invoices by email; SMS when enabled.,billing,must,yes,no,
+FR-BIL-05 Receipts and invoices by email; SMS when enabled.,billing,must,yes,partial,Invoice email after each billing run (held 10 minutes so field cash applies first; not sent if paid). Receipts and SMS not yet
 FR-BIL-06 Refunds and credits create ledger entries; nothing edits history.,billing,must,yes,partial,"Cash, check and other payments, credits and voids as ledger entries with client keys; refunds wait for card payments (stage 2)"
 FR-BIL-07 Nightly reconciliation of ledger against Stripe; mismatches listed for the owner.,billing,must,yes,no,
 "FR-BIL-08 Reports: revenue, AR aging, production by technician.",billing,must,yes,yes,"Reports, Money: revenue by month, money owed by age, production by technician"
-"FR-MSG-01 Email reminders, ""on the way"", service complete, invoice, payment failed.",messaging,must,yes,no,
-FR-MSG-02 SMS for the same events only when the tenant's 10DLC status is approved and the recipient has consent on file.,messaging,must,yes,no,
-FR-MSG-03 Onboarding step collects the tenant's 10DLC brand details and shows registration status.,messaging,must,yes,no,
-"FR-MSG-04 STOP, HELP, quiet hours by recipient timezone, unsubscribe link on email.",messaging,must,yes,no,
-FR-MSG-05 Usage ledger: every billed message links to a message row the tenant can see (R-BUG-10).,messaging,must,yes,partial,messages table carries billed units and cost
-FR-POR-01 Passwordless sign-in by email link (SMS code when enabled).,customer portal,must,yes,no,
-"FR-POR-02 Next visit, history, downloadable service records, pay invoice, update card or bank, request service.",customer portal,must,yes,no,
+"FR-MSG-01 Email reminders, ""on the way"", service complete, invoice, payment failed.",messaging,must,yes,partial,"Email: day-before reminder, service complete with record link, invoice. On-the-way and payment-failed wait for the tech app button and Stripe"
+FR-MSG-02 SMS for the same events only when the tenant's 10DLC status is approved and the recipient has consent on file.,messaging,must,yes,no,Blocked: needs an SMS provider account and 10DLC approval (owner)
+FR-MSG-03 Onboarding step collects the tenant's 10DLC brand details and shows registration status.,messaging,must,yes,partial,"Settings, Messages saves the brand details; submission waits for the SMS provider"
+"FR-MSG-04 STOP, HELP, quiet hours by recipient timezone, unsubscribe link on email.",messaging,must,yes,partial,"Unsubscribe link on every service email (signed, one button, GET changes nothing); STOP, HELP and quiet hours come with SMS"
+FR-MSG-05 Usage ledger: every billed message links to a message row the tenant can see (R-BUG-10).,messaging,must,yes,yes,"Every outcome (sent, held back with the reason, failed) is a messages row shown per customer and in Settings, Messages"
+FR-POR-01 Passwordless sign-in by email link (SMS code when enabled).,customer portal,must,yes,yes,"Email link, one use, 20 minutes, 5 an hour; same answer for unknown addresses; signed 30-day cookie per business; portal DB role sees only that customer"
+"FR-POR-02 Next visit, history, downloadable service records, pay invoice, update card or bank, request service.",customer portal,must,yes,partial,"Next visit, history with service record PDFs, invoices with PDFs, request service. Pay invoice and card or bank updates wait for Stripe"
 "FR-EXP-01 Owner can export the entire tenant at any time: every table as CSV and JSON, attachments as a ZIP, application records as PDFs.",export,must,yes,yes,"Settings, Export: tables as CSV and JSON, attachments, application records as one PDF per month, manifest and README, in one ZIP"
 "FR-EXP-02 Export completes in under 10 minutes for 10,000 customers and is delivered by expiring link.",export,must,yes,partial,"Built in short steps; 7-day link. Timed only on small data so far; the 10,000-customer target is unmeasured"
 FR-EXP-03 Export format is documented and is itself a valid import source (FR-MIG-02).,export,must,yes,yes,docs/EXPORT_FORMAT.md; customers-import.csv is recognised by the import with no mapping (e2e)

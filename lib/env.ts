@@ -32,6 +32,17 @@ const schema = z
     STORAGE_PROVIDER: z.enum(["supabase", "local"]).optional(),
     STORAGE_BUCKET: z.string().min(3).max(63).default("attachments"),
     LOCAL_STORAGE_DIR: z.string().min(1).default(".local/storage"),
+    // M6: signs portal sessions and unsubscribe links. At least 32 characters.
+    // In local development LOCAL_AUTH_SECRET stands in when it is unset.
+    APP_SECRET: z.string().min(32, "APP_SECRET needs at least 32 characters").optional(),
+    // M6, D-10: how email leaves. "log" writes each email to LOCAL_MAIL_DIR
+    // (development and tests only); "resend" sends through Resend.
+    EMAIL_PROVIDER: z.enum(["log", "resend"]).optional(),
+    RESEND_API_KEY: z.string().min(1).optional(),
+    EMAIL_FROM: z.string().min(3).optional(),
+    LOCAL_MAIL_DIR: z.string().min(1).default(".local/mail"),
+    // Shared secret for /api/cron, for a scheduler that is not Inngest.
+    CRON_SECRET: z.string().min(24).optional(),
     NETLIFY: z.string().optional(),
     CONTEXT: z.string().optional(),
   })
@@ -46,6 +57,13 @@ const schema = z
       }
       const blocked = localAuthBlockReason({ databaseUrl: e.DATABASE_URL, netlify: e.NETLIFY, context: e.CONTEXT });
       if (blocked) ctx.addIssue({ code: "custom", path: ["AUTH_MODE"], message: blocked });
+    }
+    if (e.EMAIL_PROVIDER === "log") {
+      const blocked = localAuthBlockReason({ databaseUrl: e.DATABASE_URL, netlify: e.NETLIFY, context: e.CONTEXT });
+      if (blocked) ctx.addIssue({ code: "custom", path: ["EMAIL_PROVIDER"], message: blocked.replace("Local sign-in", "Writing email to local files") });
+    }
+    if (e.EMAIL_PROVIDER === "resend" && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) {
+      ctx.addIssue({ code: "custom", path: ["RESEND_API_KEY"], message: "EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM" });
     }
     // Files on this machine are for development only, with the same guard as local sign-in.
     if (e.STORAGE_PROVIDER === "local") {
@@ -77,4 +95,16 @@ export function storageProvider(e: Env = env()): "supabase" | "local" {
 
 export function parseEnvForTest(source: Record<string, string | undefined>) {
   return schema.safeParse(source);
+}
+
+/** M6: the secret for portal sessions and unsubscribe links, or null when none is configured. */
+export function appSecret(): string | null {
+  const e = env();
+  return e.APP_SECRET ?? (e.AUTH_MODE === "local" ? (e.LOCAL_AUTH_SECRET ?? null) : null);
+}
+
+/** M6: the email provider in use: the configured one, "log" in local development, or none. */
+export function emailProvider(): "log" | "resend" | null {
+  const e = env();
+  return e.EMAIL_PROVIDER ?? (e.AUTH_MODE === "local" ? "log" : null);
 }

@@ -14,10 +14,13 @@ import { needsPinConfirmation } from "@/lib/providers/geocoder";
 import { getCustomer, propertyAddress } from "@/lib/server/customers";
 import { saleFor } from "@/lib/server/sales";
 import { listInvoices } from "@/lib/server/billing";
+import { recentMessages, serviceRequests, TEMPLATE_LABEL } from "@/lib/server/messages";
+import { requestDoneAction } from "./account-actions";
+import { PortalLinkButton } from "./portal-link";
 import { isEnabled } from "@/lib/flags";
 import { INVOICE_STATUS } from "../../billing/status";
 import { COMMISSION_STATUS } from "@/lib/domain/commission";
-import { APPOINTMENT_STATUS, BILLING_MODE, formatLocalDate, formatWindow, SUBSCRIPTION_STATUS } from "@/lib/ui/format";
+import { APPOINTMENT_STATUS, BILLING_MODE, formatInstant, formatLocalDate, formatWindow, SUBSCRIPTION_STATUS } from "@/lib/ui/format";
 
 export const metadata: Metadata = { title: "Customer" };
 
@@ -37,7 +40,13 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const billing = isEnabled("billing") && member.role !== "dispatcher";
-  const [data, sale, invoices] = await Promise.all([getCustomer(member, id), saleFor(member, id), billing ? listInvoices(member, "all", { customerId: id, limit: 12 }) : Promise.resolve([])]);
+  const [data, sale, invoices, messages, requests] = await Promise.all([
+    getCustomer(member, id),
+    saleFor(member, id),
+    billing ? listInvoices(member, "all", { customerId: id, limit: 12 }) : Promise.resolve([]),
+    recentMessages(member, { customerId: id, limit: 10 }),
+    serviceRequests(member, { customerId: id }),
+  ]);
   if (!data) notFound();
   const { customer, properties, subscriptions, upcoming, history, balanceCents } = data;
   const query = await searchParams;
@@ -209,6 +218,53 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                     : []),
                 ]}
               />
+            </div>
+          </Panel>
+
+          {requests.some((r) => r.status === "open") ? (
+            <Panel title="Service requests" description="Sent from their account.">
+              <ul className="divide-y divide-line">
+                {requests
+                  .filter((r) => r.status === "open")
+                  .map((r) => (
+                    <li key={r.id} className="grid gap-2 px-5 py-4">
+                      <p className="whitespace-pre-line">{r.message}</p>
+                      {r.preferred_times ? <p className="text-sm text-fg-muted">Prefers: {r.preferred_times}</p> : null}
+                      <form action={requestDoneAction}>
+                        <input type="hidden" name="id" value={r.id} />
+                        <Button type="submit" variant="ghost" size="sm">
+                          Mark handled
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+              </ul>
+            </Panel>
+          ) : null}
+
+          {/* FR-POR-01, FR-MSG-05: their account, and every message sent or held back. */}
+          <Panel title="Customer account" description={customer.email ? "They sign in with a link emailed to them. No password." : "Add an email address so they can sign in."}>
+            <div className="grid gap-4 px-5 py-4">
+              <PortalLinkButton customerId={customer.id} disabled={!customer.email} />
+              {customer.email_unsubscribed_at ? <p className="text-sm text-fg-muted">Unsubscribed from email on {formatLocalDate(instantToZoned(customer.email_unsubscribed_at, member.timezone).date, "full")}.</p> : null}
+              {messages.length ? (
+                <ul className="grid gap-2 text-sm" aria-label="Messages">
+                  {messages.map((msg) => (
+                    <li key={msg.id} className="grid gap-0.5">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{TEMPLATE_LABEL[msg.template] ?? msg.template}</span>
+                        <Badge tone={msg.status === "sent" ? "success" : msg.status === "suppressed" ? "neutral" : "danger"}>{msg.status === "sent" ? "Sent" : msg.status === "suppressed" ? "Not sent" : "Failed"}</Badge>
+                      </span>
+                      <span className="text-fg-muted">
+                        {formatInstant(msg.created_at, member.timezone)}
+                        {msg.suppressed_reason ? `. ${msg.suppressed_reason}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-fg-muted">No messages yet.</p>
+              )}
             </div>
           </Panel>
 

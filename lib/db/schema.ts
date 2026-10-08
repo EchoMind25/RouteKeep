@@ -458,6 +458,17 @@ export interface Payments {
   updated_at: Generated<Timestamp>;
 }
 
+export interface PortalTokens {
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  tenant_id: string;
+  token_hash: string;
+  updated_at: Generated<Timestamp>;
+  used_at: Timestamp | null;
+}
+
 export interface Products {
   active: Generated<boolean>;
   active_ingredients: string | null;
@@ -562,6 +573,21 @@ export interface ServicePlans {
   service_type_id: string;
   source: Generated<string>;
   tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface ServiceRequests {
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  handled_at: Timestamp | null;
+  handled_by: string | null;
+  id: Generated<string>;
+  message: string;
+  preferred_times: string | null;
+  property_id: string | null;
+  request_key: string;
+  status: Generated<string>;
+  tenant_id: string;
   updated_at: Generated<Timestamp>;
 }
 
@@ -712,11 +738,13 @@ export interface DB {
   offices: Offices;
   outbox_events: OutboxEvents;
   payments: Payments;
+  portal_tokens: PortalTokens;
   products: Products;
   properties: Properties;
   route_ai_runs: RouteAiRuns;
   routes: Routes;
   service_plans: ServicePlans;
+  service_requests: ServiceRequests;
   service_types: ServiceTypes;
   subscriptions: Subscriptions;
   sync_conflicts: SyncConflicts;
