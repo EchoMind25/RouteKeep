@@ -28,3 +28,5 @@ One line per screen: id, date, state, what is missing, what was harder than expe
 | S23 Messages | 2026-10-08 | partial | Texts (10DLC), on-the-way | Settings, Messages: email status, go live for imported customers, text registration details, message log |
 | S22 Landing page | 2026-10-07 | done | Real customer quotes and logos once there are customers | Real product screenshots (light and dark) layered in CSS 3D with pointer tilt; an isometric neighborhood where the route draws as it scrolls in. Animated text never drops below full contrast (axe caught the first version dimming it) |
 | S21 Design primitives | | not started | | |
+| S24 Legal and status | 2026-10-08 | done | Attorney review, legal entity name | Terms, Privacy, DPA, subprocessors, status. Async generateMetadata streamed titles into the body after paint, which axe caught intermittently; streaming metadata is off so titles are in head |
+| S25 White label theming | 2026-10-08 | done | | A pale brand yellow failed contrast on the active menu item (accent on its own tint); the palette now checks surface, canvas and tint |

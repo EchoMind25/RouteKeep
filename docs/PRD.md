@@ -273,6 +273,7 @@ Added 2026-10-07 by owner decision; scope corrected the same day.
 ### 8.10.2 Public site `[MVP]`
 Added 2026-10-07 by owner decision.
 - FR-WEB-01 A public landing page at `/`: what the product does, posted pricing (D-11), the white label offer (D-14), and a FAQ. Indexable, with structured data (SoftwareApplication, FAQPage), a sitemap, robots rules that keep the app private, a social card and `/llms.txt` for AI assistants. Every claim matches what is built; nothing invented (no reviews, no customer logos until real).
+- FR-WEB-03 Public Terms, Privacy Policy, Data Processing Addendum, subprocessor list (CR-13) and a status page (NFR-04), linked from the landing page footer. Added 2026-10-08.
 - FR-WEB-02 Signed-in work starts at `/app`. `app.` and `login.` subdomains of the owner's domain open the app directly; `/login` does the same on any host.
 
 ### 8.11 Later phases
@@ -389,6 +390,16 @@ These are the floor. None may be traded for cost.
 | M7 Pilot hardening | Legal pages (CR-13), status page, backup restore drill (CR-09), demo tenant with seed data | Go-live checklist complete |
 
 M5 is placed before messaging and the portal on purpose: a pilot customer cannot start without migration, and can start with email-only messaging.
+
+Status 2026-10-08 (details in `replica/features.csv` and `replica/build-log.md`):
+
+| Milestone | State | What is left |
+|---|---|---|
+| M0 to M3 | Done | CI on GitHub Actions (account permission), real-iPhone offline test (RISK-01) |
+| M4 Money | Stage 1 done: invoices, cash and check, credits, voids, collections, money reports, invoice email | Stage 2 needs the owner's Stripe account: Connect onboarding, card and ACH, autopay, webhooks, refunds, reconciliation (FR-BIL-02/04/07) |
+| M5 Migration and export | Done for customer lists and full export | XLSX, named-vendor presets (from a real customer's file), technicians/products/history import, 10,000-customer export timing |
+| M6 Messaging and portal | Email and portal done | SMS needs a provider account and 10DLC approval; online payment in the portal needs Stripe |
+| M7 Pilot hardening | Legal templates, status page, restore drill script, white label theming, switch-over checklist done | Attorney review (D-13), legal entity (OQ-02), Supabase Pro and a production restore drill (CR-09) |
 
 ## 15. Success metrics
 

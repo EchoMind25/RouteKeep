@@ -14,7 +14,8 @@ import { checkImport, commitStep, ImportError, saveMapping, startImport, type Co
 
 // PRD section 9: the import wizard's steps. Owner and admin only.
 
-const MAX_BYTES = 8 * 1024 * 1024;
+// About 25,000 customers; hosted functions refuse bodies over about 6 MB.
+const MAX_BYTES = 5 * 1024 * 1024;
 
 async function admin() {
   if (!isEnabled("migration")) throw new Error("Import is not available yet.");
@@ -25,7 +26,7 @@ export async function startImportAction(_prev: FormState, data: FormData): Promi
   const member = await admin();
   const file = data.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV file." };
-  if (file.size > MAX_BYTES) return { ok: false, message: "That file is over 8 MB. Split it into parts and import each one." };
+  if (file.size > MAX_BYTES) return { ok: false, message: "That file is over 5 MB. Split it into parts and import each one; customers already imported are recognised." };
   if (!/\.(csv|txt)$/i.test(file.name)) return { ok: false, message: "Save the spreadsheet as CSV first (File, Save as, CSV) and upload that." };
   let id: string;
   try {

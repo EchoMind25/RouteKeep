@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-08",
+    title: "Ready for your first switch-over",
+    items: [
+      "Get set up now has a switch-over checklist: customers in, technicians invited, first route planned, email on, go live.",
+      "White label businesses see their own name, logo and colour in the office app, the tech app and their customers' accounts. Pick the colour in Settings; it is adjusted where needed so text stays readable.",
+      "Terms, Privacy, a data processing addendum and the list of services that handle data are public, and there is a status page.",
+    ],
+  },
+  {
+    date: "2026-10-08",
     title: "Customer accounts and email",
     items: [
       "Customers get an email the day before a visit, a service complete email with their record, and their invoices. Each has your name, license and an unsubscribe link.",

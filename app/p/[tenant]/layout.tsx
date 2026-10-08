@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BrandTheme } from "@/components/brand-theme";
 import { BRAND } from "@/lib/brand";
 import { isEnabled } from "@/lib/flags";
 import { publicBusiness } from "@/lib/portal/data";
@@ -21,6 +22,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
   if (!business) notFound();
   return (
     <div className="min-h-dvh bg-canvas text-fg">
+      {business.whiteLabel ? <BrandTheme accent={business.accent} /> : null}
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           {business.logoPath ? (

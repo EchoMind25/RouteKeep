@@ -1,4 +1,5 @@
 import "server-only";
+import { emailProvider } from "@/lib/env";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 
@@ -64,6 +65,12 @@ export async function setupProgress(m: MemberSession) {
       customers: await count("customers"),
       subscriptions: await count("subscriptions"),
       stripeConnected: tenant.stripe_charges_enabled,
+      emailOn: emailProvider() !== null,
+      live: tenant.messaging_live_at !== null,
+      // Only owners and admins can read imports; a failed read would end the transaction.
+      imported: m.role === "owner" || m.role === "admin" ? Number((await tx.selectFrom("import_jobs").select((eb) => eb.fn.countAll<number>().as("n")).where("status", "in", ["committed", "reconciled"]).executeTakeFirstOrThrow()).n) : 0,
+      techLogins: Number((await tx.selectFrom("memberships").select((eb) => eb.fn.countAll<number>().as("n")).where("role", "=", "technician").executeTakeFirstOrThrow()).n),
+      optimized: Number((await tx.selectFrom("routes").select((eb) => eb.fn.countAll<number>().as("n")).where("optimized_at", "is not", null).executeTakeFirstOrThrow()).n),
     };
   });
 }

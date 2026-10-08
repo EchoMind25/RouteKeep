@@ -1,21 +1,35 @@
 import { SignOut } from "@phosphor-icons/react/ssr";
+import type { Metadata } from "next";
 import { BrandMark } from "@/components/brand-mark";
+import { BrandTheme } from "@/components/brand-theme";
+import { TenantMark } from "@/components/tenant-mark";
+import { tenantBranding } from "@/lib/server/branding";
 import { OfficeNav } from "@/components/office/nav";
 import { Button } from "@/components/ui/button";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { isEnabled } from "@/lib/flags";
 import { signOut } from "../(auth)/sign-in/actions";
 
+// FR-BRD-03: the browser tab names the business, not the product, for white label.
+export async function generateMetadata(): Promise<Metadata> {
+  const member = await requireMember(OFFICE_ROLES);
+  const brand = await tenantBranding(member);
+  return brand.whiteLabel ? { title: { template: `%s | ${brand.name}`, default: brand.name }, applicationName: brand.name } : {};
+}
+
 const ROLE_LABEL = { owner: "Owner", admin: "Admin", office: "Office", dispatcher: "Dispatcher", technician: "Technician" } as const;
 
 export default async function OfficeLayout({ children }: { children: React.ReactNode }) {
   const member = await requireMember(OFFICE_ROLES);
+  // FR-BRD-03: white label shows the business's name, logo and colour, not ours.
+  const brand = await tenantBranding(member);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
+      {brand.whiteLabel ? <BrandTheme accent={brand.accent} /> : null}
       <aside className="sticky top-0 z-20 border-b border-line bg-surface lg:h-dvh lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-3 px-4 pt-3 lg:block lg:px-4 lg:pt-5">
-          <BrandMark />
+          {brand.whiteLabel ? <TenantMark name={brand.name} logoSrc={brand.hasLogo ? "/api/branding/logo" : null} /> : <BrandMark />}
           <form action={signOut} className="lg:hidden">
             <Button variant="ghost" size="sm" type="submit">
               <SignOut size={16} aria-hidden /> Sign out

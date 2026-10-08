@@ -125,3 +125,8 @@ was opened.
   and the "held back, and why" log are our own. No competitor portal, email
   or help page was looked at. The portal is its own database role so the
   database, not the page, limits a customer to their own rows.
+- Pilot hardening (M7), 2026-10-08: legal pages are plain-language templates
+  written for this product from the PRD's commitments (data ownership,
+  export, deletion, subprocessors), not adapted from any competitor's terms.
+  The white label palette rule (keep the hue, move lightness until AA on
+  surface, canvas and its own tint) is our own.

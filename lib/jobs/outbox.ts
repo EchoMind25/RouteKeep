@@ -35,8 +35,8 @@ interface Event {
 
 type Outcome = { status: "sent"; providerId: string | null } | { status: "suppressed"; reason: string } | { status: "retry"; error: string } | { status: "failed"; error: string };
 
-async function business(tx: Tx, tenantId: string): Promise<EmailBusiness & { timezone: string; settings: Record<string, unknown> }> {
-  const t = await tx.selectFrom("tenants").select(["name", "business_license_no", "white_label_at", "timezone", "settings"]).where("id", "=", tenantId).executeTakeFirstOrThrow();
+async function business(tx: Tx, tenantId: string): Promise<EmailBusiness & { timezone: string; live: boolean }> {
+  const t = await tx.selectFrom("tenants").select(["name", "business_license_no", "white_label_at", "timezone", "messaging_live_at"]).where("id", "=", tenantId).executeTakeFirstOrThrow();
   const o = await tx
     .selectFrom("offices")
     .select(["address_line1", "address_line2", "city", "region", "postal_code", "phone"])
@@ -50,7 +50,7 @@ async function business(tx: Tx, tenantId: string): Promise<EmailBusiness & { tim
     phone: o?.phone ? formatPhone(o.phone) : null,
     whiteLabel: t.white_label_at !== null,
     timezone: t.timezone,
-    settings: (t.settings ?? {}) as Record<string, unknown>,
+    live: t.messaging_live_at !== null,
   };
 }
 
@@ -119,8 +119,7 @@ async function sendOne(tx: Tx, e: Event): Promise<Outcome & { customerId?: strin
   if (!c.email) return { status: "suppressed", reason: "No email address on file", ...out };
   const requested = e.topic === "portal.sign_in";
   if (!requested && c.email_unsubscribed_at) return { status: "suppressed", reason: "The customer unsubscribed", ...out };
-  const live = Boolean((biz.settings.messaging as { liveAt?: string } | undefined)?.liveAt);
-  if (!requested && c.import_job_id && !live) return { status: "suppressed", reason: "Imported customer: messages start when the business goes live (Settings, Messages)", ...out };
+  if (!requested && c.import_job_id && !biz.live) return { status: "suppressed", reason: "Imported customer: messages start when the business goes live (Settings, Messages)", ...out };
   const sender = emailSender();
   if (!sender) return { status: "suppressed", reason: "Email sending is not set up yet", ...out };
   const unsubscribe = unsubscribeUrl(e.tenant_id, c.id);

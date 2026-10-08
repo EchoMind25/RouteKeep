@@ -16,13 +16,15 @@ export interface PortalBusiness {
   logoPath: string | null;
   whiteLabel: boolean;
   phone: string | null;
+  /** FR-BRD-03: only set for a white label business. */
+  accent: string | null;
 }
 
 export async function publicBusiness(tenantId: string): Promise<PortalBusiness | null> {
   return withAnon(async (tx) => {
-    const r = await sql<{ name: string; logo_path: string | null; white_label: boolean; phone: string | null }>`select * from app.portal_business(${tenantId}::uuid)`.execute(tx);
+    const r = await sql<{ name: string; logo_path: string | null; white_label: boolean; phone: string | null; brand_accent: string | null }>`select * from app.portal_business(${tenantId}::uuid)`.execute(tx);
     const b = r.rows[0];
-    return b ? { name: b.name, logoPath: b.logo_path, whiteLabel: b.white_label, phone: b.phone ? formatPhone(b.phone) : null } : null;
+    return b ? { name: b.name, logoPath: b.logo_path, whiteLabel: b.white_label, phone: b.phone ? formatPhone(b.phone) : null, accent: b.brand_accent } : null;
   });
 }
 

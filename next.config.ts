@@ -20,8 +20,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // pg loads optional native bindings at runtime; keep it out of the bundle.
   serverExternalPackages: ["pg"],
-  // A logo upload (FR-BRD-02) is up to 1 MB plus the form around it.
-  experimental: { serverActions: { bodySizeLimit: "2mb" } },
+  // Titles belong in <head> at first paint (screen readers announce them on
+  // load, NFR-05). Async generateMetadata (white label titles, the portal)
+  // would otherwise stream them into the body after the page.
+  htmlLimitedBots: /.*/,
+  // A customer list import (PRD 9) is up to 5 MB plus the form around it; a logo (FR-BRD-02) up to 1 MB.
+  // Hosted functions refuse request bodies over about 6 MB, so this stays under it.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   // Short ways into the app: /login and /app both end at sign-in or the right home.
   async redirects() {
     return [{ source: "/login", destination: "/app", permanent: false }];

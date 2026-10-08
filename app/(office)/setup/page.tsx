@@ -22,6 +22,15 @@ export default async function SetupPage() {
     { done: p.customers > 0, title: "Add your first customer", body: "Customer, property and plan on one screen. Their first visits land on the schedule.", href: "/customers/new", cta: "Add a customer" },
   ];
   const remaining = steps.filter((s) => !s.done).length;
+  // FR-MIG-17: the switch-over checklist, once there is something to switch.
+  const cutover = [
+    { done: p.imported > 0 || p.customers > 0, title: "Bring your customers over", body: "Import the list from your old software, or add customers as you go.", href: "/settings/import", cta: "Import" },
+    { done: p.techLogins > 0, title: "Invite your technicians", body: "Each signs in on their phone and installs the tech app.", href: "/settings/team", cta: "Invite" },
+    { done: p.optimized > 0, title: "Plan your first route", body: "Open a day, check pins, optimize, publish.", href: "/schedule", cta: "Open schedule" },
+    { done: p.emailOn, title: "Turn on email", body: "Reminders, service complete notices and invoices.", href: "/settings/messages", cta: "Check" },
+    { done: p.stripeConnected, title: "Connect card payments", body: "Coming next: autopay and card payments through Stripe.", href: "/settings/messages", cta: "Not yet", disabled: true },
+    { done: p.live, title: "Go live", body: "Imported customers start getting messages. Do this once you stop using the old system.", href: "/settings/messages", cta: "Go live" },
+  ];
 
   return (
     <div className="grid gap-2">
@@ -55,9 +64,32 @@ export default async function SetupPage() {
           </li>
         ))}
       </ol>
-      <p className="max-w-3xl pt-4 text-sm text-fg-muted">
-        Card payments, text reminders and importing from your current system come in later steps of the rollout. Your data is stored so they can be switched on without re-entering anything.
-      </p>
+      <h2 className="pt-8 text-lg font-semibold">Before you switch over</h2>
+      <ol className="grid max-w-3xl divide-y divide-line rounded-panel border border-line bg-surface" aria-label="Switch-over checklist">
+        {cutover.map((s) => (
+          <li key={s.title} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-3">
+              <span className={cn("mt-0.5", s.done ? "text-success" : "text-fg-muted")} aria-hidden>
+                {s.done ? <CheckCircle size={22} weight="fill" /> : <Circle size={22} />}
+              </span>
+              <div className="grid gap-0.5">
+                <p className="font-semibold">
+                  {s.title}
+                  <span className="sr-only">{s.done ? " (done)" : " (to do)"}</span>
+                </p>
+                <p className="text-sm text-fg-muted">{s.body}</p>
+              </div>
+            </div>
+            {"disabled" in s && s.disabled ? (
+              <span className="self-start text-sm text-fg-muted sm:self-center">{s.cta}</span>
+            ) : (
+              <Button asChild variant={s.done ? "ghost" : "secondary"} size="sm" className="self-start sm:self-center">
+                <Link href={s.href}>{s.done ? "Review" : s.cta}</Link>
+              </Button>
+            )}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

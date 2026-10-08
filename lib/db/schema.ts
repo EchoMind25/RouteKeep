@@ -671,6 +671,7 @@ export interface Technicians {
 }
 
 export interface Tenants {
+  brand_accent: string | null;
   business_license_no: string;
   /**
    * ENG-01: a double-submitted signup form creates one tenant, not two.

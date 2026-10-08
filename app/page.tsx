@@ -375,6 +375,9 @@ export default function LandingPage() {
               <li><a href="#white-label" className="hover:text-fg">White label</a></li>
               <li><a href="#faq" className="hover:text-fg">FAQ</a></li>
               <li><Link href="/sign-in" className="hover:text-fg">Sign in</Link></li>
+              <li><Link href="/terms" className="hover:text-fg">Terms</Link></li>
+              <li><Link href="/privacy" className="hover:text-fg">Privacy</Link></li>
+              <li><Link href="/status" className="hover:text-fg">Status</Link></li>
             </ul>
           </nav>
           <p>

@@ -8,16 +8,17 @@ import { emailProvider } from "@/lib/env";
 // about messages, and the service requests customers send from the portal.
 
 export interface MessagingSettings {
+  /** From tenants.messaging_live_at (FR-MIG-19). */
   liveAt: string | null;
   tenDlc: { legalName: string; ein: string; website: string; contactEmail: string; useCase: string; status: "not_started" | "details_saved" } | null;
 }
 
 export async function messagingSettings(m: MemberSession): Promise<MessagingSettings & { emailProvider: "log" | "resend" | null; imported: number }> {
   return withRls(m.claims, async (tx) => {
-    const t = await tx.selectFrom("tenants").select("settings").executeTakeFirstOrThrow();
+    const t = await tx.selectFrom("tenants").select(["settings", "messaging_live_at"]).executeTakeFirstOrThrow();
     const s = ((t.settings ?? {}) as { messaging?: Partial<MessagingSettings> }).messaging ?? {};
     const imported = await tx.selectFrom("customers").select(sql<number>`count(*)::int`.as("n")).where("import_job_id", "is not", null).executeTakeFirstOrThrow();
-    return { liveAt: s.liveAt ?? null, tenDlc: s.tenDlc ?? null, emailProvider: emailProvider(), imported: imported.n };
+    return { liveAt: t.messaging_live_at?.toISOString() ?? null, tenDlc: s.tenDlc ?? null, emailProvider: emailProvider(), imported: imported.n };
   });
 }
 
@@ -32,8 +33,8 @@ async function patchMessaging(m: MemberSession, patch: Partial<MessagingSettings
 }
 
 /** FR-MIG-19: imported customers start getting messages from now on. */
-export function goLive(m: MemberSession) {
-  return patchMessaging(m, { liveAt: new Date().toISOString() });
+export async function goLive(m: MemberSession) {
+  await withRls(m.claims, (tx) => sql`select app.go_live()`.execute(tx));
 }
 
 export function saveTenDlc(m: MemberSession, details: Omit<NonNullable<MessagingSettings["tenDlc"]>, "status">) {

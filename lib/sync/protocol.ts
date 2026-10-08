@@ -82,7 +82,7 @@ export interface Snapshot {
   days: string[];
   technician: { id: string; name: string; licenseNo: string; licenseExpiry: string };
   /** CR-01 and CR-03: on every record and every service record. */
-  business: { name: string; address: string; licenseNo: string; state: string; timezone: string };
+  business: { name: string; address: string; licenseNo: string; state: string; timezone: string; whiteLabel?: boolean; accent?: string | null };
   stops: SnapshotStop[];
   products: SnapshotProduct[];
   /** Keyed by property id, newest first. */

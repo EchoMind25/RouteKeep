@@ -153,9 +153,9 @@
   }
 }
 
+/* Motion only: the record is real text, so it is never drawn at low contrast. */
 @keyframes rise-paper {
   from {
-    opacity: 0;
     transform: translateZ(260px) rotateZ(-14deg) rotateX(18deg) translateY(50px);
   }
 }

@@ -3,6 +3,8 @@
 import { ArrowsClockwise, CaretRight, CheckCircle, CloudCheck, CloudSlash, CurrencyDollar, Gear, SignOut, Sun, UserPlus, WarningCircle, X } from "@phosphor-icons/react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { BrandTheme } from "@/components/brand-theme";
+import { TenantMark } from "@/components/tenant-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -154,8 +156,9 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
 
   return (
     <div className="grid gap-4 px-4 pt-4 pb-10">
+      {info?.business.whiteLabel ? <BrandTheme accent={info.business.accent ?? null} /> : null}
       <header className="flex items-center justify-between gap-3">
-        <BrandMark />
+        {info?.business.whiteLabel ? <TenantMark name={info.business.name} logoSrc={null} /> : <BrandMark />}
         <div className="flex items-center gap-1">
           {info?.canSell ? (
             // FR-SAL-02: adding a customer needs the office's systems, so it needs a connection.

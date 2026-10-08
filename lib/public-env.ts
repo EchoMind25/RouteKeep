@@ -17,6 +17,8 @@ export const publicEnv = {
   siteUrl: (process.env.NEXT_PUBLIC_SITE_URL || "https://spontaneous-naiad-6d1a16.netlify.app").replace(/\/$/, ""),
   /** Where "Ask about white label" goes. Owner decision 2026-10-07; override per deploy if it changes. */
   salesEmail: process.env.NEXT_PUBLIC_SALES_EMAIL || "RouteKeep@proton.me",
+  /** CR-13: the legal entity named in Terms, Privacy and the DPA (OQ-02). Until set, the pages name the product. */
+  legalName: process.env.NEXT_PUBLIC_LEGAL_NAME ?? "",
   /** Production build: the service worker is registered only then, so development never serves stale code. */
   production: process.env.NODE_ENV === "production",
 };

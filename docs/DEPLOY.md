@@ -108,8 +108,58 @@ says so; nothing else breaks.
 - After the domain is live: add it in Google Search Console and Bing
   Webmaster Tools and submit `/sitemap.xml`.
 
-## 7. Later milestones
+## 7. Secrets and switches added in M4 to M7
 
-PowerSync (M3), Stripe Connect (M4), Resend and per-tenant 10DLC (M6),
-Sentry. Each gets a row in `docs/VENDORS.md` with its real free-tier limits at
-signup (BUD-05).
+Set these in Netlify, Site configuration, Environment variables. Generate random
+values locally (for example `openssl rand -base64 48`); never paste them into chat.
+
+| Variable | Needed for | Notes |
+| --- | --- | --- |
+| `APP_SECRET` | Customer accounts, unsubscribe links | 32+ random characters. Changing it signs everyone out of the portal and breaks old unsubscribe links |
+| `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` | Email (M6) | Create the Resend account, verify a sending domain you own, then set `EMAIL_FROM` like `RouteKeep <mail@yourdomain>`. The business's name replaces the display name on each email |
+| `ANTHROPIC_API_KEY` | AI route plan (D-07) | Optional. Set a monthly spend limit on the key in the Anthropic console first |
+| `ROUTE_AI_MODEL`, `ROUTE_AI_EFFORT` | AI route plan | Defaults: `claude-fable-5-1`, `high`. A cheaper model cuts cost per plan |
+| `CRON_SECRET` | `/api/cron` | Only if you schedule jobs with something other than Inngest |
+| `NEXT_PUBLIC_LEGAL_NAME` | Terms, Privacy, DPA | The legal entity that signs contracts (PRD OQ-02). Until set, the pages name the product |
+| `NEXT_PUBLIC_SALES_EMAIL` | Landing page, legal pages | Defaults to RouteKeep@proton.me |
+
+Inngest (section 4) also runs: the outbox sweep every 5 minutes, reminders at
+4:05 PM Denver time, and billing at 2:45 AM Denver time.
+
+## 8. Backups and the restore drill (CR-09)
+
+1. Before the first real customer record: upgrade Supabase to Pro (daily
+   backups, 7 days kept). This is the $25/month line in PRD section 5.
+2. Restore the latest daily backup into a new, separate Supabase project
+   (Supabase dashboard, Database, Backups, Restore to new project).
+3. From a machine that may hold customer data, run the drill against it:
+   `SOURCE_URL=<restored project's connection string> ADMIN_URL=<same, database postgres> npm run db:drill`.
+   It dumps, restores into a scratch database, and checks every table's row count.
+4. Write the date and result in `replica/build-log.md`, then delete the
+   restored project. Repeat every quarter and after any schema change that
+   touches money or records.
+
+Locally, `npm run db:drill` runs the same check against the development database.
+
+## 9. White label a business (D-14)
+
+After the sale: `npm run white-label -- <tenant id> on '#0b3d2e'` (run
+with production `DATABASE_URL` from a trusted machine). Their logo and colour
+then show in the office app, tech app and customer accounts, the product
+credit disappears everywhere, and they can adjust the colour in Settings.
+`off` reverses it.
+
+## 10. Go-live checklist (M7)
+
+- [ ] Supabase on Pro and a restore drill passed (section 8)
+- [ ] Legal entity decided (OQ-02), `NEXT_PUBLIC_LEGAL_NAME` set, Terms, Privacy and DPA reviewed by an attorney
+- [ ] Email on (section 7) and a test email received
+- [ ] Customer imported and reconciled, technicians invited, first route published
+- [ ] Status page green at `/status`
+- [ ] Stripe connected (M4 stage 2) or the customer agrees to start with cash and check
+
+## 11. Still to connect
+
+Stripe Connect (card payments, autopay), an SMS provider with per-business
+10DLC registration, Sentry. Each gets a row in `docs/VENDORS.md` with its real
+free-tier limits at signup (BUD-05).

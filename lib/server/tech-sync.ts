@@ -182,7 +182,8 @@ export async function getTechSnapshot(m: MemberSession, now: Date = new Date()):
       today,
       days,
       technician: { id: tech.id, name: tech.display_name, licenseNo: tech.applicator_license_no, licenseExpiry: tech.license_expiry },
-      business: await businessHeader(tx),
+      // FR-BRD-03: a white label business's name and colour in the tech app too.
+      business: { ...(await businessHeader(tx)), accent: (await tx.selectFrom("tenants").select(["brand_accent", "white_label_at"]).executeTakeFirstOrThrow()).brand_accent },
       stops,
       products,
       lastMixes,
