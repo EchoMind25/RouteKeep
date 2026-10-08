@@ -61,9 +61,9 @@ export function PhotoStep({ stop, draft, blobs, onChange }: { stop: SnapshotStop
         <h2 className="font-semibold">Photos</h2>
         <p className="text-sm text-fg-muted">Optional. Activity, damage, anything the office or the customer should see.</p>
       </div>
-      <input ref={input} type="file" accept="image/*" capture="environment" multiple className="sr-only" id="photo-input" onChange={(e) => void add(e.target.files)} />
+      <input ref={input} type="file" accept="image/*" capture="environment" multiple className="peer sr-only" id="photo-input" onChange={(e) => void add(e.target.files)} />
       <Button asChild size="lg" variant="secondary" aria-busy={busy}>
-        <label htmlFor="photo-input" className="cursor-pointer">
+        <label htmlFor="photo-input" className="cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus">
           <Camera size={20} aria-hidden /> {busy ? "Saving" : "Take a photo"}
         </label>
       </Button>
@@ -84,7 +84,7 @@ function Thumb({ blob, label, onRemove }: { blob: Blob | undefined; label: strin
     <li className="relative aspect-square overflow-hidden rounded-control border border-line bg-sunken">
       {/* eslint-disable-next-line @next/next/no-img-element -- a local blob URL; next/image cannot optimise it */}
       {url ? <img src={url} alt={label} className="size-full object-cover" /> : null}
-      <button type="button" onClick={onRemove} className="absolute top-1 right-1 grid size-9 place-items-center rounded-pill bg-surface/90 text-fg shadow-raised" aria-label={`Remove ${label.toLowerCase()}`}>
+      <button type="button" onClick={onRemove} className="absolute top-0 right-0 grid size-11 place-items-center rounded-pill bg-surface/90 text-fg shadow-raised" aria-label={`Remove ${label.toLowerCase()}`}>
         <Trash size={16} aria-hidden />
       </button>
     </li>

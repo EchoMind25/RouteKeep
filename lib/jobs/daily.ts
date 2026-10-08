@@ -2,29 +2,44 @@ import "server-only";
 import { chargeDueAutopay } from "./autopay";
 import { billTenant } from "./billing";
 import { reconcileTenant } from "./reconcile";
-import { listTenantIds } from "./generate-appointments";
+import { GENERATION_BATCH, generateBatch, listTenantIds } from "./generate-appointments";
 import { processOutbox } from "./outbox";
 import { queueReminders } from "./reminders";
 
 // The scheduled work outside visit generation, one place for every runner
 // (Inngest, /api/cron, the npm scripts). Each piece is idempotent.
 
+const failure = (error: unknown) => ({ error: error instanceof Error ? error.message : String(error) });
+
 export async function remindAll(now = new Date()) {
   let queued = 0;
-  for (const tenantId of await listTenantIds()) queued += await queueReminders(tenantId, now);
-  return { queued, sent: await processOutbox({ limit: 500 }) };
+  const failures: { tenantId: string; error: string }[] = [];
+  for (const tenantId of await listTenantIds()) {
+    try {
+      queued += await queueReminders(tenantId, now);
+    } catch (error) {
+      failures.push({ tenantId, ...failure(error) });
+    }
+  }
+  return { queued, failures, sent: await processOutbox({ limit: 500 }) };
 }
 
 export async function billEveryone(now = new Date()) {
   const results = [];
-  for (const tenantId of await listTenantIds()) results.push({ tenantId, ...(await billTenant(tenantId, now)) });
+  for (const tenantId of await listTenantIds()) {
+    const r = await billTenant(tenantId, now).catch(failure);
+    results.push({ tenantId, ...r });
+  }
   return results;
 }
 
 /** FR-BIL-02/04: autopay charges and retries that are due, every business. */
 export async function autopayEveryone(now = new Date()) {
   const results = [];
-  for (const tenantId of await listTenantIds()) results.push({ tenantId, ...(await chargeDueAutopay(tenantId, now)) });
+  for (const tenantId of await listTenantIds()) {
+    const r = await chargeDueAutopay(tenantId, now).catch(failure);
+    results.push({ tenantId, ...r });
+  }
   return results;
 }
 
@@ -36,4 +51,34 @@ export async function reconcileEveryone(now = new Date()) {
     if (r) results.push({ tenantId, ...r });
   }
   return results;
+}
+
+/**
+ * FR-SUB-02: visit generation for every business within a time budget. A run
+ * that ran out of time reports complete=false so the scheduler calls again;
+ * inserts are idempotent (ENG-01), so reruns only add what is missing.
+ */
+export async function generateEveryone(now = new Date(), budgetMs = 15_000) {
+  const started = Date.now();
+  let created = 0;
+  let complete = true;
+  const failures: { tenantId: string; error: string }[] = [];
+  for (const tenantId of await listTenantIds()) {
+    let cursor: string | null = null;
+    try {
+      do {
+        if (Date.now() - started >= budgetMs) {
+          complete = false;
+          break;
+        }
+        const r: Awaited<ReturnType<typeof generateBatch>> = await generateBatch(tenantId, cursor, now);
+        created += r.created;
+        cursor = r.subscriptions === GENERATION_BATCH ? r.lastId : null;
+      } while (cursor);
+    } catch (error) {
+      failures.push({ tenantId, ...failure(error) });
+    }
+    if (!complete) break;
+  }
+  return { created, complete, failures };
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox, Field, Fieldset, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { US_STATES } from "@/lib/domain/contact";
 import { formatCents } from "@/lib/domain/money";
@@ -41,6 +41,7 @@ export function CustomerForm(props: {
 }) {
   const field = props.mode === "technician";
   const [state, action] = useActionState(props.action ?? createCustomerAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
 
@@ -56,7 +57,7 @@ export function CustomerForm(props: {
   }, [plan, startDate]);
 
   return (
-    <form action={action} className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]" noValidate>
+    <form ref={formRef} action={action} className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]" noValidate>
       <div className="grid gap-10">
         {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
 
@@ -203,7 +204,11 @@ export function CustomerForm(props: {
         </div>
       </div>
 
-      <aside className="grid gap-3 rounded-panel border border-line bg-surface p-5 lg:sticky lg:top-6" aria-live="polite">
+      <aside className="grid gap-3 rounded-panel border border-line bg-surface p-5 lg:sticky lg:top-6" aria-label="Schedule preview">
+        {/* One short line instead of announcing the whole list on every keystroke. */}
+        <p role="status" className="sr-only">
+          {plan && preview[0] ? `${plan.name}: first visit ${formatLocalDate(preview[0])}.` : ""}
+        </p>
         <h2 className="font-semibold">Schedule preview</h2>
         {plan ? (
           <>

@@ -1,6 +1,7 @@
 import { CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import { sql } from "kysely";
+import { unstable_cache } from "next/cache";
 import { withAnon } from "@/lib/db/rls";
 
 export const metadata: Metadata = { title: "Status" };
@@ -8,12 +9,23 @@ export const dynamic = "force-dynamic";
 
 type Health = "ok" | "slow" | "down";
 
-async function status() {
-  try {
+// The cross-tenant counts run at most once a minute, however often this
+// public page is hit (NFR-04). Only a successful read is cached: a failure
+// throws out of the cached function, so "down" is never served from cache.
+const cachedStatus = unstable_cache(
+  async () => {
     const r = await withAnon((tx) =>
       sql<{ outbox_waiting: number; outbox_oldest_minutes: number; messages_failed_24h: number; billing_last_finished: Date | null; billing_failures_24h: number }>`select * from app.system_status()`.execute(tx),
     );
     return r.rows[0] ?? null;
+  },
+  ["system-status"],
+  { revalidate: 60 },
+);
+
+async function status() {
+  try {
+    return await cachedStatus();
   } catch {
     return null;
   }

@@ -5,6 +5,9 @@ import { BrandMark } from "@/components/brand-mark";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-canvas text-fg">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
+        Skip to content
+      </a>
       <header className="border-b border-line">
         <div className="mx-auto flex h-16 max-w-3xl items-center justify-between px-4">
           <Link href="/" aria-label="Home">
@@ -15,7 +18,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </Link>
         </div>
       </header>
-      <main id="main" className="mx-auto max-w-3xl px-4 py-12">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto max-w-3xl px-4 py-12">
         {children}
       </main>
       <footer className="border-t border-line">

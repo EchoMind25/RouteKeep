@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, Fieldset, Input, Select } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { US_STATES, US_TIMEZONES } from "@/lib/domain/contact";
 import { initialFormState } from "@/lib/forms";
@@ -10,11 +10,12 @@ import { createBusiness } from "./actions";
 
 export function BusinessForm({ clientKey }: { clientKey: string }) {
   const [state, action] = useActionState(createBusiness, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
 
   return (
-    <form action={action} className="grid gap-8" noValidate>
+    <form ref={formRef} action={action} className="grid gap-8" noValidate>
       <input type="hidden" name="clientKey" value={clientKey} />
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
 

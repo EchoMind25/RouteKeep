@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { Field, Fieldset, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { AMOUNT_UNITS, AREA_UNITS, amountLabel, areaLabel, MIX_UNITS, mixLabel } from "@/lib/domain/units";
 import { initialFormState } from "@/lib/forms";
@@ -17,10 +17,11 @@ export interface AmendProduct {
 /** FR-REC-03: every field that can be corrected, prefilled from the current version. */
 export function AmendForm({ initial, products, visitId }: { initial: Record<string, string>; products: AmendProduct[]; visitId: string }) {
   const [state, action] = useActionState(amendRecordAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? initial;
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid max-w-2xl gap-6" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-6" noValidate>
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="visitId" value={visitId} />
       <input type="hidden" name="recordId" value={initial.recordId} />

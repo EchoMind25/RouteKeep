@@ -4,6 +4,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // links). HMAC-SHA256 over a base64url JSON payload; nothing secret inside,
 // only ids and an expiry, so a stolen value grants no more than it says.
 
+/**
+ * A key for one purpose, derived from APP_SECRET, so a value signed for one
+ * use (an unsubscribe link) never verifies as another (a portal session).
+ */
+export function purposeKey(secret: string, purpose: string): string {
+  return createHmac("sha256", secret).update(`routeverde:${purpose}`).digest("base64url");
+}
+
 const b64 = (s: string | Buffer) => Buffer.from(s).toString("base64url");
 
 export function sign(payload: object, secret: string): string {

@@ -126,7 +126,8 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .float {
-    animation: float 9s ease-in-out infinite alternate;
+    /* Finite (WCAG 2.2.2): four alternate passes end back at rest, then it stays still. */
+    animation: float 9s ease-in-out 4 alternate;
     transform-style: preserve-3d;
   }
   .phone {

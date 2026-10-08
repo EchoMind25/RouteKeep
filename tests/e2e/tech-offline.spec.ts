@@ -100,7 +100,7 @@ test("M3 exit: 15 stops fully offline, the app killed twice mid-stop, then one c
   // A cold start with no network comes from the phone, not the server.
   await page.close();
   ({ page } = await openApp(context, problems));
-  await expect(page.getByText("Offline")).toBeVisible();
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
 
   for (let i = 1; i <= STOPS; i++) {
     await startStop(page, i);

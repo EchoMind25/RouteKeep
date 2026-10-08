@@ -23,6 +23,9 @@ export default async function PortalLayout({ children, params }: { children: Rea
   return (
     <div className="min-h-dvh bg-canvas text-fg">
       {business.whiteLabel ? <BrandTheme accent={business.accent} /> : null}
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
+        Skip to content
+      </a>
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           {business.logoPath ? (
@@ -32,7 +35,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
           <p className="text-lg font-semibold">{business.name}</p>
         </div>
       </header>
-      <main id="main" className="mx-auto grid max-w-3xl gap-8 px-4 py-8">
+      <main id="main" tabIndex={-1} className="focus:outline-none mx-auto grid max-w-3xl gap-8 px-4 py-8">
         {children}
       </main>
       <footer className="mx-auto max-w-3xl px-4 pb-10 text-sm text-fg-muted">

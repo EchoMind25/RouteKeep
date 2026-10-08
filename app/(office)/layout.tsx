@@ -27,6 +27,9 @@ export default async function OfficeLayout({ children }: { children: React.React
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
       {brand.whiteLabel ? <BrandTheme accent={brand.accent} /> : null}
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
+        Skip to content
+      </a>
       <aside className="sticky top-0 z-20 border-b border-line bg-surface lg:h-dvh lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-3 px-4 pt-3 lg:block lg:px-4 lg:pt-5">
           {brand.whiteLabel ? <TenantMark name={brand.name} logoSrc={brand.hasLogo ? "/api/branding/logo" : null} /> : <BrandMark />}
@@ -55,7 +58,7 @@ export default async function OfficeLayout({ children }: { children: React.React
           </form>
         </div>
       </aside>
-      <main className="min-w-0 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main id="main" tabIndex={-1} className="min-w-0 px-4 py-6 focus:outline-none sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto max-w-[1200px]">{children}</div>
       </main>
     </div>

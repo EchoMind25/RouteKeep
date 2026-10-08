@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { US_STATES, US_TIMEZONES } from "@/lib/domain/contact";
 import { PLAN_PRESETS } from "@/lib/domain/recurrence";
@@ -18,10 +18,11 @@ function Status({ state }: { state: FormState }) {
 
 export function BusinessForm({ initial, readOnly }: { initial: Record<string, string>; readOnly: boolean }) {
   const [state, action] = useActionState(updateBusiness, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? initial;
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid max-w-2xl gap-5" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-5" noValidate>
       <Status state={state} />
       <fieldset disabled={readOnly} className="grid gap-5">
         <Field label="Business name" error={e.name}>
@@ -79,10 +80,11 @@ export function BusinessForm({ initial, readOnly }: { initial: Record<string, st
 
 export function InviteForm({ isOwner }: { isOwner: boolean }) {
   const [state, action] = useActionState(inviteMemberAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Email" error={e.email}>
@@ -110,10 +112,11 @@ export function InviteForm({ isOwner }: { isOwner: boolean }) {
 
 export function TechnicianForm({ nextColor }: { nextColor: number }) {
   const [state, action] = useActionState(createTechnician, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <input type="hidden" name="colorIndex" value={v.colorIndex ?? nextColor} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -144,11 +147,12 @@ export function TechnicianForm({ nextColor }: { nextColor: number }) {
 
 export function PlanForm({ serviceTypes }: { serviceTypes: { id: string; name: string; category: string }[] }) {
   const [state, action] = useActionState(createPlan, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   const [preset, setPreset] = useState(v.preset ?? PLAN_PRESETS[2].rrule);
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Plan name" hint="What the customer hears, e.g. Quarterly home protection." error={e.name}>
@@ -210,12 +214,13 @@ export function PlanForm({ serviceTypes }: { serviceTypes: { id: string; name: s
 
 export function ProductForm() {
   const [state, action] = useActionState(createProduct, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   const [kind, setKind] = useState(v.kind ?? "pesticide");
   const pesticideLike = kind === "pesticide" || kind === "minimum_risk";
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Brand name" hint="Exactly as printed on the label." error={e.name}>

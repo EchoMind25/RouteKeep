@@ -9,6 +9,7 @@ import { failure, fieldErrors, formValues, optionalTrimmed, trimmed, type FormSt
 import { kickAutopay } from "@/lib/jobs/autopay";
 import { kickOutbox } from "@/lib/messaging/kick";
 import { addCredit, BillingRefusedError, recordPayment, runBillingNow, voidInvoice } from "@/lib/server/billing";
+import { Stripe } from "@/lib/providers/payments";
 import { refundPayment, turnOffAutopayForCustomer } from "@/lib/server/payments";
 
 // FR-BIL-01, FR-BIL-06: the office's billing actions. Owner, admin and office;
@@ -126,7 +127,9 @@ export async function refundPaymentAction(_prev: FormState, data: FormData): Pro
   } catch (error) {
     if (error instanceof BillingRefusedError) return failure(values, error.message, { amount: error.message });
     console.error(JSON.stringify({ msg: "refund failed", error: error instanceof Error ? error.message : String(error) }));
-    return failure(values, "Stripe didn't accept the refund. Nothing was changed. Try again, or refund it from your Stripe dashboard.");
+    // FR-BIL-06: only a Stripe rejection proves nothing moved; any other failure may have come after the refund.
+    if (error instanceof Stripe.errors.StripeError) return failure(values, "Stripe didn't accept the refund. Nothing was changed. Try again, or refund it from your Stripe dashboard.");
+    return failure(values, "The refund may have gone through. Check the invoice in a minute before trying again.");
   }
   revalidatePath("/billing", "layout");
   redirect(`/billing/invoices/${v.invoiceId}?done=${outcome === "done" ? "refunded" : "refund-pending"}`);

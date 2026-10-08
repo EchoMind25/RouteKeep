@@ -32,8 +32,9 @@ function StopRow({ stop, index }: { stop: DayStop; index: number }) {
   return (
     <li className="grid grid-cols-[1.75rem_1fr] gap-3 px-4 py-3">
       {/* FR-DSP-05: one stop number, the same on map, list and technician app: the stop's place in the route order. */}
-      <span className="grid size-7 place-items-center rounded-pill border border-line-strong text-xs font-semibold tabular" aria-label={`Stop ${index + 1}`}>
-        {index + 1}
+      <span className="grid size-7 place-items-center rounded-pill border border-line-strong text-xs font-semibold tabular">
+        <span aria-hidden>{index + 1}</span>
+        <span className="sr-only">Stop {index + 1}</span>
       </span>
       <div className="grid min-w-0 gap-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

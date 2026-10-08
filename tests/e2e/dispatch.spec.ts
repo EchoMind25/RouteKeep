@@ -126,6 +126,20 @@ test("FR-DSP-02: keyboard reordering persists, and a move made on a stale board 
   await other.close();
 });
 
+test("WCAG 2.5.7: the Move stop menu reorders without dragging and persists", async ({ page }) => {
+  const day = await seedDispatchDay({ date: DAY, techs: ["Anika Sorensen"], stops: zigZag(0) });
+  const seeded = await laneOrder(day.techIds[0]!, DAY);
+  await signInAs(page, day.email);
+  await openDay(page);
+  const anika = lane(page, "Anika Sorensen");
+  await anika.getByRole("button", { name: "Move stop 2" }).click();
+  await page.getByRole("menuitem", { name: "Move down" }).click();
+  await expect(anika.getByRole("button", { name: "Stop 3: show East Five on the map" })).toBeVisible();
+  await expect.poll(() => laneOrder(day.techIds[0]!, DAY)).toEqual([seeded[0], seeded[2], seeded[1], seeded[3], seeded[4]]);
+  // Focus comes back to the moved stop's menu, so the next move is one key away.
+  await expect(anika.getByRole("button", { name: "Move stop 3" })).toBeFocused();
+});
+
 test("FR-DSP-04: queued work is always in view and drags onto a route; stops drag to another day", async ({ page }) => {
   const day = await seedDispatchDay({
     date: DAY,

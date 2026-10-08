@@ -1,6 +1,6 @@
 import "server-only";
 import { withServiceRole } from "@/lib/db/service";
-import { requireStripe, stripe, type Stripe } from "@/lib/providers/payments";
+import { requireStripe, Stripe, stripe } from "@/lib/providers/payments";
 import { syncAccount } from "./stripe-accounts";
 import { applyIntent, applyRefund, flagIssue } from "./stripe-ledger";
 
@@ -54,7 +54,11 @@ export async function reconcileTenant(tenantId: string, now: Date = new Date()):
   );
   for (const p of ours) {
     if (seen.has(p.stripe_payment_intent_id!)) continue;
-    const pi = await s.paymentIntents.retrieve(p.stripe_payment_intent_id!, {}, opts).catch(() => null);
+    const pi = await s.paymentIntents.retrieve(p.stripe_payment_intent_id!, {}, opts).catch((error) => {
+      // Only "no such intent" means not found; a network or API error must not be reported as a mismatch.
+      if (error instanceof Stripe.errors.StripeError && error.code === "resource_missing") return null;
+      throw error;
+    });
     if (!pi || pi.status !== "succeeded") {
       await withServiceRole((tx) => flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: p.stripe_payment_intent_id!, paymentId: p.id, details: `RouteVerde shows this payment as received; Stripe shows it as ${pi ? pi.status.replaceAll("_", " ") : "not found"}.` }));
     }

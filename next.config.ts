@@ -8,7 +8,13 @@ const securityHeaders = [
   // Technicians need the camera (photos) and location (navigate); nothing else.
   { key: "Permissions-Policy", value: "camera=(self), geolocation=(self), microphone=(), payment=(), usb=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Browsers ignore HSTS over plain http, so local dev is unaffected.
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
 ];
+
+// NFR-03: files whose names carry a version never change; the rest change rarely.
+const immutable = [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }];
+const daily = [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }];
 
 // Versions the technician app's offline copy: a deploy installs a new service
 // worker and drops the old caches. Netlify and GitHub provide the commit.
@@ -34,6 +40,9 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      { source: "/vendor/:path*", headers: immutable },
+      { source: "/landing/:path*", headers: daily },
+      { source: "/icons/:path*", headers: daily },
       // The worker must always be fetched fresh, or a deploy could not replace it.
       { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache" }, { key: "Service-Worker-Allowed", value: "/tech" }] },
     ];

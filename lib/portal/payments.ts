@@ -20,6 +20,7 @@ export const PAY_ERRORS = {
   on_the_way: "A bank payment for this invoice is already on its way. It can take a few business days to clear.",
   closed: "That payment page has closed. Try again.",
   just_paid: "A payment for this invoice just went through. It shows here in a moment.",
+  in_progress: "A payment for this invoice is already being made. Refresh in a minute to see it.",
   stripe: "Stripe didn't open the page. Please try again in a minute.",
 } as const;
 
@@ -106,6 +107,21 @@ export async function payInvoice(claims: PortalClaims, invoiceId: string, key: s
       .where("stripe_checkout_session_id", "is not", null)
       .execute(),
   );
+  // A row whose page was never created (Stripe failed after the insert) is
+  // dead weight once it is a few minutes old; left pending it would block
+  // autopay and every later attempt.
+  await withServiceRole((tx) =>
+    tx
+      .updateTable("payments")
+      .set({ status: "canceled", failure_message: "The payment page was never opened" })
+      .where("tenant_id", "=", tenantId)
+      .where("invoice_id", "=", inv.id)
+      .where("status", "=", "pending")
+      .where("source", "=", "portal")
+      .where("stripe_checkout_session_id", "is", null)
+      .where("created_at", "<", new Date(Date.now() - 5 * 60_000))
+      .execute(),
+  );
   for (const o of older) {
     const session = await s.checkout.sessions.retrieve(o.stripe_checkout_session_id!, {}, { stripeAccount: acct });
     if (session.status === "complete") throw new PortalPaymentError("just_paid");
@@ -114,13 +130,26 @@ export async function payInvoice(claims: PortalClaims, invoiceId: string, key: s
   }
 
   const stripeCustomer = await ensureStripeCustomer(tenantId, customerId, acct);
-  const payment = existing ?? (await withServiceRole((tx) =>
-    tx
+  // The check and the insert share one transaction behind the invoice's row
+  // lock, so two tabs (or a double click) cannot both get a page, and a card
+  // or bank payment already in flight from autopay is not doubled (G-05).
+  const payment = existing ?? (await withServiceRole(async (tx) => {
+    await tx.selectFrom("invoices").select("id").where("tenant_id", "=", tenantId).where("id", "=", inv.id).forUpdate().executeTakeFirstOrThrow();
+    const rival = await tx
+      .selectFrom("payments")
+      .select("status")
+      .where("tenant_id", "=", tenantId)
+      .where("invoice_id", "=", inv.id)
+      .where("status", "in", ["pending", "processing"])
+      .where("method", "in", ["card", "ach", "card_on_file"])
+      .executeTakeFirst();
+    if (rival) throw new PortalPaymentError(rival.status === "processing" ? "on_the_way" : "in_progress");
+    return tx
       .insertInto("payments")
       .values({ tenant_id: tenantId, customer_id: customerId, invoice_id: inv.id, client_payment_key: key, method: "card", status: "pending", amount_cents: inv.open, source: "portal", collected_by: null })
       .returning(["id", "status", "stripe_checkout_session_id"])
-      .executeTakeFirstOrThrow(),
-  ));
+      .executeTakeFirstOrThrow();
+  }));
   const base = portalUrl(tenantId);
   const session = await s.checkout.sessions.create(
     {

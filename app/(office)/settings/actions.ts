@@ -10,7 +10,7 @@ import { isIanaZone, isLocalDate } from "@/lib/domain/time";
 import { AMOUNT_UNITS, MIX_UNITS } from "@/lib/domain/units";
 import { pgConstraint, pgErrorCode, withRls } from "@/lib/db/rls";
 import { checkbox, failure, fieldErrors, formValues, optionalTrimmed, trimmed, type FormState } from "@/lib/forms";
-import { inviteMember } from "@/lib/server/team";
+import { InviteError, inviteMember } from "@/lib/server/team";
 
 const phoneField = z
   .string()
@@ -111,7 +111,12 @@ export async function inviteMemberAction(_prev: FormState, data: FormData): Prom
     await inviteMember(member, parsed.data);
   } catch (error) {
     if (pgErrorCode(error) === "42501") return failure(values, "Only the owner can add owners and admins.", { role: "Not allowed for your role" });
-    if (error instanceof Error && !pgErrorCode(error)) return failure(values, error.message);
+    if (error instanceof InviteError) return failure(values, error.message);
+    // Configuration and provider errors stay in the logs, not on the form.
+    if (error instanceof Error && !pgErrorCode(error)) {
+      console.error(JSON.stringify({ at: "inviteMemberAction", error: error.message }));
+      return failure(values, "The invitation could not be sent. Try again, or contact support if it keeps happening.");
+    }
     throw error;
   }
   revalidatePath("/settings/team");

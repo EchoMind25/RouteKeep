@@ -31,14 +31,41 @@ async function bumpGuard(tx: Tx, id: string, version: number) {
   return row;
 }
 
-/** Future visits generated for this plan that nobody arranged by hand. */
-function untouchedFuture(tx: Tx, subscriptionId: string, from: string) {
-  return tx
-    .deleteFrom("appointments")
-    .where("subscription_id", "=", subscriptionId)
-    .where("local_date", ">=", from)
-    .where("status", "=", "scheduled")
-    .where("detached", "=", false);
+// Rows that point at a visit. A visit any of them names is history (a reminder
+// went out, a payment or record exists), so it is cancelled, never deleted:
+// deleting would fail on the foreign key or erase what the business must keep.
+const VISIT_REFERENCES = ["messages", "payments", "sync_conflicts", "invoice_lines", "invoices", "applications", "agreements"] as const;
+
+/**
+ * Future visits generated for this plan that nobody arranged by hand: deleted
+ * when nothing refers to them, cancelled otherwise. Starts tomorrow at the
+ * earliest, because a technician may be completing today's visit offline
+ * (FR-TEC-01); today's visits stay for the dispatcher to decide.
+ */
+async function removeUntouchedFuture(tx: Tx, subscriptionId: string, from: string, today: string, opts: { until?: string | null; reason: string }) {
+  const start = from > today ? from : addDays(parseLocalDate(today), 1);
+  let q = tx
+    .selectFrom("appointments as a")
+    .select("a.id")
+    .where("a.subscription_id", "=", subscriptionId)
+    .where("a.local_date", ">=", start)
+    .where("a.status", "=", "scheduled")
+    .where("a.detached", "=", false);
+  if (opts.until) q = q.where("a.local_date", "<=", opts.until);
+  const ids = (await q.execute()).map((r) => r.id);
+  if (ids.length === 0) return { removed: 0, cancelled: 0 };
+  const referenced = new Set<string>();
+  for (const table of VISIT_REFERENCES) {
+    const rows = await tx.selectFrom(table).select("appointment_id").distinct().where("appointment_id", "in", ids).execute();
+    for (const r of rows) if (r.appointment_id) referenced.add(r.appointment_id);
+  }
+  const keep = ids.filter((id) => referenced.has(id));
+  const drop = ids.filter((id) => !referenced.has(id));
+  if (keep.length > 0) {
+    await tx.updateTable("appointments").set({ status: "cancelled", cancel_reason: opts.reason, sequence: null }).where("id", "in", keep).execute();
+  }
+  if (drop.length > 0) await tx.deleteFrom("appointments").where("id", "in", drop).execute();
+  return { removed: drop.length, cancelled: keep.length };
 }
 
 export async function getSubscription(m: MemberSession, id: string) {
@@ -122,12 +149,11 @@ export async function changeSeries(m: MemberSession, input: SeriesChange): Promi
 }
 
 export async function pauseSubscription(m: MemberSession, input: { id: string; version: number; from: string; until: string | null; reason: string }) {
+  const today = todayIn(m.timezone);
   return withRls(m.claims, async (tx) => {
     await bumpGuard(tx, input.id, input.version);
     // Untouched visits inside the pause go; hand-arranged ones stay for a person to decide.
-    let remove = untouchedFuture(tx, input.id, input.from);
-    if (input.until) remove = remove.where("local_date", "<=", input.until);
-    const removed = await remove.executeTakeFirst();
+    const { removed } = await removeUntouchedFuture(tx, input.id, input.from, today, { until: input.until, reason: `Plan paused: ${input.reason}` });
     await tx
       .updateTable("subscriptions")
       .set({
@@ -141,7 +167,7 @@ export async function pauseSubscription(m: MemberSession, input: { id: string; v
       .execute();
     // A bounded pause resumes on its own: create the visits after it now.
     if (input.until) await generateVisits(tx, m.tenantId, { subscriptionIds: [input.id] });
-    return Number(removed.numDeletedRows);
+    return removed;
   });
 }
 
@@ -164,13 +190,15 @@ export async function cancelSubscription(m: MemberSession, input: { id: string; 
   return withRls(m.claims, async (tx) => {
     const row = await bumpGuard(tx, input.id, input.version);
     if (row.status === "cancelled") throw new PlanConflictError();
-    const removed = await untouchedFuture(tx, input.id, today).executeTakeFirst();
-    // Hand-arranged future visits were promised to someone: cancel them where the dispatcher will see it.
+    const reason = `Plan cancelled: ${input.reason}`;
+    const untouched = await removeUntouchedFuture(tx, input.id, today, today, { reason });
+    // Hand-arranged future visits were promised to someone: cancel them where
+    // the dispatcher will see it. Today's are left for the dispatcher (see above).
     const cancelled = await tx
       .updateTable("appointments")
-      .set({ status: "cancelled", cancel_reason: `Plan cancelled: ${input.reason}`, sequence: null })
+      .set({ status: "cancelled", cancel_reason: reason, sequence: null })
       .where("subscription_id", "=", input.id)
-      .where("local_date", ">=", today)
+      .where("local_date", ">", today)
       .where("status", "=", "scheduled")
       .executeTakeFirst();
     await tx
@@ -178,7 +206,7 @@ export async function cancelSubscription(m: MemberSession, input: { id: string; 
       .set({ status: "cancelled", cancelled_at: new Date(), cancel_reason: input.reason })
       .where("id", "=", input.id)
       .execute();
-    return { removed: Number(removed.numDeletedRows), cancelled: Number(cancelled.numUpdatedRows) };
+    return { removed: untouched.removed, cancelled: untouched.cancelled + Number(cancelled.numUpdatedRows) };
   });
 }
 

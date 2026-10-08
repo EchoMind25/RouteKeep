@@ -154,8 +154,13 @@ test("FR-TEC-01, NFR-02: snapshot, idempotent upload, conflicts, refusals withou
   expect((await statuses(await upload(page.request, skipBatch)))[0]!.status).toBe("applied");
   expect((await statuses(await upload(page.request, skipBatch)))[0]!.status).toBe("duplicate");
 
-  // Malformed batches are refused whole; other sites and strangers are refused outright.
-  expect((await upload(page.request, [{ kind: "arrive", key: "x", appointmentId: one, date: today, at }])).status()).toBe(400);
+  // NFR-02: a malformed item is refused on its own and never blocks the rest of
+  // the queue; an unreadable envelope is refused whole. Other sites and
+  // strangers are refused outright.
+  const mixed = await upload(page.request, [{ kind: "arrive", key: "x", appointmentId: one, date: today, at }, ...skipBatch]);
+  expect(mixed.status()).toBe(200);
+  expect(await statuses(mixed)).toMatchObject([{ key: "x", status: "rejected" }, { status: "duplicate" }]);
+  expect((await page.request.post("/api/tech/upload", { data: { protocol: 1 } })).status()).toBe(400);
   expect((await upload(page.request, skipBatch, { Origin: "https://example.com" })).status()).toBe(403);
   const stranger = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
   expect((await stranger.get("/api/tech/sync")).status()).toBe(401);

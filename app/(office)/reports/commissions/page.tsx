@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Alert, EmptyState, PageHeader } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -45,17 +46,17 @@ function Decisions({ row, back }: { row: CommissionRow; back: string }) {
       <form action={decideCommissionAction} className="flex flex-wrap gap-2">
         {hidden}
         {row.status === "pending" ? (
-          <Button type="submit" name="status" value="approved" size="sm">
+          <SubmitButton name="status" value="approved" size="sm" pendingLabel="Saving">
             Approve
-          </Button>
+          </SubmitButton>
         ) : (
           <>
-            <Button type="submit" name="status" value="paid" size="sm">
+            <SubmitButton name="status" value="paid" size="sm" pendingLabel="Saving">
               Mark paid
-            </Button>
-            <Button type="submit" name="status" value="pending" size="sm" variant="ghost">
+            </SubmitButton>
+            <SubmitButton name="status" value="pending" size="sm" variant="ghost" pendingLabel="Saving">
               Undo approval
-            </Button>
+            </SubmitButton>
           </>
         )}
       </form>
@@ -65,9 +66,9 @@ function Decisions({ row, back }: { row: CommissionRow; back: string }) {
           Reason to void the commission for {row.customerName}
         </label>
         <Input id={`void-${row.id}`} name="note" placeholder="Reason to void" className="h-9 w-44" maxLength={500} />
-        <Button type="submit" name="status" value="void" size="sm" variant="secondary">
+        <SubmitButton name="status" value="void" size="sm" variant="secondary" pendingLabel="Saving">
           Void
-        </Button>
+        </SubmitButton>
       </form>
     </div>
   );
@@ -131,9 +132,9 @@ export default async function CommissionsPage({ searchParams }: { searchParams: 
             ))}
           </Select>
         </Field>
-        <Button type="submit" variant="secondary">
+        <SubmitButton variant="secondary" pendingLabel="Loading">
           Show
-        </Button>
+        </SubmitButton>
       </form>
       {problem ? <Alert tone="warning">{problem}</Alert> : null}
       {done ? <Alert tone={done.tone}>{done.text}</Alert> : null}

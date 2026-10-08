@@ -3,6 +3,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/components/map/maplibre";
 import { blankStyle, cssVar, currentScheme, subscribeScheme } from "@/components/map/style";
+import { prefersReducedMotion } from "@/components/ui/motion";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Map, { Layer, Marker, NavigationControl, Source, type MapLayerMouseEvent, type MapRef } from "react-map-gl/maplibre";
 
@@ -126,7 +127,7 @@ export function RouteMap(props: {
     const map = ref.current;
     const s = props.stops.find((x) => x.id === props.selectedId);
     if (!map || !s) return;
-    if (!map.getBounds().contains([s.lng, s.lat])) map.easeTo({ center: [s.lng, s.lat], duration: 300 });
+    if (!map.getBounds().contains([s.lng, s.lat])) map.easeTo({ center: [s.lng, s.lat], duration: prefersReducedMotion() ? 0 : 300 });
   }, [props.selectedId, props.stops]);
 
   if (unsupported) {
