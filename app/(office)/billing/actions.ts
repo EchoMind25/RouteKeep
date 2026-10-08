@@ -56,6 +56,7 @@ export async function recordPaymentAction(_prev: FormState, data: FormData): Pro
   const v = parsed.data;
   try {
     await recordPayment(member, { invoiceId: v.invoiceId, key: v.key, method: v.method, amountCents: v.amount, checkNumber: v.method === "check" ? v.checkNumber : null, memo: v.memo });
+    kickOutbox(member.tenantId);
   } catch (error) {
     if (error instanceof BillingRefusedError) return failure(values, error.message, { amount: error.message });
     throw error;

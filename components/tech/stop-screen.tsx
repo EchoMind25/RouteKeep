@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, CheckCircle, NavigationArrow, Phone, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, NavigationArrow, PaperPlaneTilt, Phone, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
 import { useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,6 +92,14 @@ function Details({ stop, draft, notice, timeZone }: { stop: SnapshotStop; draft:
 
   // Started already: on this phone, or (after a reinstall or on another phone) as far as the office knows.
   const started = Boolean(draft) || stop.status === "in_progress";
+  // FR-MSG-01: queued like any other action, so it works with no signal and goes once.
+  const [told, setTold] = useState(() => store.getState().outbox.some((o) => o.appointmentId === stop.id && o.mutation.kind === "on_the_way"));
+
+  async function onMyWay() {
+    await store.enqueue({ kind: "on_the_way", key: key("on-the-way"), appointmentId: stop.id, date: stop.date, at: new Date().toISOString() });
+    engine.request();
+    setTold(true);
+  }
 
   async function start() {
     if (draft) return go({ stopId: stop.id, step: draft.step });
@@ -141,6 +149,17 @@ function Details({ stop, draft, notice, timeZone }: { stop: SnapshotStop; draft:
             </Button>
           )}
         </div>
+        {!started && stop.status === "scheduled" ? (
+          told ? (
+            <p role="status" className="flex items-center gap-2 font-medium text-success">
+              <CheckCircle size={20} weight="fill" aria-hidden /> The customer will get an on-the-way email.
+            </p>
+          ) : (
+            <Button variant="secondary" size="lg" onClick={() => void onMyWay()}>
+              <PaperPlaneTilt size={20} aria-hidden /> On my way
+            </Button>
+          )
+        ) : null}
         {stop.accessNotes ? <Note title="Access">{stop.accessNotes}</Note> : null}
         {stop.visitNotes ? <Note title="From the office">{stop.visitNotes}</Note> : null}
         {stop.customerNotes ? <Note title="About the customer">{stop.customerNotes}</Note> : null}

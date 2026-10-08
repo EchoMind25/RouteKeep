@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
-import { messagingSettings, recentMessages, TEMPLATE_LABEL } from "@/lib/server/messages";
+import { messagingSettings, recentMessages, switchNoticeAudience, TEMPLATE_LABEL } from "@/lib/server/messages";
+import { SwitchNoticeForm } from "./switch-notice-form";
 import { formatInstant, pluralize } from "@/lib/ui/format";
 import { goLiveAction } from "./actions";
 import { TenDlcForm } from "./ten-dlc-form";
@@ -15,7 +16,7 @@ export const metadata: Metadata = { title: "Messages" };
 // FR-MSG-01..05, FR-MIG-19: what customers are sent, what is held back and why.
 export default async function MessagesSettingsPage() {
   const member = await requireMember(OFFICE_ROLES);
-  const [settings, messages] = await Promise.all([messagingSettings(member), recentMessages(member, { limit: 40 })]);
+  const [settings, messages, audience] = await Promise.all([messagingSettings(member), recentMessages(member, { limit: 40 }), switchNoticeAudience(member)]);
   const manage = canManage(member.role);
   return (
     <div className="grid max-w-4xl gap-10">
@@ -56,6 +57,16 @@ export default async function MessagesSettingsPage() {
               ) : null}
             </>
           )}
+        </section>
+      ) : null}
+
+      {manage ? (
+        <section aria-labelledby="notice-title" className="grid gap-3">
+          <h2 id="notice-title" className="text-md font-semibold">
+            Tell customers about their account
+          </h2>
+          <p className="text-fg-muted">One email to each customer with an address on file, with a link to sign in. Send it when you switch over. Each customer gets it once.</p>
+          <SwitchNoticeForm audience={audience} />
         </section>
       ) : null}
 

@@ -142,6 +142,8 @@ export const mutation = z.discriminatedUnion("kind", [
     signerName: z.string().trim().min(1).max(120).nullable().optional(),
   }),
   z.object({ kind: z.literal("skip"), ...base, reason: z.string().trim().min(1).max(500) }),
+  // FR-MSG-01: tell the customer the technician is heading over.
+  z.object({ kind: z.literal("on_the_way"), ...base }),
 ]);
 export type Mutation = z.infer<typeof mutation>;
 

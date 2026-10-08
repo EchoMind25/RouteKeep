@@ -1,35 +1,12 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Page } from "@playwright/test";
 import { addDaysTo, adminQuery, denverToday, OFFICE, seedDispatchDay } from "./db";
 import { expect, expectAccessible, signInAs, test } from "./fixtures";
+import { linkIn, mailTo } from "./mail";
 import { pdfText } from "./pdf";
 
 // M6: email after a finished visit, the customer portal (sign-in by link,
 // history with records, invoices, request service), unsubscribe, and a
 // reminder held back for an unsubscribed customer (FR-MSG-01/04/05, FR-POR-01/02).
-
-const MAIL = ".local/mail";
-
-async function mailTo(address: string, subject: RegExp, after = 0): Promise<{ text: string; subject: string }> {
-  for (let i = 0; i < 40; i++) {
-    const files = (await readdir(MAIL).catch(() => [] as string[])).sort();
-    for (const f of files.reverse()) {
-      if (Number(f.split("-")[0]) < after) continue;
-      const m = JSON.parse(await readFile(join(MAIL, f), "utf8")) as { to: string; subject: string; text: string };
-      if (m.to === address && subject.test(m.subject)) return m;
-    }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`No email to ${address} matching ${subject}`);
-}
-
-// Links in emails use APP_URL; the test server may listen elsewhere, so keep only path and query.
-const linkIn = (text: string, _page: Page, re: RegExp) => {
-  const url = new URL(re.exec(text)![0]);
-  return `${url.pathname}${url.search}`;
-};
 
 test("M6: service complete email, portal sign-in, records, request service, unsubscribe", async ({ page, browser }) => {
   test.setTimeout(120_000);
@@ -62,7 +39,7 @@ test("M6: service complete email, portal sign-in, records, request service, unsu
   expect(done.text).toContain("Sent with RouteKeep");
 
   // The record link asks her to sign in first; she asks for a link by email.
-  await page.goto(linkIn(done.text, page, /https?:\/\/\S+\/visits\/\S+/));
+  await page.goto(linkIn(done.text, /https?:\/\/\S+\/visits\/\S+/));
   await expect(page.getByRole("heading", { name: "Sign in to your account" })).toBeVisible();
   await expect(page.getByText("Dispatch Test Pest").first()).toBeVisible();
   await expectAccessible(page);
@@ -76,7 +53,7 @@ test("M6: service complete email, portal sign-in, records, request service, unsu
 
   const signIn = await mailTo(email, /^Your sign-in link/, started);
   expect(signIn.text).not.toContain("Stop these emails");
-  const link = linkIn(signIn.text, page, /https?:\/\/\S+\/auth\?token=\S+/);
+  const link = linkIn(signIn.text, /https?:\/\/\S+\/auth\?token=\S+/);
   await page.goto(link);
   await expect(page.getByRole("heading", { name: "Hi Marisol" })).toBeVisible();
   await expectAccessible(page);
@@ -114,7 +91,7 @@ test("M6: service complete email, portal sign-in, records, request service, unsu
   await expectAccessible(desk);
 
   // Unsubscribe (FR-MSG-04): visiting the page changes nothing; the button does.
-  await page.goto(linkIn(done.text, page, /https?:\/\/\S+\/u\/\S+/));
+  await page.goto(linkIn(done.text, /https?:\/\/\S+\/u\/\S+/));
   const [before] = await adminQuery<{ at: Date | null }>("select email_unsubscribed_at as at from public.customers where id = $1", [day.customerIds[0]]);
   expect(before!.at).toBeNull();
   await expectAccessible(page);

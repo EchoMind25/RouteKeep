@@ -379,6 +379,18 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   return { key: mutation.key, status: "conflict", message: "Saved. The office changed this visit while you were working, so they will review it." };
 }
 
+/**
+ * FR-MSG-01: "on the way". Queued once per visit and day; the email goes out
+ * only while the visit is still this technician's, today's and not started.
+ * Anything else is quietly settled: there is nothing for the office to review.
+ */
+async function onTheWay(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "on_the_way" }>): Promise<MutationResult> {
+  const visit = await lockVisit(tx, mutation.appointmentId);
+  if (!visit || visit.technician_id !== techId || visit.local_date !== mutation.date || visit.status !== "scheduled") return { key: mutation.key, status: "duplicate" };
+  await enqueueEmail(tx, { tenantId: m.tenantId, topic: "appointment.on_the_way", key: `${visit.id}:${mutation.date}`, payload: { appointmentId: visit.id, date: mutation.date, technicianId: techId } });
+  return { key: mutation.key, status: "applied" };
+}
+
 async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: "skip" }>): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
@@ -404,7 +416,13 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
     try {
       results.push(
         await withRls(m.claims, (tx) =>
-          mutation.kind === "arrive" ? arrive(tx, techId, mutation) : mutation.kind === "complete" ? complete(tx, m, techId, mutation) : skip(tx, techId, mutation),
+          mutation.kind === "arrive"
+            ? arrive(tx, techId, mutation)
+            : mutation.kind === "complete"
+              ? complete(tx, m, techId, mutation)
+              : mutation.kind === "on_the_way"
+                ? onTheWay(tx, m, techId, mutation)
+                : skip(tx, techId, mutation),
         ),
       );
     } catch (error) {

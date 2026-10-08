@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 import { emailProvider } from "@/lib/env";
+import { enqueueEmail } from "@/lib/messaging/enqueue";
 
 // FR-MSG-03, FR-MSG-05, FR-MIG-19, FR-POR-02: what the office sees and sets
 // about messages, and the service requests customers send from the portal.
@@ -72,8 +73,45 @@ export async function markRequestDone(m: MemberSession, id: string) {
   await withRls(m.claims, (tx) => tx.updateTable("service_requests").set({ status: "done", handled_by: m.userId, handled_at: new Date() }).where("id", "=", id).where("status", "=", "open").execute());
 }
 
+/**
+ * FR-MIG-18: one announcement per customer that their account has moved here,
+ * with a link to sign in. A customer who already got it is skipped.
+ */
+export async function sendSwitchNotice(m: MemberSession, message: string | null): Promise<number> {
+  return withRls(m.claims, async (tx) => {
+    const customers = await tx
+      .selectFrom("customers")
+      .select("id")
+      .where("status", "=", "active")
+      .where("email", "is not", null)
+      .where("email_unsubscribed_at", "is", null)
+      .execute();
+    for (const c of customers) await enqueueEmail(tx, { tenantId: m.tenantId, topic: "customer.switch_notice", key: `switch:${c.id}`, payload: { customerId: c.id, message } });
+    return customers.length;
+  });
+}
+
+export async function switchNoticeAudience(m: MemberSession): Promise<number> {
+  return withRls(m.claims, async (tx) =>
+    Number(
+      (
+        await tx
+          .selectFrom("customers")
+          .select(sql<number>`count(*)::int`.as("n"))
+          .where("status", "=", "active")
+          .where("email", "is not", null)
+          .where("email_unsubscribed_at", "is", null)
+          .executeTakeFirstOrThrow()
+      ).n,
+    ),
+  );
+}
+
 export const TEMPLATE_LABEL: Record<string, string> = {
   appointment_reminder: "Visit reminder",
+  appointment_on_the_way: "On the way",
+  payment_received: "Receipt",
+  customer_switch_notice: "New account notice",
   appointment_completed: "Service complete",
   invoice_issued: "Invoice",
   portal_sign_in: "Sign-in link",

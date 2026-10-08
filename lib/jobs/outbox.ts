@@ -82,6 +82,48 @@ async function topicData(tx: Tx, e: Event, portal: string): Promise<{ data: Topi
       appointmentId: a.id,
     };
   }
+  if (e.topic === "appointment.on_the_way") {
+    const a = await tx
+      .selectFrom("appointments as a")
+      .innerJoin("service_types as t", (j) => j.onRef("t.id", "=", "a.service_type_id").onRef("t.tenant_id", "=", "a.tenant_id"))
+      .leftJoin("technicians as tech", (j) => j.onRef("tech.id", "=", "a.technician_id").onRef("tech.tenant_id", "=", "a.tenant_id"))
+      .select(["a.id", "a.customer_id", "a.status", "a.local_date", "t.name as service", "tech.display_name as tech"])
+      .where("a.tenant_id", "=", e.tenant_id)
+      .where("a.id", "=", String(p.appointmentId))
+      .executeTakeFirst();
+    if (!a) return { suppress: "The visit no longer exists" };
+    if (a.local_date !== p.date || (a.status !== "scheduled" && a.status !== "in_progress")) return { suppress: "The visit moved or was cancelled" };
+    return { data: { topic: "appointment.on_the_way", serviceType: a.service, technicianName: a.tech }, customerId: a.customer_id, appointmentId: a.id };
+  }
+  if (e.topic === "payment.received") {
+    const pay = await tx
+      .selectFrom("payments as p")
+      .leftJoin("invoices as i", (j) => j.onRef("i.id", "=", "p.invoice_id").onRef("i.tenant_id", "=", "p.tenant_id"))
+      .select(["p.id", "p.customer_id", "p.amount_cents", "p.method", "p.status", "p.check_number", "i.number", "i.id as invoice_id"])
+      .where("p.tenant_id", "=", e.tenant_id)
+      .where("p.id", "=", String(p.paymentId))
+      .executeTakeFirst();
+    if (!pay) return { suppress: "The payment no longer exists" };
+    if (pay.status !== "succeeded") return { suppress: "The payment did not go through" };
+    const bal = await tx.selectFrom("customer_balances").select("balance_cents").where("tenant_id", "=", e.tenant_id).where("customer_id", "=", pay.customer_id).executeTakeFirst();
+    const owed = Number(bal?.balance_cents ?? 0);
+    const METHOD: Record<string, string> = { cash: "cash", check: pay.check_number ? `check #${pay.check_number}` : "check", card: "card", ach: "bank transfer", card_on_file: "card on file", other: "payment" };
+    return {
+      data: {
+        topic: "payment.received",
+        amountText: formatCents(pay.amount_cents),
+        methodText: METHOD[pay.method] ?? "payment",
+        invoiceNumber: pay.number === null ? null : Number(pay.number),
+        balanceText: owed > 0 ? formatCents(owed) : owed < 0 ? `${formatCents(-owed)} in credit` : "$0.00",
+        receiptUrl: portal,
+      },
+      customerId: pay.customer_id,
+      invoiceId: pay.invoice_id ?? undefined,
+    };
+  }
+  if (e.topic === "customer.switch_notice") {
+    return { data: { topic: "customer.switch_notice", message: typeof p.message === "string" && p.message.trim() ? p.message.trim() : null }, customerId: String(p.customerId) };
+  }
   if (e.topic === "invoice.issued") {
     const i = await tx
       .selectFrom("invoices as i")
@@ -119,7 +161,8 @@ async function sendOne(tx: Tx, e: Event): Promise<Outcome & { customerId?: strin
   if (!c.email) return { status: "suppressed", reason: "No email address on file", ...out };
   const requested = e.topic === "portal.sign_in";
   if (!requested && c.email_unsubscribed_at) return { status: "suppressed", reason: "The customer unsubscribed", ...out };
-  if (!requested && c.import_job_id && !biz.live) return { status: "suppressed", reason: "Imported customer: messages start when the business goes live (Settings, Messages)", ...out };
+  // The switch-over notice is how imported customers hear about the change, so going live does not gate it.
+  if (!requested && e.topic !== "customer.switch_notice" && c.import_job_id && !biz.live) return { status: "suppressed", reason: "Imported customer: messages start when the business goes live (Settings, Messages)", ...out };
   const sender = emailSender();
   if (!sender) return { status: "suppressed", reason: "Email sending is not set up yet", ...out };
   const unsubscribe = unsubscribeUrl(e.tenant_id, c.id);

@@ -8,7 +8,7 @@ import { BRAND } from "@/lib/brand";
 // text first; the HTML is the same words with light formatting, colours from
 // the design tokens. No tracking pixels, no remote images.
 
-export type Topic = "appointment.reminder" | "appointment.completed" | "invoice.issued" | "portal.sign_in";
+export type Topic = "appointment.reminder" | "appointment.on_the_way" | "appointment.completed" | "invoice.issued" | "payment.received" | "portal.sign_in" | "customer.switch_notice";
 
 export interface EmailBusiness {
   name: string;
@@ -28,6 +28,9 @@ export interface EmailInput {
 
 export type TopicData =
   | { topic: "appointment.reminder"; serviceType: string; dateText: string; windowText: string | null }
+  | { topic: "appointment.on_the_way"; serviceType: string; technicianName: string | null }
+  | { topic: "payment.received"; amountText: string; methodText: string; invoiceNumber: number | null; balanceText: string; receiptUrl: string }
+  | { topic: "customer.switch_notice"; message: string | null }
   | { topic: "appointment.completed"; serviceType: string; dateText: string; technicianName: string | null; recordUrl: string }
   | { topic: "invoice.issued"; number: number; totalText: string; dueText: string; invoiceUrl: string }
   | { topic: "portal.sign_in"; link: string };
@@ -63,6 +66,35 @@ function body(data: TopicData, input: EmailInput): Body {
           "Please leave gates unlocked and keep pets inside if you can. If the time doesn't work, call or reply and we'll move it.",
         ],
         action: { label: "See your visit", url: input.portalUrl },
+      };
+    case "appointment.on_the_way":
+      return {
+        subject: `${data.technicianName ?? "Your technician"} is on the way`,
+        lines: [
+          `Hi ${input.greeting},`,
+          `${data.technicianName ?? "Your technician"} from ${b} is heading to you now for your ${data.serviceType.toLowerCase()}.`,
+          "If you can, unlock gates and keep pets inside. No need to be home unless we asked.",
+        ],
+      };
+    case "payment.received":
+      return {
+        subject: `Receipt: ${data.amountText} paid to ${b}`,
+        lines: [
+          `Hi ${input.greeting},`,
+          `Thanks. We received ${data.amountText} by ${data.methodText}${data.invoiceNumber ? ` for invoice ${data.invoiceNumber}` : ""}.`,
+          `Your balance is now ${data.balanceText}.`,
+        ],
+        action: { label: "See your account", url: data.receiptUrl },
+      };
+    case "customer.switch_notice":
+      return {
+        subject: `Your ${b} account has a new home`,
+        lines: [
+          `Hi ${input.greeting},`,
+          ...(data.message ? [data.message] : [`${b} now keeps your visits, service records and invoices in one place you can check any time. Same service, same people.`]),
+          "Sign in with your email address. We send you a link each time; there's no password to remember.",
+        ],
+        action: { label: "Open your account", url: input.portalUrl },
       };
     case "appointment.completed":
       return {

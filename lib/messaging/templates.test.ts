@@ -32,9 +32,21 @@ describe("renderEmail (FR-MSG-01, CR-03, FR-MSG-04, FR-BRD-03)", () => {
     for (const data of [
       { topic: "appointment.reminder" as const, serviceType: "Lawn", dateText: "tomorrow", windowText: "8:00 AM and 12:00 PM" },
       { topic: "invoice.issued" as const, number: 1042, totalText: "$129.00", dueText: "on receipt", invoiceUrl: "https://app.example/i" },
+      { topic: "appointment.on_the_way" as const, serviceType: "General pest", technicianName: "Rowan" },
+      { topic: "payment.received" as const, amountText: "$69.00", methodText: "cash", invoiceNumber: 12, balanceText: "$0.00", receiptUrl: "https://app.example/p" },
+      { topic: "customer.switch_notice" as const, message: null },
     ]) {
       const e = renderEmail(data, input);
       expect(e.text + e.subject + e.html).not.toContain("—");
     }
+  });
+
+  it("words the new notices plainly", () => {
+    expect(renderEmail({ topic: "appointment.on_the_way", serviceType: "General pest", technicianName: "Rowan" }, input).subject).toBe("Rowan is on the way");
+    const r = renderEmail({ topic: "payment.received", amountText: "$69.00", methodText: "check #1042", invoiceNumber: 12, balanceText: "$0.00", receiptUrl: "https://app.example/p" }, input);
+    expect(r.text).toContain("We received $69.00 by check #1042 for invoice 12.");
+    const n = renderEmail({ topic: "customer.switch_notice", message: "We moved to a new system." }, input);
+    expect(n.text).toContain("We moved to a new system.");
+    expect(n.text).toContain("Open your account: https://app.example/p/t1");
   });
 });

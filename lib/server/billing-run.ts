@@ -192,7 +192,11 @@ export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new
           .onConflict((oc) => oc.constraint("ledger_entry_key").doNothing())
           .returning("id")
           .executeTakeFirst();
-        if (inserted) paymentsPosted += 1;
+        if (inserted) {
+          paymentsPosted += 1;
+          // FR-BIL-05: a receipt for money taken in the field.
+          await enqueueEmail(tx, { tenantId, topic: "payment.received", key: p.id, payload: { paymentId: p.id } });
+        }
         if (invoiceId) touched.add(invoiceId);
       });
     } catch (error) {

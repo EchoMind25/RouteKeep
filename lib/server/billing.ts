@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { pgConstraint, pgErrorCode, withRls, type Tx } from "@/lib/db/rls";
+import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { agingBucket, type AgingBucket } from "@/lib/domain/billing";
 import { formatAddress } from "@/lib/domain/contact";
 import { parseLocalDate, todayIn } from "@/lib/domain/time";
@@ -181,6 +182,8 @@ export async function recordPayment(
         .insertInto("ledger_entries")
         .values({ customer_id: inv.customer_id, type: "payment", amount_cents: -input.amountCents, payment_id: payment.id, invoice_id: inv.id, entry_key: `payment:${payment.id}`, memo: input.memo, occurred_at: now })
         .execute();
+      // FR-BIL-05: a receipt, once this commits.
+      await enqueueEmail(tx, { tenantId: m.tenantId, topic: "payment.received", key: payment.id, payload: { paymentId: payment.id } });
       await settleInvoice(tx, inv.id, now);
     });
   } catch (error) {

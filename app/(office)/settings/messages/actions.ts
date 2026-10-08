@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ADMIN_ROLES, requireMember } from "@/lib/auth/session";
 import { failure, fieldErrors, formValues, type FormState } from "@/lib/forms";
-import { goLive, saveTenDlc } from "@/lib/server/messages";
+import { kickOutbox } from "@/lib/messaging/kick";
+import { goLive, saveTenDlc, sendSwitchNotice } from "@/lib/server/messages";
 
 export async function goLiveAction(): Promise<void> {
   const member = await requireMember(ADMIN_ROLES);
@@ -30,4 +31,14 @@ export async function saveTenDlcAction(_prev: FormState, data: FormData): Promis
   await saveTenDlc(member, v.data);
   revalidatePath("/settings/messages");
   return { ok: true, message: "Saved. These go into the registration once texts are set up." };
+}
+
+// FR-MIG-18: tell customers about their account, once each.
+export async function sendSwitchNoticeAction(_prev: FormState, data: FormData): Promise<FormState> {
+  const member = await requireMember(ADMIN_ROLES);
+  const message = String(data.get("message") ?? "").trim().slice(0, 1000) || null;
+  const n = await sendSwitchNotice(member, message);
+  kickOutbox(member.tenantId);
+  revalidatePath("/settings/messages");
+  return { ok: true, message: `Queued for ${n} ${n === 1 ? "customer" : "customers"}. Anyone who already got it is skipped. Results show in Recent messages.` };
 }
