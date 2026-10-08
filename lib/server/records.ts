@@ -442,6 +442,11 @@ export async function amendRecord(m: MemberSession, input: AmendInput): Promise<
   } catch (error) {
     // Two people amending the same record at once: the second loses the race.
     if (pgErrorCode(error) === "23505" && pgConstraint(error) === "applications_one_amendment") throw new AlreadyAmendedError();
+    // ENG-01: the same submission twice at once; the other one won, so this is the same amendment.
+    if (pgErrorCode(error) === "23505" && pgConstraint(error) === "applications_client_key") {
+      const same = await withRls(m.claims, (tx) => tx.selectFrom("applications").select(["id", "appointment_id"]).where("client_key", "=", input.key).executeTakeFirstOrThrow());
+      return { id: same.id, appointmentId: same.appointment_id };
+    }
     throw error;
   }
 }

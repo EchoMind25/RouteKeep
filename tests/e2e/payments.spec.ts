@@ -171,7 +171,9 @@ test("M4 stage 2: connect, pay online, autopay with retries, refund, revoke, rec
 
   // CR-06: the customer turns autopay off; retries stop and Stripe forgets the card.
   await portal.goto(`/p/${day.tenantId}`);
+  // Two presses: the first only asks again, so a stray tap changes nothing.
   await portal.getByRole("button", { name: "Turn off autopay" }).click();
+  await portal.getByRole("button", { name: /Confirm/ }).click();
   await expect(portal.getByText("Autopay is off. Nothing more will be charged automatically.")).toBeVisible();
   expect((await invoiceFor(third)).autopay_next_at).toBeNull();
   await until(() => Promise.resolve(stripe.detached.length), (n) => n === 2);

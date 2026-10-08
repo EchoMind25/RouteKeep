@@ -2,6 +2,8 @@ import { CalendarBlank, CreditCard, FilePdf, Receipt } from "@phosphor-icons/rea
 import { randomUUID } from "node:crypto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Alert, Panel } from "@/components/ui/layout";
 import { formatCents } from "@/lib/domain/money";
 import { portalHome } from "@/lib/portal/data";
@@ -102,10 +104,10 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                           <input type="hidden" name="tenant" value={tenant} />
                           <input type="hidden" name="invoiceId" value={i.id} />
                           <input type="hidden" name="key" value={`pay-${randomUUID()}`} />
-                          <Button type="submit" size="sm">
+                          <SubmitButton size="sm" pendingLabel="Opening Stripe">
                             Pay {formatCents(i.open_cents)}
                             <span className="sr-only"> for invoice {i.number}</span>
-                          </Button>
+                          </SubmitButton>
                         </form>
                       ) : null}
                     </>
@@ -143,16 +145,16 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                     <form action={setUpAutopayAction}>
                       <input type="hidden" name="tenant" value={tenant} />
                       <input type="hidden" name="key" value={randomUUID()} />
-                      <Button type="submit" variant="secondary">
+                      <SubmitButton variant="secondary" pendingLabel="Opening Stripe">
                         Use a different card or bank
-                      </Button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                   <form action={turnOffAutopayAction}>
                     <input type="hidden" name="tenant" value={tenant} />
-                    <Button type="submit" variant="ghost">
+                    <ConfirmSubmitButton variant="ghost" confirmLabel="Confirm: turn off autopay" pendingLabel="Turning off">
                       Turn off autopay
-                    </Button>
+                    </ConfirmSubmitButton>
                   </form>
                 </div>
               </>
@@ -163,7 +165,7 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                   <form action={setUpAutopayAction}>
                     <input type="hidden" name="tenant" value={tenant} />
                     <input type="hidden" name="key" value={randomUUID()} />
-                    <Button type="submit">Set up autopay</Button>
+                    <SubmitButton pendingLabel="Opening Stripe">Set up autopay</SubmitButton>
                   </form>
                 </div>
                 <p className="text-sm text-fg-muted">You enter your card or bank details on Stripe&apos;s secure page; we never see the numbers.</p>

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Checkbox, Field, Fieldset, Input } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { commissionFor } from "@/lib/domain/commission";
 import { formatCents, parseMoneyToCents } from "@/lib/domain/money";
@@ -22,13 +22,14 @@ function preview(flat: string, pct: string, basisCents: number): string | null {
 
 export function SalesSettingsForm({ initial, readOnly, examplePlan }: { initial: Record<string, string>; readOnly: boolean; examplePlan: { name: string; basisCents: number } | null }) {
   const [state, action] = useActionState(saveSalesSettingsAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? initial;
   const e = state.errors ?? {};
   const [flat, setFlat] = useState(v.flat ?? "");
   const [pct, setPct] = useState(v.pct ?? "");
   const example = examplePlan ? preview(flat, pct, examplePlan.basisCents) : null;
   return (
-    <form action={action} className="grid max-w-2xl gap-8" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-8" noValidate>
       {state.message ? <Alert tone={state.ok ? "success" : "danger"}>{state.message}</Alert> : null}
       {readOnly ? <Alert>Only the owner or an admin can change these.</Alert> : null}
       <fieldset disabled={readOnly} className="grid gap-8">

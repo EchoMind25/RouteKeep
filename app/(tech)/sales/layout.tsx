@@ -14,7 +14,9 @@ export default function SalesLayout({ children }: { children: ReactNode }) {
         </Link>
         <BrandMark />
       </header>
-      {children}
+      <main id="main" className="grid content-start gap-4">
+        {children}
+      </main>
     </div>
   );
 }

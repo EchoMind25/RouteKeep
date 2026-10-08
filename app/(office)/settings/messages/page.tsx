@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Alert, EmptyState } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
@@ -52,7 +52,7 @@ export default async function MessagesSettingsPage() {
               </p>
               {manage ? (
                 <form action={goLiveAction}>
-                  <Button type="submit">Go live</Button>
+                  <SubmitButton pendingLabel="Going live">Go live</SubmitButton>
                 </form>
               ) : null}
             </>

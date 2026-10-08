@@ -126,12 +126,16 @@ export function Field({ label, hint, error, optional, className, children }: Fie
 }
 
 export function Fieldset({ legend, description, children, className }: { legend: ReactNode; description?: ReactNode; children: ReactNode; className?: string }) {
+  const descriptionId = useId();
+  // The legend must be the fieldset's first child to name the group.
   return (
-    <fieldset className={cn("grid gap-4", className)}>
-      <div className="grid gap-1">
-        <legend className="text-md font-semibold text-fg">{legend}</legend>
-        {description ? <p className="text-sm text-fg-muted">{description}</p> : null}
-      </div>
+    <fieldset className={cn("grid gap-4", className)} aria-describedby={description ? descriptionId : undefined}>
+      <legend className={cn("text-md font-semibold text-fg", description ? "mb-1" : "mb-4")}>{legend}</legend>
+      {description ? (
+        <p id={descriptionId} className="text-sm text-fg-muted">
+          {description}
+        </p>
+      ) : null}
       {children}
     </fieldset>
   );

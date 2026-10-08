@@ -6,6 +6,10 @@ import { parseLocalDate, todayIn, type LocalDate } from "@/lib/domain/time";
 import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { formatLocalDate } from "@/lib/ui/format";
 
+// After this long a visit payment posts unapplied (on account) even if its
+// visit never reached an invoice, so it cannot wait forever.
+const UNINVOICED_HOLD_DAYS = 120;
+
 // FR-BIL-01, FR-BIL-03: the billing run. It finds finished visits that are on
 // no invoice yet, invoices them (one per visit, or one per closed period for
 // plans billed monthly, quarterly or yearly), posts payments taken in the
@@ -189,6 +193,18 @@ export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new
           (p.appointment_id
             ? ((await tx.selectFrom("invoice_lines").select("invoice_id").where("appointment_id", "=", p.appointment_id).executeTakeFirst())?.invoice_id ?? null)
             : null);
+        // FR-BIL-05, ENG-06: money taken for a visit that is not on an invoice
+        // yet (a monthly plan bills at period end) waits for that invoice. The
+        // ledger is append-only, so posting it now with no invoice would leave
+        // the later invoice owing in full and autopay would charge it again.
+        // The receipt goes out now either way; the same key keeps it to one.
+        if (!invoiceId && p.appointment_id && new Date(p.received_at ?? now).getTime() > now.getTime() - UNINVOICED_HOLD_DAYS * 86_400_000) {
+          const visit = await tx.selectFrom("appointments").select("status").where("id", "=", p.appointment_id).executeTakeFirst();
+          if (visit && visit.status !== "cancelled") {
+            await enqueueEmail(tx, { tenantId, topic: "payment.received", key: p.id, payload: { paymentId: p.id } });
+            return;
+          }
+        }
         const inserted = await tx
           .insertInto("ledger_entries")
           .values({ tenant_id: tenantId, customer_id: p.customer_id, type: "payment", amount_cents: -p.amount_cents, payment_id: p.id, invoice_id: invoiceId, entry_key: `payment:${p.id}`, occurred_at: p.received_at ?? now, source: "billing_run" })

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, Input, Select } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState, type FormState } from "@/lib/forms";
 import { cancelAction, rescheduleAction, restoreAction, skipAction } from "./actions";
@@ -32,10 +32,11 @@ export function RescheduleForm(props: {
   technicians: { id: string; name: string }[];
 }) {
   const [state, action] = useActionState(rescheduleAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <Hidden id={props.id} version={props.version} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -70,10 +71,11 @@ export function RescheduleForm(props: {
 
 export function ReasonForm({ id, version, kind }: { id: string; version: number; kind: "skip" | "cancel" }) {
   const [state, action] = useActionState(kind === "skip" ? skipAction : cancelAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const e = state.errors ?? {};
   const listId = `reasons-${kind}`;
   return (
-    <form action={action} className="grid gap-3" noValidate>
+    <form ref={formRef} action={action} className="grid gap-3" noValidate>
       <Status state={state} />
       <Hidden id={id} version={version} />
       <Field label={kind === "skip" ? "Why is it skipped?" : "Why is it cancelled?"} error={e.reason}>

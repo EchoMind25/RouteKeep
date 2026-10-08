@@ -71,6 +71,11 @@ const schema = z
     if (e.EMAIL_PROVIDER === "resend" && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) {
       ctx.addIssue({ code: "custom", path: ["RESEND_API_KEY"], message: "EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM" });
     }
+    // Portal links, Stripe return URLs and invites are built from APP_URL; the
+    // localhost default must never reach a hosted deploy (and https keeps cookies Secure).
+    if ((e.NETLIFY === "true" || e.CONTEXT === "production") && !e.APP_URL.startsWith("https://")) {
+      ctx.addIssue({ code: "custom", path: ["APP_URL"], message: "APP_URL must be the site's https:// address on a hosted deploy" });
+    }
     if (e.STRIPE_SECRET_KEY && !e.STRIPE_WEBHOOK_SECRET) {
       ctx.addIssue({ code: "custom", path: ["STRIPE_WEBHOOK_SECRET"], message: "STRIPE_SECRET_KEY needs STRIPE_WEBHOOK_SECRET too: payments are only marked paid from Stripe's signed events" });
     }

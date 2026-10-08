@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { StepId } from "@/lib/sync/client-store";
 
 // Which screen the technician app shows, kept in the URL (?stop=..&step=..)
@@ -38,6 +38,21 @@ function subscribe(onChange: () => void) {
 
 export function useView(): View {
   return useSyncExternalStore(subscribe, read, () => SERVER);
+}
+
+/**
+ * Screens swap without a page load, so a screen reader would stay on the old
+ * control. When `key` changes (and on first show), move focus to the screen's
+ * heading and scroll to the top. Put the returned ref on a heading with
+ * tabIndex={-1}. NFR accessibility, FR-TEC-11.
+ */
+export function useFocusHeading<T extends HTMLElement>(key: string) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+    ref.current?.focus({ preventScroll: true });
+  }, [key]);
+  return ref;
 }
 
 export function go(next: Partial<View>, { replace = false } = {}) {

@@ -1,6 +1,6 @@
 import "server-only";
 import type { MemberSession } from "@/lib/auth/session";
-import { withRls, pgConstraint } from "@/lib/db/rls";
+import { withRls } from "@/lib/db/rls";
 import type { LocalDate } from "@/lib/domain/time";
 import { env } from "@/lib/env";
 import type { RoutePlan } from "@/lib/providers/route-optimizer";
@@ -27,25 +27,22 @@ export async function requestAiPlan(m: MemberSession, input: { technicianId: str
   return withRls(m.claims, async (tx) => {
     const { expected, problem, unplaced } = await aiLaneProblem(tx, input.technicianId, input.date);
     if (problem.stops.length < 2) throw new RouteConflictError();
-    try {
-      const row = await tx
-        .insertInto("route_ai_runs")
-        .values({
-          technician_id: input.technicianId,
-          local_date: input.date,
-          request_key: input.key,
-          expected: JSON.stringify(expected),
-          state: JSON.stringify({ problem, unplaced }),
-        })
-        .returning("id")
-        .executeTakeFirstOrThrow();
-      return row.id;
-    } catch (error) {
-      // ENG-01: the same click twice is the same run.
-      if (pgConstraint(error) !== "route_ai_runs_request_key") throw error;
-      const row = await tx.selectFrom("route_ai_runs").select("id").where("request_key", "=", input.key).executeTakeFirstOrThrow();
-      return row.id;
-    }
+    // ENG-01: the same click twice is the same run. Conflict is absorbed by the
+    // insert itself; catching a unique violation would leave the transaction aborted (25P02).
+    const row = await tx
+      .insertInto("route_ai_runs")
+      .values({
+        technician_id: input.technicianId,
+        local_date: input.date,
+        request_key: input.key,
+        expected: JSON.stringify(expected),
+        state: JSON.stringify({ problem, unplaced }),
+      })
+      .onConflict((oc) => oc.constraint("route_ai_runs_request_key").doNothing())
+      .returning("id")
+      .executeTakeFirst();
+    if (row) return row.id;
+    return (await tx.selectFrom("route_ai_runs").select("id").where("request_key", "=", input.key).executeTakeFirstOrThrow()).id;
   });
 }
 

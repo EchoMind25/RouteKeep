@@ -81,6 +81,7 @@ export function SignatureStep({ stop, draft, blobs, onChange }: { stop: Snapshot
       ) : (
         <canvas
           ref={canvas}
+          role="img"
           aria-label="Signature pad: sign with a finger"
           className="h-48 w-full touch-none rounded-control border-2 border-dashed border-line-strong bg-surface text-fg"
           onPointerDown={(e) => {

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Checkbox, Field, Fieldset, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { US_STATES } from "@/lib/domain/contact";
 import { initialFormState } from "@/lib/forms";
@@ -10,11 +10,12 @@ import { savePropertyAction, updateCustomerAction } from "./actions";
 
 export function CustomerEditForm({ initial }: { initial: Record<string, string> }) {
   const [state, action] = useActionState(updateCustomerAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? initial;
   const e = state.errors ?? {};
   const [kind, setKind] = useState(v.kind ?? "residential");
   return (
-    <form action={action} className="grid max-w-2xl gap-8" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-8" noValidate>
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="id" value={initial.id} />
       <input type="hidden" name="version" value={initial.version} />
@@ -71,10 +72,11 @@ export function CustomerEditForm({ initial }: { initial: Record<string, string> 
 
 export function PropertyForm({ customerId, initial, locked }: { customerId: string; initial?: Record<string, string>; locked?: boolean }) {
   const [state, action] = useActionState(savePropertyAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? initial ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid max-w-2xl gap-5" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-5" noValidate>
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
       {locked ? (
         <Alert tone="warning">This pin was confirmed and locked. Changing the address keeps the pin where it is and flags it for a check.</Alert>

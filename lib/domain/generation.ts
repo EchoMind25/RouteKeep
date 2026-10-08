@@ -64,10 +64,13 @@ export function planGeneration(sub: SubscriptionForGeneration, today: LocalDate,
   if (from > end) return { visits: [], generatedThrough: null };
 
   const rule = parseRule(sub.rrule);
+  // The initial service is the first real visit, which is not the start date
+  // when that day is not itself an occurrence (weekly MO,TH starting on a Tuesday).
+  const firstVisit = occurrences(rule, sub.startDate, sub.startDate, addDays(sub.startDate, 400 * rule.interval))[0] ?? sub.startDate;
   const visits = occurrences(rule, sub.startDate, from, end)
     .filter((date) => !inPause(sub, date))
     .map<PlannedVisit>((date) => {
-      const isInitial = date === sub.startDate;
+      const isInitial = date === firstVisit;
       return {
         subscriptionId: sub.id,
         occurrenceDate: date,

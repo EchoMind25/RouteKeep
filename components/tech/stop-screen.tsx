@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, CheckCircle, NavigationArrow, PaperPlaneTilt, Phone, Plus, Trash, WarningCircle } from "@phosphor-icons/react";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type Ref } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -18,7 +18,7 @@ import { PhotoStep } from "./photo-step";
 import { SignatureStep } from "./signature-step";
 import { localStatus } from "./tech-app";
 import { useNow } from "./use-now";
-import { go } from "./use-view";
+import { go, useFocusHeading } from "./use-view";
 
 // One stop (FR-TEC-03): details, then Arrive, Checklist, Products, Photos,
 // Signature, Payment, Complete. Every change is saved on the phone as it is
@@ -43,7 +43,7 @@ export function StopScreen({ stop, state, info, step }: { stop: SnapshotStop; st
   return <Flow stop={stop} draft={draft} state={state} info={info} step={step} />;
 }
 
-function TopBar({ stop, onBack, children }: { stop: SnapshotStop; onBack: () => void; children?: ReactNode }) {
+function TopBar({ stop, onBack, headingRef, children }: { stop: SnapshotStop; onBack: () => void; headingRef?: Ref<HTMLHeadingElement>; children?: ReactNode }) {
   return (
     <header className="sticky top-0 z-10 grid gap-2 border-b border-line bg-canvas/95 px-4 pt-3 pb-3 backdrop-blur">
       <div className="flex items-center gap-2">
@@ -52,7 +52,9 @@ function TopBar({ stop, onBack, children }: { stop: SnapshotStop; onBack: () => 
         </Button>
         <div className="min-w-0">
           <p className="text-sm text-fg-muted tabular">Stop {stop.number}</p>
-          <h1 className="truncate text-lg font-semibold">{stop.customerName}</h1>
+          <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="truncate text-lg font-semibold focus:outline-none">
+            {stop.customerName}
+          </h1>
         </div>
       </div>
       {children}
@@ -89,6 +91,7 @@ function RecordDueAlert({ stop, draft, timeZone }: { stop: SnapshotStop; draft: 
 function Details({ stop, draft, notice, timeZone }: { stop: SnapshotStop; draft: Draft | undefined; notice?: string; timeZone: string }) {
   const { store, engine } = useTech();
   const [skipping, setSkipping] = useState(false);
+  const headingRef = useFocusHeading<HTMLHeadingElement>(stop.id);
 
   // Started already: on this phone, or (after a reinstall or on another phone) as far as the office knows.
   const started = Boolean(draft) || stop.status === "in_progress";
@@ -116,7 +119,7 @@ function Details({ stop, draft, notice, timeZone }: { stop: SnapshotStop; draft:
 
   return (
     <div className="pb-28">
-      <TopBar stop={stop} onBack={() => go({ stopId: null, step: null })} />
+      <TopBar stop={stop} onBack={() => go({ stopId: null, step: null })} headingRef={headingRef} />
       <div className="grid gap-4 p-4">
         {notice ? <Alert tone="warning">{notice}</Alert> : null}
         <RecordDueAlert stop={stop} draft={draft} timeZone={timeZone} />
@@ -231,9 +234,10 @@ function SkipDialog({ stop, draft, open, onOpenChange }: { stop: SnapshotStop; d
 }
 
 function DoneScreen({ stop, draft, label }: { stop: SnapshotStop; draft: Draft | undefined; label: string }) {
+  const headingRef = useFocusHeading<HTMLHeadingElement>(stop.id);
   return (
     <div className="pb-28">
-      <TopBar stop={stop} onBack={() => go({ stopId: null, step: null })} />
+      <TopBar stop={stop} onBack={() => go({ stopId: null, step: null })} headingRef={headingRef} />
       <div className="grid gap-4 p-4">
         <div className="flex items-center gap-3 rounded-panel border border-success/30 bg-success-soft p-4 text-success">
           <CheckCircle size={28} weight="fill" aria-hidden />
@@ -259,6 +263,8 @@ function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: D
   const [open, setOpen] = useState<string | null | undefined>(undefined);
   const index = Math.max(0, STEPS.findIndex((s) => s.id === step));
   const current = STEPS[index]!;
+  // Each step is its own screen: focus moves to its heading when the step changes.
+  const headingRef = useFocusHeading<HTMLHeadingElement>(current.id);
   const update = (patch: Partial<Draft>) => void store.putDraft({ ...draft, ...patch });
   const goStep = (to: StepId) => {
     update({ step: to });
@@ -279,12 +285,17 @@ function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: D
     <div className="pb-28">
       <TopBar stop={stop} onBack={() => (index === 0 ? go({ stopId: stop.id, step: null }) : goStep(STEPS[index - 1]!.id))}>
         <div className="grid gap-1.5">
-          <p className="flex justify-between text-sm font-medium">
-            <span>{current.label}</span>
-            <span className="text-fg-muted tabular">
+          <div className="flex justify-between text-sm font-medium">
+            <h2 ref={headingRef} tabIndex={-1} className="font-medium focus:outline-none">
+              {current.label}
+              <span className="sr-only">
+                , step {index + 1} of {STEPS.length}
+              </span>
+            </h2>
+            <span className="text-fg-muted tabular" aria-hidden>
               Step {index + 1} of {STEPS.length}
             </span>
-          </p>
+          </div>
           <div className="h-1.5 overflow-hidden rounded-pill bg-sunken" aria-hidden>
             <div className="h-full rounded-pill bg-accent transition-[width]" style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
           </div>
@@ -409,6 +420,7 @@ function Flow({ stop, draft, state, info, step }: { stop: SnapshotStop; draft: D
                         <Button
                           variant="secondary"
                           size="sm"
+                          className="min-h-11"
                           onClick={() => {
                             setOpen(m.key);
                             goStep("products");
@@ -510,7 +522,7 @@ function ProductsStep(props: {
           </label>
           <PickList title="All products" products={matches} used={used} onPick={add} />
           {draft.applications.length ? (
-            <Button variant="ghost" onClick={() => setPicking(false)}>
+            <Button variant="ghost" className="min-h-11" onClick={() => setPicking(false)}>
               Cancel
             </Button>
           ) : null}
@@ -548,7 +560,7 @@ function PickList({ title, products, used, onPick }: { title: string; products: 
 
 export function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <Button variant="ghost" size="sm" onClick={onClick} aria-label={label}>
+    <Button variant="ghost" size="sm" className="min-h-11" onClick={onClick} aria-label={label}>
       <Trash size={16} aria-hidden /> Remove
     </Button>
   );

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Checkbox, Field, Input } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState } from "@/lib/forms";
 import { addCreditAction, recordPaymentAction, refundPaymentAction, voidInvoiceAction } from "../../actions";
@@ -14,11 +14,13 @@ export function PaymentForm({ invoiceId, paymentKey, openAmount }: { invoiceId: 
   const [state, action] = useActionState(recordPaymentAction, initialFormState);
   const v = state.values ?? { method: "cash", amount: openAmount };
   const e = state.errors ?? {};
+  const formRef = useFocusFirstInvalid(state);
   // defaultChecked, not checked: React resets the form after each submit, and
   // a reset falls back to the default, which this keeps on the chosen method.
   const [method, setMethod] = useState(v.method ?? "cash");
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
+      {/* A field error is read out when focus moves to its field; no duplicate banner. */}
       {state.message && !e.amount ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="key" value={paymentKey} />
@@ -57,8 +59,9 @@ export function CreditForm({ invoiceId, creditKey }: { invoiceId: string; credit
   const [state, action] = useActionState(addCreditAction, initialFormState);
   const v = state.values ?? {};
   const e = state.errors ?? {};
+  const formRef = useFocusFirstInvalid(state);
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="key" value={creditKey} />
       <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -82,8 +85,9 @@ export function VoidForm({ invoiceId }: { invoiceId: string }) {
   const [state, action] = useActionState(voidInvoiceAction, initialFormState);
   const v = state.values ?? {};
   const e = state.errors ?? {};
+  const formRef = useFocusFirstInvalid(state);
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       {state.message && !e.reason ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <Field label="Why void it" error={e.reason}>
@@ -102,8 +106,9 @@ export function RefundForm({ invoiceId, paymentId, refundKey, maxAmount }: { inv
   const [state, action] = useActionState(refundPaymentAction, initialFormState);
   const v = state.values ?? { amount: maxAmount, credit: "on" };
   const e = state.errors ?? {};
+  const formRef = useFocusFirstInvalid(state);
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       {state.message && !e.amount ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="paymentId" value={paymentId} />

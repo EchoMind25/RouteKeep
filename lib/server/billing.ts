@@ -160,6 +160,20 @@ async function openInvoice(tx: Parameters<Parameters<typeof withRls>[1]>[0], id:
   return { ...row, open_cents: Number(row.open_cents ?? 0) };
 }
 
+/** Card or bank money on its way for this invoice (autopay, the portal), not yet settled. */
+async function inFlightCents(tx: Parameters<Parameters<typeof withRls>[1]>[0], invoiceId: string): Promise<number> {
+  const row = await tx
+    .selectFrom("payments")
+    .select((eb) => eb.fn.coalesce(eb.fn.sum<number>("amount_cents"), eb.val(0)).as("cents"))
+    .where("invoice_id", "=", invoiceId)
+    .where("status", "in", ["pending", "processing"])
+    .where("method", "in", ["card", "ach", "card_on_file"])
+    .executeTakeFirst();
+  return Number(row?.cents ?? 0);
+}
+
+const IN_FLIGHT = "A card or bank payment for this invoice is still clearing. Wait for it to finish, or record only what it does not cover.";
+
 /** FR-BIL-06: cash, check or other payment taken in the office, applied to one invoice. Idempotent by client key (ENG-01). */
 export async function recordPayment(
   m: MemberSession,
@@ -172,6 +186,8 @@ export async function recordPayment(
       if (existing) return;
       if (inv.status !== "open") throw new BillingRefusedError("Only an open invoice takes a payment.");
       if (input.amountCents > inv.open_cents) throw new BillingRefusedError("That is more than the invoice still owes. Record the extra as a separate credit if the customer prepaid.");
+      // G-05: both would settle and the customer would have paid twice.
+      if (input.amountCents > inv.open_cents - (await inFlightCents(tx, inv.id))) throw new BillingRefusedError(IN_FLIGHT);
       const now = new Date();
       const payment = await tx
         .insertInto("payments")
@@ -198,6 +214,7 @@ export async function addCredit(m: MemberSession, input: { invoiceId: string; ke
     const inv = await openInvoice(tx, input.invoiceId);
     if (inv.status !== "open") throw new BillingRefusedError("Only an open invoice takes a credit.");
     if (input.amountCents > inv.open_cents) throw new BillingRefusedError("A credit cannot be more than the invoice still owes.");
+    if (input.amountCents > inv.open_cents - (await inFlightCents(tx, inv.id))) throw new BillingRefusedError(IN_FLIGHT);
     const now = new Date();
     await tx
       .insertInto("ledger_entries")

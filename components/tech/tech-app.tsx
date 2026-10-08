@@ -20,7 +20,7 @@ import type { SnapshotStop } from "@/lib/sync/protocol";
 import { TechContext, useTech } from "./context";
 import { StopScreen } from "./stop-screen";
 import { useNow } from "./use-now";
-import { go, useView } from "./use-view";
+import { go, useFocusHeading, useView } from "./use-view";
 
 // The technician app (FR-TEC-01..11). Every screen reads the device copy; the
 // network is only ever used in the background (FR-TEC-02).
@@ -85,7 +85,7 @@ export function TechApp({ userId, appVersion }: { userId: string; appVersion: st
 
   return (
     <TechContext.Provider value={{ store, engine }}>
-      <div className="mx-auto min-h-dvh max-w-xl">
+      <main id="main" className="mx-auto min-h-dvh max-w-xl">
         {!state.ready ? (
           <div className="grid gap-3 p-4" aria-busy="true" aria-label="Opening your route">
             <div className="h-8 w-40 animate-pulse rounded-control bg-sunken" />
@@ -97,7 +97,7 @@ export function TechApp({ userId, appVersion }: { userId: string; appVersion: st
         ) : (
           <DayScreen state={state} sync={sync} day={view.day} />
         )}
-      </div>
+      </main>
     </TechContext.Provider>
   );
 }
@@ -111,6 +111,10 @@ export function SyncChip({ state, sync }: { state: TechState; sync: SyncState })
   let icon = <CloudCheck size={18} aria-hidden />;
   let line = waiting ? waitingText! : sync.lastSyncAt ? `Up to date ${new Date(sync.lastSyncAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Not synced yet";
   let tone = "border-line bg-surface text-fg";
+  // Announced politely, but only when the coarse state changes: not on every
+  // "N waiting" tick or clock minute (NFR accessibility).
+  const settled = !sync.syncing && waiting === 0 && Boolean(sync.lastSyncAt);
+  const coarse = sync.signedOut ? "Signed out. Sign in again to sync." : !sync.online ? "Offline. Your work is saved on this phone." : sync.error ? "Can't reach the office." : settled ? "All uploaded." : "";
   if (sync.signedOut) {
     icon = <WarningCircle size={18} aria-hidden />;
     line = waiting ? `Sign in again to upload ${waiting}` : "Sign in again to sync";
@@ -126,18 +130,23 @@ export function SyncChip({ state, sync }: { state: TechState; sync: SyncState })
     line = waiting ? `Can't reach the office, ${waitingText}` : "Can't reach the office";
   }
   return (
-    <button
-      type="button"
-      onClick={() => void engine.syncNow()}
-      className={cn("flex min-h-12 w-full items-center gap-3 rounded-control border px-3 py-2 text-left", tone)}
-      aria-live="polite"
-    >
-      {icon}
-      <span className="grid min-w-0">
-        <span className="font-semibold">All saved on this phone</span>
-        <span className="truncate text-sm">{line}</span>
+    <>
+      <button
+        type="button"
+        onClick={() => void engine.syncNow()}
+        className={cn("flex min-h-12 w-full items-center gap-3 rounded-control border px-3 py-2 text-left", tone)}
+        aria-label={`Sync now. All saved on this phone. ${line}`}
+      >
+        {icon}
+        <span className="grid min-w-0">
+          <span className="font-semibold">All saved on this phone</span>
+          <span className="truncate text-sm">{line}</span>
+        </span>
+      </button>
+      <span role="status" className="sr-only">
+        {coarse}
       </span>
-    </button>
+    </>
   );
 }
 
@@ -153,6 +162,7 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
   // Stops from an earlier day that still have work on this phone.
   const earlier = info ? state.stops.filter((s) => s.date < info.days[0]!).sort((a, b) => a.date.localeCompare(b.date) || a.number - b.number) : [];
   const timeZone = info?.business.timezone ?? "UTC";
+  const headingRef = useFocusHeading<HTMLHeadingElement>(info ? "ready" : "loading");
 
   return (
     <div className="grid gap-4 px-4 pt-4 pb-10">
@@ -187,12 +197,12 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
       <SyncChip state={state} sync={sync} />
 
       {state.notices.map((n) => (
-        <div key={n.key} role="status" className={cn("flex items-start gap-3 rounded-control border px-3 py-2", n.status === "rejected" ? "border-danger/30 bg-danger-soft text-danger" : "border-warning/30 bg-warning-soft text-warning")}>
+        <div key={n.key} role={n.status === "rejected" ? "alert" : "status"} className={cn("flex items-start gap-3 rounded-control border px-3 py-2", n.status === "rejected" ? "border-danger/30 bg-danger-soft text-danger" : "border-warning/30 bg-warning-soft text-warning")}>
           <WarningCircle size={18} aria-hidden className="mt-0.5 shrink-0" />
           <p className="text-sm">
             {state.stops.find((s) => s.id === n.appointmentId)?.customerName ?? "A stop"}: {n.message}
           </p>
-          <button type="button" className="ml-auto grid size-8 shrink-0 place-items-center rounded-control" aria-label="Dismiss" onClick={() => void store.dismissNotice(n.key)}>
+          <button type="button" className="-my-1 -mr-1 ml-auto grid size-11 shrink-0 place-items-center rounded-control" aria-label="Dismiss" onClick={() => void store.dismissNotice(n.key)}>
             <X size={16} aria-hidden />
           </button>
         </div>
@@ -207,20 +217,21 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
       ) : (
         <>
           <div className="grid gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{formatLocalDate(date!, "long")}</h1>
+            <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-tight focus:outline-none">
+              {formatLocalDate(date!, "long")}
+            </h1>
             <p className="text-fg-muted">
               {info.technician.name}, {stops.length} {stops.length === 1 ? "stop" : "stops"}
               {stops.length ? `, ${done} done` : ""}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-1 rounded-control bg-sunken p-1" role="tablist" aria-label="Day">
+          <div className="grid grid-cols-2 gap-1 rounded-control bg-sunken p-1" role="group" aria-label="Day">
             {(["today", "tomorrow"] as const).map((d) => (
               <button
                 key={d}
                 type="button"
-                role="tab"
-                aria-selected={day === d}
+                aria-pressed={day === d}
                 onClick={() => go({ day: d, stopId: null }, { replace: true })}
                 className={cn("min-h-12 rounded-control font-semibold", day === d ? "bg-surface text-fg shadow-raised" : "text-fg-muted")}
               >

@@ -1,7 +1,7 @@
 import { ArrowLeft } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Alert, EmptyState, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { listReview, type ReviewItem } from "@/lib/server/review";
@@ -72,12 +72,12 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
                   </div>
                   <form action={resolveReviewAction} className="flex flex-wrap gap-2">
                     <input type="hidden" name="id" value={item.id} />
-                    <Button type="submit" name="action" value="accept">
+                    <SubmitButton name="action" value="accept" pendingLabel="Saving">
                       {item.kind === "completed_after_change" ? "Mark it done" : "Mark it skipped"}
-                    </Button>
-                    <Button type="submit" name="action" value="keep" variant="secondary">
+                    </SubmitButton>
+                    <SubmitButton name="action" value="keep" variant="secondary" pendingLabel="Saving">
                       Keep the office&apos;s version
-                    </Button>
+                    </SubmitButton>
                   </form>
                 </section>
               </li>

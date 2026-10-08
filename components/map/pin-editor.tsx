@@ -7,7 +7,7 @@ import { confirmPinAction } from "@/app/(office)/customers/[id]/properties/[prop
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState } from "@/lib/forms";
 import { CONFIRM_THRESHOLD } from "@/lib/providers/geocoder";
@@ -34,6 +34,7 @@ export function PinEditor(props: {
   styleUrl: string;
 }) {
   const [state, action] = useActionState(confirmPinAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const e = state.errors ?? {};
   const [pin, setPin] = useState<LatLng | null>(props.pin);
   const [lat, setLat] = useState(state.values?.lat ?? (props.pin ? fixed(props.pin.lat) : ""));
@@ -66,7 +67,7 @@ export function PinEditor(props: {
         </div>
       </div>
 
-      <form action={action} className="grid gap-5 rounded-panel border border-line bg-surface p-5" noValidate>
+      <form ref={formRef} action={action} className="grid gap-5 rounded-panel border border-line bg-surface p-5" noValidate>
         {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
         <input type="hidden" name="customerId" value={props.customerId} />
         <input type="hidden" name="propertyId" value={props.propertyId} />

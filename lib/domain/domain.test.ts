@@ -300,4 +300,14 @@ describe("appointment generation (FR-SUB-02)", () => {
     expect(plan.visits.map((v) => v.localDate)).toEqual(["2026-10-14", "2026-11-14"]);
     expect(plan.visits.some((v) => v.isInitial)).toBe(false);
   });
+
+  it("gives the first visit the initial price when the start date is not an occurrence", () => {
+    // 2026-10-06 is a Tuesday; the first MO,TH visit is Thursday the 8th.
+    const plan = planGeneration({ ...sub, startDate: d("2026-10-06"), rrule: "FREQ=WEEKLY;BYDAY=MO,TH" }, d("2026-10-06"), 10);
+    expect(plan.visits.map((v) => [v.localDate, v.priceCents, v.isInitial])).toEqual([
+      ["2026-10-08", 14900, true],
+      ["2026-10-12", 6900, false],
+      ["2026-10-15", 6900, false],
+    ]);
+  });
 });

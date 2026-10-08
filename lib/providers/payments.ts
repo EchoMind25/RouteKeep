@@ -41,9 +41,14 @@ export function verifyStripeEvent(payload: string, signature: string | null): St
   return requireStripe().webhooks.constructEvent(payload, signature, secret);
 }
 
-/** The decline code of a failed Stripe call, when it was a card or bank refusal. */
+/** The decline code of a failed Stripe call, when it was a card or bank refusal or another final answer. */
 export function declineOf(error: unknown): { code: string | null; declined: boolean } {
   if (error instanceof Stripe.errors.StripeCardError) return { code: error.decline_code ?? error.code ?? null, declined: true };
   if (error instanceof Stripe.errors.StripeError && error.type === "StripeInvalidRequestError" && error.code === "authentication_required") return { code: "authentication_required", declined: true };
+  // FR-BIL-04: a request Stripe refuses as invalid (the card was detached, the
+  // customer is gone) or an idempotency clash fails the same way every time,
+  // so it is final too and the retry schedule takes over. Only connection,
+  // API and rate-limit trouble is worth repeating as is.
+  if (error instanceof Stripe.errors.StripeInvalidRequestError || error instanceof Stripe.errors.StripeIdempotencyError) return { code: error.code ?? error.type, declined: true };
   return { code: null, declined: false };
 }

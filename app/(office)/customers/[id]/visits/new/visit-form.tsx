@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState } from "@/lib/forms";
 import { createVisitAction } from "./actions";
@@ -16,10 +16,11 @@ export function OneOffVisitForm(props: {
   today: string;
 }) {
   const [state, action] = useActionState(createVisitAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid max-w-2xl gap-5" noValidate>
+    <form ref={formRef} action={action} className="grid max-w-2xl gap-5" noValidate>
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
       <input type="hidden" name="customerId" value={props.customerId} />
       <input type="hidden" name="clientKey" value={props.clientKey} />

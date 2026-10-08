@@ -248,7 +248,19 @@ export async function processOutbox(opts: { limit?: number; tenantId?: string } 
       if (opts.tenantId) q = q.where("tenant_id", "=", opts.tenantId);
       const e = (await q.executeTakeFirst()) as Event | undefined;
       if (!e) return false;
-      const r = await sendOne(tx, e);
+      // ENG-04: an exception (bad payload, template, query) must not roll back the
+      // whole transaction, or attempts never grows and this event blocks every run.
+      // A savepoint keeps the lock and turns the throw into a retry outcome.
+      await sql`savepoint send_one`.execute(tx);
+      let r: Awaited<ReturnType<typeof sendOne>>;
+      try {
+        r = await sendOne(tx, e);
+        await sql`release savepoint send_one`.execute(tx);
+      } catch (error) {
+        await sql`rollback to savepoint send_one`.execute(tx);
+        const message = error instanceof Error ? error.message.slice(0, 300) : String(error);
+        r = { status: e.attempts + 1 >= MAX_ATTEMPTS ? "failed" : "retry", error: message, template: e.topic.replace(".", "_"), recipient: "" };
+      }
       totals[r.status] += 1;
       if (r.status === "retry") {
         await tx

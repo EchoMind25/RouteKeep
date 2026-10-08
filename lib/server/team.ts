@@ -23,6 +23,11 @@ export async function listTeam(m: MemberSession) {
  * FR-SET-02. Creates (or finds) the person's login, then adds the membership
  * through app.add_member, which enforces who may grant which role.
  */
+/** A failure whose message is written for the person inviting; nothing internal. */
+export class InviteError extends Error {
+  override name = "InviteError";
+}
+
 export async function inviteMember(m: MemberSession, input: { email: string; role: MemberRole; displayName: string | null }): Promise<string> {
   let userId: string;
   if (authMode() === "local") {
@@ -36,7 +41,10 @@ export async function inviteMember(m: MemberSession, input: { email: string; rol
       // Already has a login (for example in another business). Resolve the id
       // without emailing anything; they sign in as usual and see this business.
       const link = await admin.auth.admin.generateLink({ type: "magiclink", email: input.email });
-      if (!link.data?.user) throw new Error(error?.message ?? "The invitation could not be sent.");
+      if (!link.data?.user) {
+        console.error(JSON.stringify({ at: "inviteMember", error: error?.message ?? link.error?.message ?? "no user" }));
+        throw new InviteError("The invitation could not be sent. Check the address and try again.");
+      }
       userId = link.data.user.id;
     }
   }

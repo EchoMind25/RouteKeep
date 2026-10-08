@@ -50,6 +50,9 @@ export function ApplicationEditor(props: {
   const set = (patch: Partial<ApplicationEntry>) => onChange({ ...entry, ...patch });
   const missing = missingRecordFields(recordFor(entry, stop, product, info));
   const name = product?.name ?? "Product no longer in the catalog";
+  // NFR accessibility: inputs flagged missing say so, and point at the hint text that explains them.
+  const invalid = (label: string) => (missing.includes(label) ? true : undefined);
+  const describe = (...ids: (string | false | undefined)[]) => ids.filter(Boolean).join(" ") || undefined;
 
   const rate = Number(entry.mixRate);
   const total = Number(entry.totalAmount);
@@ -77,6 +80,9 @@ export function ApplicationEditor(props: {
     .filter(Boolean)
     .join(", ");
 
+  const previewId = preview || previewHint ? `${id}-preview` : undefined;
+  const neededId = missing.length > 0 ? `${id}-needed` : undefined;
+
   return (
     <section className={cn("rounded-panel border bg-surface", missing.length ? "border-warning/50" : "border-line")} aria-labelledby={`${id}-name`}>
       <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left">
@@ -103,7 +109,7 @@ export function ApplicationEditor(props: {
               Mix rate
             </label>
             <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
-              <input id={`${id}-mix`} inputMode="decimal" value={entry.mixRate} onChange={(e) => set({ mixRate: e.target.value })} className={input} />
+              <input id={`${id}-mix`} inputMode="decimal" aria-invalid={invalid("Mix rate")} aria-describedby={describe(previewId, invalid("Mix rate") && neededId)} value={entry.mixRate} onChange={(e) => set({ mixRate: e.target.value })} className={input} />
               <select aria-label="Mix rate unit" value={entry.mixUnit} onChange={(e) => set({ mixUnit: e.target.value })} className={input}>
                 {MIX_UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -118,9 +124,16 @@ export function ApplicationEditor(props: {
             <label className="font-semibold" htmlFor={`${id}-total`}>
               Total applied
             </label>
-            <span className="text-sm text-fg-muted">Finished mix for sprays; product itself for granules and baits.</span>
+            <span id={`${id}-total-hint`} className="text-sm text-fg-muted">
+              Finished mix for sprays; product itself for granules and baits.
+            </span>
             <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
-              <input id={`${id}-total`} inputMode="decimal" value={entry.totalAmount} onChange={(e) => set({ totalAmount: e.target.value })} className={input} />
+              <input
+                id={`${id}-total`}
+                inputMode="decimal"
+                aria-invalid={invalid("Total amount applied")}
+                aria-describedby={describe(`${id}-total-hint`, previewId, invalid("Total amount applied") && neededId)}
+                value={entry.totalAmount} onChange={(e) => set({ totalAmount: e.target.value })} className={input} />
               <select aria-label="Total applied unit" value={entry.amountUnit} onChange={(e) => set({ amountUnit: e.target.value })} className={input}>
                 {AMOUNT_UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -133,11 +146,11 @@ export function ApplicationEditor(props: {
 
           {/* R-BUG-07: the numbers, read back in words before anyone moves on. */}
           {preview ? (
-            <p className="rounded-control bg-accent-soft px-3 py-2 text-accent" aria-live="polite">
+            <p id={`${id}-preview`} className="rounded-control bg-accent-soft px-3 py-2 text-accent" aria-live="polite">
               {preview}
             </p>
           ) : previewHint ? (
-            <p className="text-sm text-fg-muted" aria-live="polite">
+            <p id={`${id}-preview`} className="text-sm text-fg-muted" aria-live="polite">
               {previewHint}
             </p>
           ) : null}
@@ -147,7 +160,7 @@ export function ApplicationEditor(props: {
               Area treated
             </label>
             <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-2">
-              <input id={`${id}-area`} inputMode="decimal" value={entry.areaTreated} onChange={(e) => set({ areaTreated: e.target.value })} className={input} />
+              <input id={`${id}-area`} inputMode="decimal" aria-invalid={invalid("Area treated")} aria-describedby={describe(previewId, invalid("Area treated") && neededId)} value={entry.areaTreated} onChange={(e) => set({ areaTreated: e.target.value })} className={input} />
               <select aria-label="Area treated unit" value={entry.areaUnit} onChange={(e) => set({ areaUnit: e.target.value })} className={input}>
                 {AREA_UNITS.map((u) => (
                   <option key={u} value={u}>
@@ -158,12 +171,12 @@ export function ApplicationEditor(props: {
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               {stop.sqFt ? (
-                <Button type="button" variant="secondary" size="sm" onClick={() => set({ areaTreated: String(stop.sqFt), areaUnit: "sq_ft" })}>
+                <Button type="button" variant="secondary" size="sm" className="min-h-11" onClick={() => set({ areaTreated: String(stop.sqFt), areaUnit: "sq_ft" })}>
                   Home: {formatNumber(stop.sqFt)} sq ft
                 </Button>
               ) : null}
               {stop.lawnSqFt ? (
-                <Button type="button" variant="secondary" size="sm" onClick={() => set({ areaTreated: String(stop.lawnSqFt), areaUnit: "sq_ft" })}>
+                <Button type="button" variant="secondary" size="sm" className="min-h-11" onClick={() => set({ areaTreated: String(stop.lawnSqFt), areaUnit: "sq_ft" })}>
                   Lawn: {formatNumber(stop.lawnSqFt)} sq ft
                 </Button>
               ) : null}
@@ -175,7 +188,7 @@ export function ApplicationEditor(props: {
 
           <label className="grid gap-1">
             <span className="font-semibold">Time applied</span>
-            <input type="time" value={entry.appliedTime} onChange={(e) => set({ appliedTime: e.target.value })} className={cn(input, "max-w-40")} />
+            <input type="time" aria-invalid={invalid("Date and time applied")} aria-describedby={describe(invalid("Date and time applied") && neededId)} value={entry.appliedTime} onChange={(e) => set({ appliedTime: e.target.value })} className={cn(input, "max-w-40")} />
           </label>
 
           {needsStatement(product) ? (
@@ -192,13 +205,13 @@ export function ApplicationEditor(props: {
           ) : null}
 
           {missing.length ? (
-            <p className="text-sm text-warning">
+            <p id={`${id}-needed`} className="text-sm text-warning">
               Still needed: {missing.join(", ")}.
             </p>
           ) : null}
 
           <div>
-            <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
+            <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={onRemove}>
               <Trash size={16} aria-hidden /> Remove {name}
             </Button>
           </div>

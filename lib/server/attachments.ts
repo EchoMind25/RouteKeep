@@ -19,7 +19,14 @@ export async function saveVisitAttachment(
   m: MemberSession,
   input: { key: string; appointmentId: string; kind: "photo" | "signature"; capturedAt: Date; contentType: keyof typeof ATTACHMENT_TYPES; body: Uint8Array },
 ): Promise<"applied" | "duplicate"> {
-  const visit = await withRls(m.claims, (tx) => tx.selectFrom("appointments").select("id").where("id", "=", input.appointmentId).executeTakeFirst());
+  const { visit, existing } = await withRls(m.claims, async (tx) => ({
+    visit: await tx.selectFrom("appointments").select("id").where("id", "=", input.appointmentId).executeTakeFirst(),
+    existing: await tx.selectFrom("attachments").select("id").where("client_key", "=", input.key).executeTakeFirst(),
+  }));
+  // A retry after a lost answer: the bytes are already stored and recorded.
+  // Writing them again could replace the object under a row whose sha256 and
+  // size describe the first upload (ENG-01).
+  if (existing) return "duplicate";
   if (!visit) throw new AttachmentError("This visit is no longer on file.");
   // The path comes from ids the server trusts, never from the device.
   const path = `${m.tenantId}/appointments/${input.appointmentId}/${input.key}.${ATTACHMENT_TYPES[input.contentType]}`;

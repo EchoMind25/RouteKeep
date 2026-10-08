@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowCounterClockwise, CheckCircle, DotsSixVertical, MapPinSimpleArea, Path, Sparkle, Warning, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CheckCircle, DotsSixVertical, DotsThree, MapPinSimpleArea, Path, Sparkle, Warning, WarningCircle, X } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,10 +38,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Alert } from "@/components/ui/layout";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/cn";
 import { flaggedStops, legsFor, timings, totals, type RouteStop } from "@/lib/domain/routing";
 import type { BoardRoute, BoardStop, OptimizePreview, QueueStop } from "@/lib/server/dispatch";
 import { APPOINTMENT_STATUS, formatLocalDate, formatTime, formatWindow } from "@/lib/ui/format";
+import { prefersReducedMotion } from "@/components/ui/motion";
 import type { MapRoute, MapStop } from "./route-map";
 
 const RouteMap = dynamic(() => import("./route-map").then((m) => m.RouteMap), {
@@ -57,6 +59,9 @@ const DAY_START = "08:00";
 const AT_END = 100_000;
 
 type Lanes = Record<string, string[]>;
+
+/** The stop whose card should take focus after a menu move; only ever set and read in event handlers. */
+const pendingFocus: { id: string | null } = { id: null };
 
 /**
  * Day targets are small, so a pointer over one wins outright; everywhere
@@ -158,6 +163,27 @@ export function DispatchBoard(props: {
   const [aiNotes, setAiNotes] = useState<AiNotes | null>(null);
   const [planning, setPlanning] = useState<string | null>(null);
   const [publishCheck, setPublishCheck] = useState<{ technicianId: string; flagged: string[] } | null>(null);
+  // The two dialogs below open from code, not from a trigger, so Radix has no
+  // opener to give focus back to. Remember the control and its lane (the control
+  // itself can be replaced, e.g. Publish becomes a badge) and restore on close.
+  const opener = useRef<{ element: HTMLElement | null; lane: string } | null>(null);
+  const rememberOpener = (lane: string) => {
+    opener.current = { element: document.activeElement instanceof HTMLElement ? document.activeElement : null, lane };
+  };
+  const restoreOpener = (event: Event) => {
+    const o = opener.current;
+    opener.current = null;
+    if (!o) return;
+    event.preventDefault();
+    const target = o.element?.isConnected ? o.element : document.getElementById(`lane-${o.lane}`)?.querySelector<HTMLElement>("button");
+    target?.focus();
+  };
+  // After a menu move to another lane the stop's card is a new element; focus its menu button.
+  const takePendingFocus = () => {
+    const id = pendingFocus.id;
+    pendingFocus.id = null;
+    return id ? (document.getElementById(`stop-${id}`)?.querySelector<HTMLElement>("[data-move-menu]") ?? null) : null;
+  };
 
   // Live estimates per lane in the current order: drive time, arrival times and
   // FR-DSP-06 long-leg flags, from the same pure code the optimizer uses.
@@ -222,15 +248,37 @@ export function DispatchBoard(props: {
   /** A lane as the server holds it; the unassigned lane has no order to protect. */
   const seen = (lane: string) => (lane === UNASSIGNED ? null : (base[lane] ?? []));
 
+  /** "position 2 of 5 in Sam's route" for the stop being dragged, from the lanes as they are now. */
+  const placeText = (activeId: string, overId: string) => {
+    const lane = laneOf(overId);
+    if (!lane) return "";
+    const list = lanes[lane] ?? [];
+    const has = list.includes(activeId);
+    const position = overId in lanes ? (has ? list.indexOf(activeId) + 1 : list.length + 1) : list.indexOf(overId) + 1;
+    return `position ${position} of ${has ? list.length : list.length + 1} in ${laneName(lane)}`;
+  };
+
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Picked up ${nameOf(String(active.id))}.`,
+    onDragStart: ({ active }) => {
+      const lane = laneOf(String(active.id));
+      const list = lane ? lanes[lane]! : [];
+      return `Picked up ${nameOf(String(active.id))}${lane ? `, position ${list.indexOf(String(active.id)) + 1} of ${list.length} in ${laneName(lane)}` : ""}.`;
+    },
     onDragOver: ({ active, over }) => {
       if (!over) return `${nameOf(String(active.id))} is no longer over a route.`;
       const overId = String(over.id);
-      return overId.startsWith("day:") ? `Over ${formatLocalDate(overId.slice(4))}.` : `${nameOf(String(active.id))} is over ${laneName(laneOf(overId) ?? "")}.`;
+      return overId.startsWith("day:") ? `Over ${formatLocalDate(overId.slice(4))}.` : `${nameOf(String(active.id))} is over ${placeText(String(active.id), overId)}.`;
     },
-    onDragEnd: ({ active, over }) => (over ? `Dropped ${nameOf(String(active.id))}.` : "Move cancelled."),
+    onDragEnd: ({ active, over }) => {
+      if (!over) return "Move cancelled.";
+      const overId = String(over.id);
+      return overId.startsWith("day:") ? `Dropped ${nameOf(String(active.id))} on ${formatLocalDate(overId.slice(4))}.` : `Dropped ${nameOf(String(active.id))} at ${placeText(String(active.id), overId)}.`;
+    },
     onDragCancel: () => "Move cancelled.",
+  };
+  const screenReaderInstructions = {
+    draggable:
+      "To pick up a stop, press Space or Enter. Use the arrow keys to move it within a route or to another route. Press Space or Enter again to drop it, or Escape to cancel. The Move stop menu next to each stop does the same without dragging.",
   };
 
   function persist(run: () => Promise<BoardResult>, next: Lanes, success?: string) {
@@ -283,18 +331,7 @@ export function DispatchBoard(props: {
     if (!over || !start || !stop) return setLanes(base);
     const overId = String(over.id);
 
-    if (overId.startsWith("day:")) {
-      const toDate = overId.slice(4);
-      const next = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, v.filter((x) => x !== id)]));
-      setLanes(next);
-      const done = `${stop.customerName} moved to ${formatLocalDate(toDate)}.`;
-      if (start.lane === QUEUE) {
-        persist(() => scheduleStopAction({ id, version: stop.version, date: toDate, technicianId: stop.technicianId, toIndex: AT_END, toOrder: null }), next, done);
-      } else {
-        persist(() => moveStopToDayAction({ id, version: stop.version, date: props.date, toDate }), next, done);
-      }
-      return;
-    }
+    if (overId.startsWith("day:")) return moveToDay(id, start.lane, overId.slice(4));
 
     const lane = laneOf(id)!;
     if (lane === QUEUE || laneOf(overId) === QUEUE) return setLanes(base);
@@ -304,14 +341,34 @@ export function DispatchBoard(props: {
     if (overIndex >= 0 && overIndex !== current) items = arrayMove(items, current, overIndex);
     const next = { ...lanes, [lane]: items };
     setLanes(next);
-    const toIndex = items.indexOf(id);
-    if (lane === start.lane && (toIndex === start.index || lane === UNASSIGNED)) return setLanes(base);
+    if (lane === start.lane && (items.indexOf(id) === start.index || lane === UNASSIGNED)) return setLanes(base);
+    placeStop(id, start.lane, lane, next);
+  }
 
-    if (start.lane === QUEUE) {
+  /** Drag onto a day and the Move menu share this, so both take the same write path (WCAG 2.5.7). */
+  function moveToDay(id: string, fromLane: string, toDate: string, success?: string) {
+    const stop = byId.get(id);
+    if (!stop) return setLanes(base);
+    const next = Object.fromEntries(Object.entries(base).map(([k, v]) => [k, v.filter((x) => x !== id)]));
+    setLanes(next);
+    const done = success ?? `${stop.customerName} moved to ${formatLocalDate(toDate)}.`;
+    if (fromLane === QUEUE) {
+      persist(() => scheduleStopAction({ id, version: stop.version, date: toDate, technicianId: stop.technicianId, toIndex: AT_END, toOrder: null }), next, done);
+    } else {
+      persist(() => moveStopToDayAction({ id, version: stop.version, date: props.date, toDate }), next, done);
+    }
+  }
+
+  /** The stop is already where `next` puts it (`toLane`); save that. */
+  function placeStop(id: string, fromLane: string, toLane: string, next: Lanes, success?: string) {
+    const stop = byId.get(id);
+    if (!stop) return setLanes(base);
+    const toIndex = next[toLane]!.indexOf(id);
+    if (fromLane === QUEUE) {
       persist(
-        () => scheduleStopAction({ id, version: stop.version, date: props.date, technicianId: techOf(lane), toIndex, toOrder: seen(lane) }),
+        () => scheduleStopAction({ id, version: stop.version, date: props.date, technicianId: techOf(toLane), toIndex, toOrder: seen(toLane) }),
         next,
-        `${stop.customerName} added to ${laneName(lane)}.`,
+        success ?? `${stop.customerName} added to ${laneName(toLane)}.`,
       );
       return;
     }
@@ -321,17 +378,45 @@ export function DispatchBoard(props: {
           id,
           version: stop.version,
           date: props.date,
-          fromTechnicianId: techOf(start.lane),
-          toTechnicianId: techOf(lane),
+          fromTechnicianId: techOf(fromLane),
+          toTechnicianId: techOf(toLane),
           toIndex,
-          fromOrder: seen(start.lane),
-          toOrder: seen(lane),
+          fromOrder: seen(fromLane),
+          toOrder: seen(toLane),
         }),
       next,
+      success,
     );
   }
 
+  /** WCAG 2.5.7: the Move stop menu. Same state change and server action as the drag. */
+  const moveMenu = (id: string, lane: string) => {
+    const list = lanes[lane] ?? [];
+    const index = list.indexOf(id);
+    const name = nameOf(id);
+    const shift = (by: -1 | 1) => {
+      const next = { ...lanes, [lane]: arrayMove(list, index, index + by) };
+      setLanes(next);
+      placeStop(id, lane, lane, next, `${name} moved to position ${index + by + 1} of ${list.length} in ${laneName(lane)}.`);
+    };
+    const toLane = (target: string) => {
+      const next = { ...lanes, [lane]: list.filter((x) => x !== id), [target]: [...(lanes[target] ?? []), id] };
+      setLanes(next);
+      pendingFocus.id = id;
+      placeStop(id, lane, target, next, `${name} moved to ${laneName(target)}, position ${next[target]!.length} of ${next[target]!.length}.`);
+    };
+    return {
+      lane: laneName(lane),
+      canShift: lane !== QUEUE && lane !== UNASSIGNED,
+      up: index > 0 ? () => shift(-1) : null,
+      down: index >= 0 && index < list.length - 1 ? () => shift(1) : null,
+      lanes: [...props.technicians.filter((t) => t.active).map((t) => t.id), UNASSIGNED].filter((l) => l !== lane).map((l) => ({ name: laneName(l), run: () => toLane(l) })),
+      days: props.nextDays.map((d) => ({ name: formatLocalDate(d), run: () => moveToDay(id, lane, d) })),
+    };
+  };
+
   function optimize(technicianId: string) {
+    rememberOpener(technicianId);
     setMessage(null);
     startTransition(async () => {
       const r = await previewOptimizeAction({ technicianId, date: props.date });
@@ -342,6 +427,7 @@ export function DispatchBoard(props: {
   }
 
   async function planWithAi(technicianId: string) {
+    rememberOpener(technicianId);
     setMessage(null);
     setPlanning(technicianId);
     try {
@@ -405,6 +491,7 @@ export function DispatchBoard(props: {
   function publish(technicianId: string, confirmed = false) {
     const flagged = [...(analysis.get(technicianId)?.flagged ?? [])];
     if (flagged.length > 0 && !confirmed) {
+      rememberOpener(technicianId);
       setPublishCheck({ technicianId, flagged });
       return;
     }
@@ -438,7 +525,7 @@ export function DispatchBoard(props: {
           setDragging(null);
           setLanes(base);
         }}
-        accessibility={{ announcements }}
+        accessibility={{ announcements, screenReaderInstructions }}
       >
         <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="order-2 grid gap-4 md:grid-cols-2 xl:order-none xl:grid-cols-1 2xl:grid-cols-2">
@@ -511,6 +598,8 @@ export function DispatchBoard(props: {
                               selected={selectedId === id}
                               onSelect={() => select(id)}
                               disabled={pending}
+                              menu={moveMenu(id, lane)}
+                              afterMenu={takePendingFocus}
                             />
                           );
                         })}
@@ -526,7 +615,7 @@ export function DispatchBoard(props: {
 
           {/* Below xl the queue comes first and the map last; at xl both stay in view beside the lanes (FR-DSP-04). */}
           <div className="contents xl:sticky xl:top-6 xl:grid xl:h-[calc(100dvh-8rem)] xl:grid-rows-[auto_minmax(0,1fr)] xl:gap-4">
-            <QueuePanel ids={queueIds} byId={byId} disabled={pending} />
+            <QueuePanel ids={queueIds} byId={byId} disabled={pending} menuFor={(id) => moveMenu(id, QUEUE)} afterMenu={takePendingFocus} />
             <div className="order-3 h-[55vh] min-h-80 overflow-hidden rounded-panel border border-line xl:order-none xl:h-auto" role="region" aria-label="Map of the day's stops">
               <MapBoundary>
                 <RouteMap
@@ -537,7 +626,7 @@ export function DispatchBoard(props: {
                   selectedLane={selectedLane}
                   onSelect={(id) => {
                     select(id);
-                    document.getElementById(`stop-${id}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                    document.getElementById(`stop-${id}`)?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
                   }}
                   styleUrl={props.mapStyleUrl}
                   fitKey={props.date}
@@ -565,6 +654,7 @@ export function DispatchBoard(props: {
             title={aiNotes ? `AI plan for ${laneName(preview.technicianId)}` : `Optimize ${laneName(preview.technicianId)}`}
             description="A proposal only. Nothing changes until you save it."
             className="max-w-2xl"
+            onCloseAutoFocus={restoreOpener}
           >
             {aiNotes ? <AiPlanNotes notes={aiNotes} byId={byId} /> : null}
             <OptimizeSummary preview={preview} byId={byId} />
@@ -580,7 +670,11 @@ export function DispatchBoard(props: {
 
       <Dialog open={publishCheck !== null} onOpenChange={(open) => !open && setPublishCheck(null)}>
         {publishCheck ? (
-          <DialogContent title="Check these stops before publishing" description="Each is reached by a drive more than three times this route's typical drive. A wrong pin is the usual cause.">
+          <DialogContent
+            title="Check these stops before publishing"
+            description="Each is reached by a drive more than three times this route's typical drive. A wrong pin is the usual cause."
+            onCloseAutoFocus={restoreOpener}
+          >
             <ul className="grid gap-3">
               {publishCheck.flagged.map((id) => {
                 const s = byId.get(id);
@@ -696,6 +790,8 @@ function StopCard(props: {
   selected: boolean;
   onSelect: () => void;
   disabled: boolean;
+  menu: MoveModel;
+  afterMenu: () => HTMLElement | null;
 }) {
   const s = props.stop;
   const canMove = movable(s);
@@ -709,7 +805,7 @@ function StopCard(props: {
       id={`stop-${s.id}`}
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn("grid grid-cols-[2rem_1.75rem_1fr] items-start gap-2 bg-surface px-2 py-3 pr-4", isDragging && "relative z-10 shadow-overlay", props.selected && "bg-accent-soft")}
+      className={cn("grid grid-cols-[2rem_1.75rem_1fr_auto] items-start gap-2 bg-surface px-2 py-3 pr-2", isDragging && "relative z-10 shadow-overlay", props.selected && "bg-accent-soft")}
     >
       {canMove ? (
         <button
@@ -759,11 +855,82 @@ function StopCard(props: {
           ) : null}
         </div>
       </div>
+      {canMove ? <MoveMenu label={`Move stop ${props.number}`} model={props.menu} disabled={props.disabled} afterClose={props.afterMenu} /> : <span aria-hidden />}
     </li>
   );
 }
 
-function QueuePanel({ ids, byId, disabled }: { ids: string[]; byId: Map<string, BoardStop | QueueStop>; disabled: boolean }) {
+interface MoveModel {
+  lane: string;
+  canShift: boolean;
+  up: (() => void) | null;
+  down: (() => void) | null;
+  lanes: { name: string; run: () => void }[];
+  days: { name: string; run: () => void }[];
+}
+
+/**
+ * WCAG 2.5.7: everything dragging does, available with single clicks or keys.
+ * While a save is in flight the items are disabled, not the trigger, so focus
+ * can return to the trigger when the menu closes.
+ */
+function MoveMenu({ label, model, disabled, afterClose }: { label: string; model: MoveModel; disabled: boolean; afterClose: () => HTMLElement | null }) {
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <button
+          type="button"
+          data-move-menu
+          aria-label={label}
+          className="mt-0.5 grid size-8 place-items-center rounded-control text-fg-muted hover:bg-sunken hover:text-fg disabled:opacity-55"
+        >
+          <DotsThree size={20} weight="bold" aria-hidden />
+        </button>
+      </MenuTrigger>
+      <MenuContent
+        onCloseAutoFocus={(event) => {
+          // The stop may have a new card in another lane; follow it.
+          const target = afterClose();
+          if (target) {
+            event.preventDefault();
+            target.focus();
+          }
+        }}
+      >
+        {model.canShift ? (
+          <>
+            <MenuItem disabled={disabled || !model.up} onSelect={() => model.up?.()}>
+              Move up
+            </MenuItem>
+            <MenuItem disabled={disabled || !model.down} onSelect={() => model.down?.()}>
+              Move down
+            </MenuItem>
+            <MenuSeparator />
+          </>
+        ) : null}
+        {model.lanes.length ? <MenuLabel>Route</MenuLabel> : null}
+        {model.lanes.map((l) => (
+          <MenuItem key={l.name} disabled={disabled} onSelect={l.run}>
+            Move to {l.name}
+          </MenuItem>
+        ))}
+        {model.days.length ? (
+          <>
+            <MenuSeparator />
+            <MenuLabel>Day</MenuLabel>
+            {model.days.map((d) => (
+              <MenuItem key={d.name} disabled={disabled} onSelect={d.run}>
+                Move to {d.name}
+              </MenuItem>
+            ))}
+          </>
+        ) : null}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+function QueuePanel({ ids, byId, disabled, menuFor, afterMenu }: { ids: string[]; byId: Map<string, BoardStop | QueueStop>; disabled: boolean; menuFor: (id: string) => MoveModel; afterMenu: () => HTMLElement | null }) {
   return (
     <section aria-labelledby="queue-heading" className="order-1 grid min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-panel border border-line bg-surface xl:order-none xl:max-h-[40vh]">
       <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -778,7 +945,7 @@ function QueuePanel({ ids, byId, disabled }: { ids: string[]; byId: Map<string, 
           <ul tabIndex={0} aria-label="Visits that need attention" className="max-h-72 divide-y divide-line overflow-y-auto xl:max-h-none">
             {ids.map((id) => {
               const s = byId.get(id) as QueueStop | undefined;
-              return s ? <QueueCard key={id} stop={s} disabled={disabled} /> : null;
+              return s ? <QueueCard key={id} stop={s} disabled={disabled} menu={menuFor(id)} afterMenu={afterMenu} /> : null;
             })}
           </ul>
         ) : (
@@ -789,13 +956,13 @@ function QueuePanel({ ids, byId, disabled }: { ids: string[]; byId: Map<string, 
   );
 }
 
-function QueueCard({ stop: s, disabled }: { stop: QueueStop; disabled: boolean }) {
+function QueueCard({ stop: s, disabled, menu, afterMenu }: { stop: QueueStop; disabled: boolean; menu: MoveModel; afterMenu: () => HTMLElement | null }) {
   const canMove = movable(s);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: s.id, disabled: disabled || !canMove });
   const label = s.status === "scheduled" ? "No technician" : (APPOINTMENT_STATUS[s.status]?.label ?? s.status);
   const tone = s.status === "scheduled" ? "warning" : (APPOINTMENT_STATUS[s.status]?.tone ?? "neutral");
   return (
-    <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn("grid grid-cols-[2rem_1fr] items-start gap-2 bg-surface px-2 py-2.5 pr-4", isDragging && "relative z-10 shadow-overlay")}>
+    <li ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} id={`stop-${s.id}`} className={cn("grid grid-cols-[2rem_1fr_auto] items-start gap-2 bg-surface px-2 py-2.5 pr-2", isDragging && "relative z-10 shadow-overlay")}>
       {canMove ? (
         <button
           type="button"
@@ -821,6 +988,7 @@ function QueueCard({ stop: s, disabled }: { stop: QueueStop; disabled: boolean }
           {s.reason ? `: ${s.reason}` : `, ${s.serviceType}`}
         </p>
       </div>
+      {canMove ? <MoveMenu label={`Move ${s.customerName} to a route or day`} model={menu} disabled={disabled} afterClose={afterMenu} /> : <span aria-hidden />}
     </li>
   );
 }

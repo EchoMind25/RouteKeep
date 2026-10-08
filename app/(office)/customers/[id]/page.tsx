@@ -4,6 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Alert, Details, Panel, PageHeader } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { formatPhone } from "@/lib/domain/contact";
@@ -165,9 +167,9 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                 {autopay ? (
                   <form action={turnOffAutopayAction}>
                     <input type="hidden" name="customerId" value={customer.id} />
-                    <Button type="submit" variant="ghost" size="sm">
+                    <ConfirmSubmitButton variant="ghost" size="sm" confirmLabel="Confirm: turn off autopay" pendingLabel="Turning off">
                       Turn off autopay
-                    </Button>
+                    </ConfirmSubmitButton>
                   </form>
                 ) : null}
               </div>
@@ -250,9 +252,9 @@ export default async function CustomerPage({ params, searchParams }: { params: P
                       {r.preferred_times ? <p className="text-sm text-fg-muted">Prefers: {r.preferred_times}</p> : null}
                       <form action={requestDoneAction}>
                         <input type="hidden" name="id" value={r.id} />
-                        <Button type="submit" variant="ghost" size="sm">
+                        <SubmitButton variant="ghost" size="sm" pendingLabel="Saving">
                           Mark handled
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </li>
                   ))}

@@ -153,6 +153,15 @@ export const uploadRequest = z.object({
 });
 
 /**
+ * The envelope alone. Each mutation is checked on its own so one malformed
+ * item is answered "rejected" instead of failing the batch and being resent forever.
+ */
+export const uploadEnvelope = z.object({
+  protocol: z.literal(SYNC_PROTOCOL),
+  mutations: z.array(z.unknown()).min(1).max(50),
+});
+
+/**
  * applied: done. duplicate: already done earlier (a retry). conflict: kept,
  * and the office will review it. rejected: will never succeed as sent.
  * retry: the server failed for a reason of its own; send it again later.

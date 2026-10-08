@@ -12,6 +12,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const file = await readAttachment(member, id);
   if (!file) return new Response(null, { status: 404, headers: PRIVATE });
   return new Response(new Blob([new Uint8Array(file.body)], { type: file.contentType }), {
-    headers: { ...PRIVATE, "Content-Type": file.contentType, "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff" },
+    // NFR-03: an attachment's bytes never change (the path is its client key),
+    // so the browser keeps it; still private, never on a shared cache.
+    headers: { "Cache-Control": "private, max-age=31536000, immutable", "Content-Type": file.contentType, "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff" },
   });
 }

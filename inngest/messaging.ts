@@ -19,7 +19,7 @@ export const dailyReminders = inngest.createFunction({ id: "reminders-daily", tr
 );
 
 export const nightlyBilling = inngest.createFunction({ id: "billing-nightly", triggers: [{ cron: "TZ=America/Denver 45 2 * * *" }], retries: 2 }, async ({ step }) =>
-  step.run("bill", async () => (await billEveryone()).map((r) => ({ tenantId: r.tenantId, invoices: r.invoicesCreated, failures: r.failures.length }))),
+  step.run("bill", async () => (await billEveryone()).map((r) => ("error" in r ? { tenantId: r.tenantId, error: r.error } : { tenantId: r.tenantId, invoices: r.invoicesCreated, failures: r.failures.length }))),
 );
 
 // FR-BIL-02/04/07: autopay charges and retries after the billing run, then the

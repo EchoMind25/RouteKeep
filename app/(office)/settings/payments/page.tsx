@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/form-status";
 import { Alert, EmptyState } from "@/components/ui/layout";
 import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { paymentsStatus, refreshStripeStatus } from "@/lib/server/payments";
@@ -53,14 +53,14 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
           <div className="flex flex-wrap gap-3">
             {owner && !s.chargesEnabled ? (
               <form action={connectStripeAction}>
-                <Button type="submit">{s.accountId ? "Continue with Stripe" : "Connect Stripe"}</Button>
+                <SubmitButton pendingLabel="Opening Stripe">{s.accountId ? "Continue with Stripe" : "Connect Stripe"}</SubmitButton>
               </form>
             ) : null}
             {manage && s.accountId ? (
               <form action={refreshStripeAction}>
-                <Button type="submit" variant="secondary">
+                <SubmitButton variant="secondary" pendingLabel="Checking">
                   Check again
-                </Button>
+                </SubmitButton>
               </form>
             ) : null}
           </div>
@@ -87,9 +87,9 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
                   </div>
                   <form action={resolveIssueAction}>
                     <input type="hidden" name="id" value={i.id} />
-                    <Button type="submit" variant="secondary" size="sm">
+                    <SubmitButton variant="secondary" size="sm" pendingLabel="Saving">
                       Mark as sorted
-                    </Button>
+                    </SubmitButton>
                   </form>
                 </li>
               ))}

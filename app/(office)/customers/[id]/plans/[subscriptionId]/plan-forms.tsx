@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, Input, Select } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState, type FormState } from "@/lib/forms";
 import { cancelPlanAction, changeSeriesAction, pauseAction, reactivateAction, resumeAction } from "./actions";
@@ -38,10 +38,11 @@ export function SeriesForm(
   },
 ) {
   const [state, action] = useActionState(changeSeriesAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <Hidden {...props} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -79,10 +80,11 @@ export function SeriesForm(
 
 export function PauseForm(props: Ids & { today: string }) {
   const [state, action] = useActionState(pauseAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const v = state.values ?? {};
   const e = state.errors ?? {};
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <Hidden {...props} />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -126,10 +128,11 @@ export function SimpleForm({ kind, ...ids }: Ids & { kind: "resume" | "reactivat
 
 export function CancelPlanForm(props: Ids & { futureVisits: number; futureDetached: number }) {
   const [state, action] = useActionState(cancelPlanAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   const e = state.errors ?? {};
   const untouched = props.futureVisits - props.futureDetached;
   return (
-    <form action={action} className="grid gap-4" noValidate>
+    <form ref={formRef} action={action} className="grid gap-4" noValidate>
       <Status state={state} />
       <Hidden {...props} />
       {/* UX-03: say exactly what will happen before it happens. */}
