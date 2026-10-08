@@ -27,10 +27,11 @@ export async function startImportAction(_prev: FormState, data: FormData): Promi
   const file = data.get("file");
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a CSV file." };
   if (file.size > MAX_BYTES) return { ok: false, message: "That file is over 5 MB. Split it into parts and import each one; customers already imported are recognised." };
-  if (!/\.(csv|txt)$/i.test(file.name)) return { ok: false, message: "Save the spreadsheet as CSV first (File, Save as, CSV) and upload that." };
+  if (/\.xls$/i.test(file.name)) return { ok: false, message: "That is an old Excel file (.xls). Open it in Excel and save it as .xlsx or CSV, then upload that." };
+  if (!/\.(csv|txt|xlsx)$/i.test(file.name)) return { ok: false, message: "Upload a CSV or Excel (.xlsx) file." };
   let id: string;
   try {
-    id = await startImport(member, { name: file.name, text: await file.text() });
+    id = await startImport(member, { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) });
   } catch (error) {
     if (error instanceof SheetError || error instanceof ImportError) return { ok: false, message: error.message };
     throw error;

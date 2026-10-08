@@ -16,17 +16,17 @@ export function UploadForm() {
     <form action={action} className="grid max-w-xl gap-4">
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
       <label className="grid gap-1.5 font-medium">
-        Customer list (CSV)
+        Customer list (CSV or Excel)
         <input
           type="file"
           name="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           required
           className="text-sm file:mr-3 file:rounded-control file:border file:border-line-strong file:bg-surface file:px-3 file:py-1.5 file:font-medium"
         />
       </label>
       <p className="text-sm text-fg-muted">
-        Export your customer list from the software you use now, or save your spreadsheet as CSV. Nothing is added until you have checked every row and pressed Import.
+        Export your customer list from the software you use now, or upload your spreadsheet (CSV or Excel .xlsx; the first sheet is read). Nothing is added until you have checked every row and pressed Import.
       </p>
       <div>
         <SubmitButton pendingLabel="Reading the file">Upload and match columns</SubmitButton>

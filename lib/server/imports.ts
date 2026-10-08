@@ -7,6 +7,7 @@ import { parseRule } from "@/lib/domain/recurrence";
 import { todayIn } from "@/lib/domain/time";
 import { autoMap, checkRow, FIELDS, headerSignature, type ColumnMap, type NormalizedRow, type PlanRef } from "@/lib/import/customers";
 import { parseCsv } from "@/lib/import/parse";
+import { parseXlsx } from "@/lib/import/xlsx";
 import { geocoder } from "@/lib/server/geocoding";
 import { generateVisits } from "@/lib/server/generation";
 
@@ -73,8 +74,14 @@ const ROUTEKEEP_MAP: ColumnMap = {
   status: "status",
 };
 
-export async function startImport(m: MemberSession, file: { name: string; text: string }): Promise<string> {
-  const sheet = parseCsv(file.text);
+/** FR-MIG-02: CSV or an Excel workbook (.xlsx, first sheet), told apart by the file's own bytes. */
+export function readSheet(file: { name: string; bytes: Uint8Array }) {
+  const zip = file.bytes[0] === 0x50 && file.bytes[1] === 0x4b;
+  return zip ? parseXlsx(file.bytes) : parseCsv(new TextDecoder("utf-8").decode(file.bytes));
+}
+
+export async function startImport(m: MemberSession, file: { name: string; bytes: Uint8Array }): Promise<string> {
+  const sheet = readSheet(file);
   if (sheet.rows.length === 0) throw new ImportError("The file has headers but no rows.");
   return withRls(m.claims, async (tx) => {
     const isOurs = ["id", "display_name", "service_address_line1", "service_postal_code"].every((h) => sheet.headers.includes(h));

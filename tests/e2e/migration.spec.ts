@@ -1,4 +1,4 @@
-import { strFromU8, unzipSync } from "fflate";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { adminQuery, denverToday, seedDispatchDay } from "./db";
 import { expect, expectAccessible, signInAs, test } from "./fixtures";
 
@@ -40,7 +40,7 @@ test("M5: import, check, commit, reconcile, re-import, export, start over from t
   // Upload: the columns are matched by name and by what the values look like.
   await page.goto("/settings/import");
   await expectAccessible(page);
-  await page.getByLabel("Customer list (CSV)").setInputFiles({ name: "old-software.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
+  await page.getByLabel("Customer list (CSV or Excel)").setInputFiles({ name: "old-software.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
   await page.getByRole("button", { name: "Upload and match columns" }).click();
   await expect(page.getByRole("heading", { name: "old-software.csv" })).toBeVisible();
   await expect(page.getByLabel("Customer number or ID")).toHaveValue("Cust #");
@@ -88,7 +88,7 @@ test("M5: import, check, commit, reconcile, re-import, export, start over from t
 
   // The same file again changes nothing (FR-MIG-12).
   await page.goto("/settings/import");
-  await page.getByLabel("Customer list (CSV)").setInputFiles({ name: "old-software.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
+  await page.getByLabel("Customer list (CSV or Excel)").setInputFiles({ name: "old-software.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) });
   await page.getByRole("button", { name: "Upload and match columns" }).click();
   await page.getByRole("button", { name: "Check every row" }).click();
   await expect(stat(page, "New customers")).toHaveText("0");
@@ -117,7 +117,7 @@ test("M5: import, check, commit, reconcile, re-import, export, start over from t
   const page2 = await other.newPage();
   await signInAs(page2, fresh.email);
   await page2.goto("/settings/import");
-  await page2.getByLabel("Customer list (CSV)").setInputFiles({ name: "customers-import.csv", mimeType: "text/csv", buffer: Buffer.from(exported) });
+  await page2.getByLabel("Customer list (CSV or Excel)").setInputFiles({ name: "customers-import.csv", mimeType: "text/csv", buffer: Buffer.from(exported) });
   await page2.getByRole("button", { name: "Upload and match columns" }).click();
   await expect(page2.getByText(/from Our own export/)).toBeVisible();
   await page2.getByRole("button", { name: "Check every row" }).click();
@@ -156,7 +156,7 @@ test("PRD 9.5: 3,000 customers go from upload to reconciled well inside 15 minut
   const rows = Array.from({ length: 3000 }, (_, i) => `${5000 + i},Customer ${i},${100 + i} N Main St,Orem,UT,84057,c${i}@example.com,801555${String(1000 + (i % 9000)).padStart(4, "0")},Quarterly Pest,${NEXT_US},`);
   const started = Date.now();
   await page.goto("/settings/import");
-  await page.getByLabel("Customer list (CSV)").setInputFiles({ name: "big.csv", mimeType: "text/csv", buffer: Buffer.from([CSV.split("\r\n")[0], ...rows].join("\r\n")) });
+  await page.getByLabel("Customer list (CSV or Excel)").setInputFiles({ name: "big.csv", mimeType: "text/csv", buffer: Buffer.from([CSV.split("\r\n")[0], ...rows].join("\r\n")) });
   await page.getByRole("button", { name: "Upload and match columns" }).click();
   await page.getByRole("button", { name: "Check every row" }).click();
   await expect(stat(page, "New customers")).toHaveText("3000", { timeout: 120_000 });
@@ -166,4 +166,43 @@ test("PRD 9.5: 3,000 customers go from upload to reconciled well inside 15 minut
   test.info().annotations.push({ type: "duration", description: `${seconds} s for 3,000 customers` });
   console.log(`PRD 9.5: 3,000 customers imported in ${seconds} s`);
   expect(seconds).toBeLessThan(15 * 60);
+});
+
+test("FR-MIG-02: an Excel workbook imports like a CSV, phones and dates intact", async ({ page }) => {
+  const day = await newBusiness();
+  await signInAs(page, day.email);
+  const cell = (ref: string, v: string | number, style?: number) =>
+    typeof v === "number" ? `<c r="${ref}"${style ? ` s="${style}"` : ""}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t>${v}</t></is></c>`;
+  const rows = [
+    ["Account", "Name", "Phone", "Street", "City", "State", "Zip", "Plan", "Next Service"],
+    [2001, "Ada Okafor", 8015550177, "12 W Center St", "Provo", "UT", 84601, "Quarterly Pest", 46400],
+    [2002, "Ruth Ames", 8015550188, "40 E 300 S", "Orem", "UT", 84058, "", ""],
+  ];
+  const sheet = rows
+    .map((r, i) => `<row r="${i + 1}">${r.map((v, k) => (v === "" ? "" : cell(`${String.fromCharCode(65 + k)}${i + 1}`, v, k === 8 && i > 0 ? 1 : undefined))).join("")}</row>`)
+    .join("");
+  const xlsx = zipSync({
+    "xl/workbook.xml": strToU8('<workbook xmlns:r="r"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>'),
+    "xl/_rels/workbook.xml.rels": strToU8('<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>'),
+    "xl/styles.xml": strToU8('<styleSheet><cellXfs><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>'),
+    "xl/worksheets/sheet1.xml": strToU8(`<worksheet><sheetData>${sheet}</sheetData></worksheet>`),
+  });
+  await page.goto("/settings/import");
+  await page.getByLabel("Customer list (CSV or Excel)").setInputFiles({ name: "customers.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: Buffer.from(xlsx) });
+  await page.getByRole("button", { name: "Upload and match columns" }).click();
+  await expect(page.getByLabel("Customer number or ID")).toHaveValue("Account");
+  await page.getByRole("button", { name: "Check every row" }).click();
+  await expect(stat(page, "New customers")).toHaveText("2");
+  await expect(stat(page, "Active plans")).toHaveText("1");
+  await page.getByRole("button", { name: "Import 2 customers" }).click();
+  await expect(page.getByText("Everything in the file is here.")).toBeVisible();
+  const imported = await adminQuery<{ phone: string; external_ref: string; start: string | null }>(
+    `select c.phone, c.external_ref, (select s.start_date::text from public.subscriptions s where s.customer_id = c.id) as start
+     from public.customers c where c.tenant_id = $1 order by c.external_ref`,
+    [day.tenantId],
+  );
+  expect(imported).toEqual([
+    { phone: "+18015550177", external_ref: "2001", start: "2027-01-13" },
+    { phone: "+18015550188", external_ref: "2002", start: null },
+  ]);
 });
