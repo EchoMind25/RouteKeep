@@ -4,7 +4,7 @@ import Stripe from "stripe";
 // M4 stage 2: a stand-in for Stripe's API on 127.0.0.1:3198, so payments are
 // tested end to end with no account, no key and nothing leaving the machine
 // (playwright.config.ts points the app here with STRIPE_API_BASE). It answers
-// only the calls RouteKeep makes, records each request (connected account
+// only the calls RouteVerde makes, records each request (connected account
 // header, idempotency key, parameters) for the test to check, plays Stripe's
 // hosted pages as plain forms, and sends signed webhooks back to the app the
 // way Stripe would. It is a model of Stripe's behaviour for these calls, not

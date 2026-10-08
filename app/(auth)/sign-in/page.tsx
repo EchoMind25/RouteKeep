@@ -7,9 +7,9 @@ import { SignInForm } from "./sign-in-form";
 export const metadata: Metadata = { title: "Sign in" };
 
 const DEMO_ACCOUNTS = [
-  { email: "owner@demo.routekeep.test", label: "Owner" },
-  { email: "office@demo.routekeep.test", label: "Office" },
-  { email: "tech.dez@demo.routekeep.test", label: "Technician" },
+  { email: "owner@demo.routeverde.test", label: "Owner" },
+  { email: "office@demo.routeverde.test", label: "Office" },
+  { email: "tech.dez@demo.routeverde.test", label: "Technician" },
 ];
 
 export default async function SignInPage() {

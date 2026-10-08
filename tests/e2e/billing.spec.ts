@@ -123,7 +123,7 @@ test("M4: finished visits are invoiced once, field cash applied, payments, credi
   expect(text).toContain("Dispatch Test Pest");
   expect(text).toContain("Paid in full. Thank you.");
   expect(raw).toContain("/Subtype /Image");
-  expect(raw + text).not.toContain("RouteKeep");
+  expect(raw + text).not.toContain("RouteVerde");
 
   // Void the monthly invoice (made in error): history keeps it, balance clears.
   await page.goto("/billing");

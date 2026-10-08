@@ -32,7 +32,7 @@ async function failure(response: Response): Promise<SyncHttpError> {
 }
 
 export const httpSync: SyncProvider = {
-  name: "routekeep",
+  name: "routeverde",
   async pull() {
     const response = await fetch("/api/tech/sync", { cache: "no-store", credentials: "same-origin" });
     if (!response.ok) throw await failure(response);

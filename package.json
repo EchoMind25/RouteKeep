@@ -1,5 +1,5 @@
 {
-  "name": "routekeep",
+  "name": "routeverde",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "db:start": "scripts/db/local.sh start",
     "db:stop": "scripts/db/local.sh stop",
     "db:reset": "scripts/db/local.sh reset && npm run db:generate",
-    "db:types": "scripts/db/local.sh fresh routekeep_codegen && kysely-codegen --dialect postgres --url postgresql://postgres@127.0.0.1:${RK_PGPORT:-54329}/routekeep_codegen --out-file lib/db/schema.ts --include-pattern 'public.*' --date-parser string --type-mapping '{\"int8\":\"number\"}'",
+    "db:types": "scripts/db/local.sh fresh routeverde_codegen && kysely-codegen --dialect postgres --url postgresql://postgres@127.0.0.1:${RK_PGPORT:-54329}/routeverde_codegen --out-file lib/db/schema.ts --include-pattern 'public.*' --date-parser string --type-mapping '{\"int8\":\"number\"}'",
     "design:contrast": "python3 scripts/design/contrast.py replica/design/tokens.json",
     "design:tokens": "node scripts/design/build-tokens.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run design:contrast",

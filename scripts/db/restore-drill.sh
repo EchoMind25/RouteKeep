@@ -6,10 +6,10 @@
 # writes, and run from a machine that may hold a copy of customer data.
 set -euo pipefail
 
-SOURCE_URL="${SOURCE_URL:-postgresql://postgres@127.0.0.1:${RK_PGPORT:-54329}/routekeep}"
+SOURCE_URL="${SOURCE_URL:-postgresql://postgres@127.0.0.1:${RK_PGPORT:-54329}/routeverde}"
 ADMIN_URL="${ADMIN_URL:-postgresql://postgres@127.0.0.1:${RK_PGPORT:-54329}/postgres}"
-SCRATCH="routekeep_drill_$(date +%s)"
-DUMP="$(mktemp -t routekeep-drill-XXXXXX.dump)"
+SCRATCH="routeverde_drill_$(date +%s)"
+DUMP="$(mktemp -t routeverde-drill-XXXXXX.dump)"
 trap 'rm -f "$DUMP"; psql "$ADMIN_URL" -qc "drop database if exists $SCRATCH" >/dev/null 2>&1 || true' EXIT
 
 started=$(date +%s)

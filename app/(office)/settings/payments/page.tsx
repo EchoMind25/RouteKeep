@@ -33,12 +33,12 @@ export default async function PaymentsSettingsPage({ searchParams }: { searchPar
           Card and bank payments
         </h2>
         <p className="max-w-[70ch] text-fg-muted">
-          Customers pay invoices from their account page and can turn on autopay. Payments go through your own Stripe account, straight to your bank. Stripe sets the processing fee and takes it from each payment; RouteKeep adds nothing. Card and bank numbers are only ever typed into Stripe&apos;s own pages.
+          Customers pay invoices from their account page and can turn on autopay. Payments go through your own Stripe account, straight to your bank. Stripe sets the processing fee and takes it from each payment; RouteVerde adds nothing. Card and bank numbers are only ever typed into Stripe&apos;s own pages.
         </p>
         {q.error ? <Alert tone="danger">{q.error}</Alert> : null}
         {!s.configured ? (
           <Alert tone="warning" title="Not available yet">
-            Online payments are switched off on this RouteKeep installation. Invoices can still be paid in cash or by check and recorded on the invoice.
+            Online payments are switched off on this RouteVerde installation. Invoices can still be paid in cash or by check and recorded on the invoice.
           </Alert>
         ) : s.chargesEnabled ? (
           <Alert tone="success" title="Connected">

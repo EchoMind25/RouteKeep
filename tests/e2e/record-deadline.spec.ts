@@ -82,7 +82,7 @@ test("CR-02: started visits warn at 20 hours and show overdue at 24, on the phon
   const yesterday = await adminQuery<{ d: string }>("select ($1::date - 1)::text as d", [today]).then((r) => r[0]!.d);
   await tech.evaluate(async (date) => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const open = indexedDB.open("routekeep-tech");
+      const open = indexedDB.open("routeverde-tech");
       open.onsuccess = () => resolve(open.result);
       open.onerror = () => reject(open.error);
     });

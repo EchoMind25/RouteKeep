@@ -157,7 +157,7 @@ export async function applyIntent(tx: Tx, tenantId: string, pi: Stripe.PaymentIn
   if (!payment) {
     // Ours (it carries our payment id) but not on file: someone should look.
     if (pi.metadata?.payment_id && pi.status === "succeeded") {
-      await flagIssue(tx, tenantId, { kind: "unknown_payment", objectId: pi.id, details: `Stripe took ${pi.amount_received} cents for a payment RouteKeep has no record of.` });
+      await flagIssue(tx, tenantId, { kind: "unknown_payment", objectId: pi.id, details: `Stripe took ${pi.amount_received} cents for a payment RouteVerde has no record of.` });
     }
     return null;
   }

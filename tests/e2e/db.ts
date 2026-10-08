@@ -5,12 +5,12 @@ import pg from "pg";
 // performance). Each call creates its own business, so specs never share or
 // disturb data. Runs as the local superuser, like supabase/seed.sql.
 
-const adminUrl = process.env.E2E_ADMIN_DATABASE_URL ?? `postgresql://postgres@127.0.0.1:${process.env.RK_PGPORT ?? 54329}/routekeep`;
+const adminUrl = process.env.E2E_ADMIN_DATABASE_URL ?? `postgresql://postgres@127.0.0.1:${process.env.RK_PGPORT ?? 54329}/routeverde`;
 
 export const OFFICE = { lat: 40.2969, lng: -111.6946 };
 
 function uniqueEmail(prefix: string) {
-  return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@e2e.routekeep.test`;
+  return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@e2e.routeverde.test`;
 }
 
 export interface SeedStop {

@@ -13,7 +13,7 @@ import type { UserSession } from "./session";
 // Supabase runs, so RLS sees exactly what it would in production.
 
 const COOKIE = "rk_local_session";
-const ISSUER = "routekeep-local";
+const ISSUER = "routeverde-local";
 const TTL_SECONDS = 12 * 60 * 60;
 
 function signingKey(): Uint8Array {

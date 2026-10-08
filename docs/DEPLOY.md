@@ -1,6 +1,6 @@
 # Going live
 
-Owner actions to take RouteKeep from local development to a hosted pilot. The
+Owner actions to take RouteVerde from local development to a hosted pilot. The
 code needs no changes for any of these; each is an account, a setting or a
 secret only the owner can create. Budget references are PRD section 5.
 
@@ -24,14 +24,14 @@ secret only the owner can create. Budget references are PRD section 5.
 6. Restricted database login (recommended). In the SQL editor, with a long
    random password:
    ```sql
-   create role routekeep_app login noinherit password '<generated>';
-   grant authenticated, service_role to routekeep_app;
+   create role routeverde_app login noinherit password '<generated>';
+   grant authenticated, service_role to routeverde_app;
    ```
    This role owns nothing and can do nothing until the app switches to
    `authenticated` (requests) or `service_role` (jobs), so a query that forgets
    to switch fails instead of bypassing RLS (verified against a local Postgres 16).
    Use the transaction pooler URL:
-   `postgresql://routekeep_app.<ref>:<password>@<pooler-host>:6543/postgres`.
+   `postgresql://routeverde_app.<ref>:<password>@<pooler-host>:6543/postgres`.
    Not yet verified on a hosted project: if Supabase refuses the `grant`, skip
    this step and use the default pooler user; RLS still applies because every
    request switches to `authenticated` in `withRls`.
@@ -116,7 +116,7 @@ values locally (for example `openssl rand -base64 48`); never paste them into ch
 | Variable | Needed for | Notes |
 | --- | --- | --- |
 | `APP_SECRET` | Customer accounts, unsubscribe links | 32+ random characters. Changing it signs everyone out of the portal and breaks old unsubscribe links |
-| `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` | Email (M6) | Create the Resend account, verify a sending domain you own, then set `EMAIL_FROM` like `RouteKeep <mail@yourdomain>`. The business's name replaces the display name on each email |
+| `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` | Email (M6) | Create the Resend account, verify a sending domain you own, then set `EMAIL_FROM` like `RouteVerde <mail@yourdomain>`. The business's name replaces the display name on each email |
 | `ANTHROPIC_API_KEY` | AI route plan (D-07) | Optional. Set a monthly spend limit on the key in the Anthropic console first |
 | `ROUTE_AI_MODEL`, `ROUTE_AI_EFFORT` | AI route plan | Defaults: `claude-fable-5-1`, `high`. A cheaper model cuts cost per plan |
 | `CRON_SECRET` | `/api/cron` | Only if you schedule jobs with something other than Inngest |

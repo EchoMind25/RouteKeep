@@ -19,9 +19,9 @@ select
   (a ->> 'appointment')::uuid as appointment,
   (a ->> 'route')::uuid as route,
   (a ->> 'technician')::uuid as technician,
-  pg_temp.new_user('new-admin@test.routekeep.dev') as new_admin,
-  pg_temp.new_user('new-tech@test.routekeep.dev') as new_tech,
-  pg_temp.new_user('sneaky-owner@test.routekeep.dev') as sneaky_owner
+  pg_temp.new_user('new-admin@test.routeverde.dev') as new_admin,
+  pg_temp.new_user('new-tech@test.routeverde.dev') as new_tech,
+  pg_temp.new_user('sneaky-owner@test.routeverde.dev') as sneaky_owner
 from fx;
 grant select on ids to authenticated;
 
@@ -110,7 +110,7 @@ select throws_ok(
   '42501', null, 'Stripe status changes only through Stripe');
 select cmp_ok((select count(*) from public.audit_log), '>', 0::bigint, 'the owner can read the audit log');
 select lives_ok(
-  format($$select app.add_member(%L, 'new-admin@test.routekeep.dev', 'admin', 'New Admin')$$,
+  format($$select app.add_member(%L, 'new-admin@test.routeverde.dev', 'admin', 'New Admin')$$,
          (select new_admin from ids)),
   'FR-SET-02: the owner can add an admin');
 select throws_ok(
@@ -123,11 +123,11 @@ reset role;
 
 select pg_temp.login((select admin from ids), (select tenant from ids));
 select lives_ok(
-  format($$select app.add_member(%L, 'new-tech@test.routekeep.dev', 'technician', 'New Tech')$$,
+  format($$select app.add_member(%L, 'new-tech@test.routeverde.dev', 'technician', 'New Tech')$$,
          (select new_tech from ids)),
   'FR-SET-02: an admin can add a technician');
 select throws_ok(
-  format($$select app.add_member(%L, 'sneaky-owner@test.routekeep.dev', 'owner', null)$$,
+  format($$select app.add_member(%L, 'sneaky-owner@test.routeverde.dev', 'owner', null)$$,
          (select sneaky_owner from ids)),
   '42501', null, 'an admin cannot create an owner');
 select throws_ok(
@@ -136,7 +136,7 @@ select throws_ok(
 reset role;
 
 -- Tenant creation (FR-SET-01) -----------------------------------------------------------------
-create temp table newbie on commit drop as select pg_temp.new_user('fresh-owner@test.routekeep.dev') as id;
+create temp table newbie on commit drop as select pg_temp.new_user('fresh-owner@test.routeverde.dev') as id;
 grant select on newbie to authenticated;
 select set_config('request.jwt.claims',
   jsonb_build_object('sub', (select id from newbie), 'role', 'authenticated')::text, true);

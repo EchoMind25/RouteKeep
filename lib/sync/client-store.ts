@@ -100,7 +100,7 @@ interface TechDB extends DBSchema {
   blobs: { key: string; value: BlobEntry; indexes: { appointmentId: string } };
 }
 
-const DB_NAME = "routekeep-tech";
+const DB_NAME = "routeverde-tech";
 
 function open(): Promise<IDBPDatabase<TechDB>> {
   return openDB<TechDB>(DB_NAME, 1, {

@@ -15,7 +15,7 @@ describe("renderEmail (FR-MSG-01, CR-03, FR-MSG-04, FR-BRD-03)", () => {
     expect(e.text).toContain("Anika Sorensen finished your general pest on Tuesday, October 6.");
     expect(e.text).toContain("Timpanogos Pest & Lawn, pesticide business license UT-BUS-4471");
     expect(e.text).toContain("Stop these emails: https://app.example/u/abc.def");
-    expect(e.text).toContain("Sent with RouteKeep");
+    expect(e.text).toContain("Sent with RouteVerde");
     expect(e.html).toContain("Timpanogos Pest &amp; Lawn");
     expect(e.html).toContain('href="https://app.example/u/abc.def"');
     expect(e.html).not.toMatch(/<img|https?:\/\/(?!app\.example)/);
@@ -23,7 +23,7 @@ describe("renderEmail (FR-MSG-01, CR-03, FR-MSG-04, FR-BRD-03)", () => {
 
   it("drops the product credit for white label and the unsubscribe link on a sign-in email", () => {
     const e = renderEmail({ topic: "portal.sign_in", link: "https://app.example/p/t1/auth?token=x" }, { ...input, business: { ...input.business, whiteLabel: true } });
-    expect(e.text).not.toContain("RouteKeep");
+    expect(e.text).not.toContain("RouteVerde");
     expect(e.text).not.toContain("Stop these emails");
     expect(e.text).toContain("Sign in: https://app.example/p/t1/auth?token=x");
   });

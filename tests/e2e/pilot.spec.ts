@@ -35,7 +35,7 @@ test("FR-BRD-03: white label shows the business's name and colour everywhere, an
   await expect(page).toHaveTitle(/\| Dispatch Test Pest$/);
   const aside = page.locator("aside").first();
   await expect(aside).toContainText("Dispatch Test Pest");
-  await expect(aside).not.toContainText("RouteKeep");
+  await expect(aside).not.toContainText("RouteVerde");
   const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--rk-accent").trim());
   expect(accent).not.toBe(before);
   expect(accent).not.toBe("#ffd400");
@@ -54,7 +54,7 @@ test("FR-BRD-03: white label shows the business's name and colour everywhere, an
   await signInAs(tech, day.techEmails[0]!);
   await tech.goto("/tech");
   await expect(tech.locator("header").first()).toContainText("Dispatch Test Pest", { timeout: 15_000 });
-  await expect(tech.locator("header").first()).not.toContainText("RouteKeep");
+  await expect(tech.locator("header").first()).not.toContainText("RouteVerde");
   await phone.close();
 
   // The portal drops the product credit.

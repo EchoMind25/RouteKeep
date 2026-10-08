@@ -22,7 +22,7 @@ export function stripe(): Stripe | null {
     maxNetworkRetries: 2,
     // D-04: a Stripe call is one part of a step that must finish inside 20 s.
     timeout: 10_000,
-    appInfo: { name: "RouteKeep" },
+    appInfo: { name: "RouteVerde" },
     ...(base ? { host: base.hostname, port: base.port || (base.protocol === "https:" ? 443 : 80), protocol: base.protocol === "https:" ? "https" : "http" } : {}),
   });
   return client;
