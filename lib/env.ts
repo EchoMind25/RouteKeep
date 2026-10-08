@@ -41,6 +41,12 @@ const schema = z
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).optional(),
     LOCAL_MAIL_DIR: z.string().min(1).default(".local/mail"),
+    // M4 stage 2 (D-09): Stripe Connect. The platform's secret key, and the
+    // signing secret of the Connect webhook endpoint (events from connected accounts).
+    STRIPE_SECRET_KEY: z.string().regex(/^(sk|rk)_(test|live)_/, "STRIPE_SECRET_KEY starts with sk_test_, sk_live_, rk_test_ or rk_live_").optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().startsWith("whsec_", "STRIPE_WEBHOOK_SECRET starts with whsec_").optional(),
+    // Tests point this at a local stand-in for Stripe's API; unset in production.
+    STRIPE_API_BASE: z.url().optional(),
     // Shared secret for /api/cron, for a scheduler that is not Inngest.
     CRON_SECRET: z.string().min(24).optional(),
     NETLIFY: z.string().optional(),
@@ -64,6 +70,13 @@ const schema = z
     }
     if (e.EMAIL_PROVIDER === "resend" && (!e.RESEND_API_KEY || !e.EMAIL_FROM)) {
       ctx.addIssue({ code: "custom", path: ["RESEND_API_KEY"], message: "EMAIL_PROVIDER=resend needs RESEND_API_KEY and EMAIL_FROM" });
+    }
+    if (e.STRIPE_SECRET_KEY && !e.STRIPE_WEBHOOK_SECRET) {
+      ctx.addIssue({ code: "custom", path: ["STRIPE_WEBHOOK_SECRET"], message: "STRIPE_SECRET_KEY needs STRIPE_WEBHOOK_SECRET too: payments are only marked paid from Stripe's signed events" });
+    }
+    if (e.STRIPE_API_BASE) {
+      const blocked = localAuthBlockReason({ databaseUrl: e.DATABASE_URL, netlify: e.NETLIFY, context: e.CONTEXT });
+      if (blocked) ctx.addIssue({ code: "custom", path: ["STRIPE_API_BASE"], message: blocked.replace("Local sign-in", "A stand-in Stripe API") });
     }
     // Files on this machine are for development only, with the same guard as local sign-in.
     if (e.STORAGE_PROVIDER === "local") {
@@ -107,4 +120,10 @@ export function appSecret(): string | null {
 export function emailProvider(): "log" | "resend" | null {
   const e = env();
   return e.EMAIL_PROVIDER ?? (e.AUTH_MODE === "local" ? "log" : null);
+}
+
+/** M4 stage 2: Stripe is set up when both the key and the webhook secret are present. */
+export function stripeConfigured(): boolean {
+  const e = env();
+  return Boolean(e.STRIPE_SECRET_KEY && e.STRIPE_WEBHOOK_SECRET);
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Field, Input } from "@/components/ui/field";
+import { Checkbox, Field, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState } from "@/lib/forms";
-import { addCreditAction, recordPaymentAction, voidInvoiceAction } from "../../actions";
+import { addCreditAction, recordPaymentAction, refundPaymentAction, voidInvoiceAction } from "../../actions";
 
 // FR-BIL-06: money the office takes or forgives. Each form carries a client
 // key made when the page was drawn, so a double click records it once.
@@ -92,6 +92,34 @@ export function VoidForm({ invoiceId }: { invoiceId: string }) {
       <div>
         <SubmitButton variant="danger" pendingLabel="Voiding">
           Void invoice
+        </SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+export function RefundForm({ invoiceId, paymentId, refundKey, maxAmount }: { invoiceId: string; paymentId: string; refundKey: string; maxAmount: string }) {
+  const [state, action] = useActionState(refundPaymentAction, initialFormState);
+  const v = state.values ?? { amount: maxAmount, credit: "on" };
+  const e = state.errors ?? {};
+  return (
+    <form action={action} className="grid gap-4" noValidate>
+      {state.message && !e.amount ? <Alert tone="danger">{state.message}</Alert> : null}
+      <input type="hidden" name="invoiceId" value={invoiceId} />
+      <input type="hidden" name="paymentId" value={paymentId} />
+      <input type="hidden" name="key" value={refundKey} />
+      <div className="grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <Field label="Refund amount" error={e.amount}>
+          <Input name="amount" inputMode="decimal" defaultValue={v.amount} />
+        </Field>
+        <Field label="Reason" hint="Kept with the refund in the invoice history." error={e.reason}>
+          <Input name="reason" defaultValue={v.reason} />
+        </Field>
+      </div>
+      <Checkbox name="credit" label="Also take it off what they owe" hint="Leave on when the service is being made good. Off means they owe this amount again." defaultChecked={v.credit === "on"} />
+      <div>
+        <SubmitButton variant="danger" pendingLabel="Refunding">
+          Refund to their card or bank
         </SubmitButton>
       </div>
     </form>

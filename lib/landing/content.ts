@@ -75,7 +75,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "What about billing, autopay and text reminders?",
-    a: "Invoicing is in. Finished visits turn into invoices, cash and checks get recorded, and late ones land on a collections list. Card payments and autopay come next through Stripe, then email and text reminders. Card numbers will only ever go through Stripe's own secure form, never through us.",
+    a: "Invoicing, email reminders, card payments and autopay are in. Finished visits turn into invoices, customers pay online or on autopay through your own Stripe account, and late ones land on a collections list. Text reminders come next. Card and bank numbers only ever go into Stripe's own secure pages, never through us.",
   },
   {
     q: "Will my invoices show my logo?",

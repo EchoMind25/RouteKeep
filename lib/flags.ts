@@ -6,13 +6,13 @@ export const FLAGS = {
   dispatchBoard: true,
   /** M3: offline technician PWA. On since 2026-10-07; off falls back to the online day list. */
   offlineTechApp: true,
-  /** M4: invoices, payments taken in the office, credits, collections, money reports. On since 2026-10-08; card and autopay wait for Stripe. */
+  /** M4: invoices, payments, credits, collections, money reports. On since 2026-10-08. Card payments and autopay (stage 2) show only once Stripe keys are set and the business has connected its account. */
   billing: true,
   /** The Reports area. On since 2026-10-07 with product usage (FR-REC-06); billing reports join it with `billing`. */
   reports: true,
   /** M5: the import wizard (export is never flagged: leaving is promised from day one). On since 2026-10-08. */
   migration: true,
-  /** M6: customer portal and email (FR-POR, FR-MSG). On since 2026-10-08; card payments and texts wait for Stripe and an SMS provider. */
+  /** M6: customer portal and email (FR-POR, FR-MSG). On since 2026-10-08; texts wait for an SMS provider. */
   portal: true,
 } as const;
 

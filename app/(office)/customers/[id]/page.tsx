@@ -14,6 +14,8 @@ import { needsPinConfirmation } from "@/lib/providers/geocoder";
 import { getCustomer, propertyAddress } from "@/lib/server/customers";
 import { saleFor } from "@/lib/server/sales";
 import { listInvoices } from "@/lib/server/billing";
+import { customerAutopay } from "@/lib/server/payments";
+import { turnOffAutopayAction } from "../../billing/actions";
 import { recentMessages, serviceRequests, TEMPLATE_LABEL } from "@/lib/server/messages";
 import { requestDoneAction } from "./account-actions";
 import { PortalLinkButton } from "./portal-link";
@@ -35,23 +37,24 @@ const DONE: Record<string, string> = {
   pin_locked: "Pin confirmed and locked.",
 };
 
-export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; done?: string }> }) {
+export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; done?: string; autopay?: string }> }) {
   const member = await requireMember(OFFICE_ROLES);
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const billing = isEnabled("billing") && member.role !== "dispatcher";
-  const [data, sale, invoices, messages, requests] = await Promise.all([
+  const [data, sale, invoices, messages, requests, autopay] = await Promise.all([
     getCustomer(member, id),
     saleFor(member, id),
     billing ? listInvoices(member, "all", { customerId: id, limit: 12 }) : Promise.resolve([]),
     recentMessages(member, { customerId: id, limit: 10 }),
     serviceRequests(member, { customerId: id }),
+    billing ? customerAutopay(member, id) : Promise.resolve(null),
   ]);
   if (!data) notFound();
   const { customer, properties, subscriptions, upcoming, history, balanceCents } = data;
   const query = await searchParams;
   const created = query.created === "1";
-  const done = DONE[query.done ?? ""];
+  const done = query.autopay === "off" ? "Autopay is off. Nothing more will be charged automatically." : DONE[query.done ?? ""];
   const addressOf = new Map(properties.map((p) => [p.id, propertyAddress(p)]));
 
   return (
@@ -153,6 +156,21 @@ export default async function CustomerPage({ params, searchParams }: { params: P
               ) : (
                 <p className="px-5 py-4 text-fg-muted">No invoices yet.</p>
               )}
+              {/* FR-BIL-02, CR-06: autopay as it stands, and a way to stop it. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
+                <p className="text-sm">
+                  <span className="font-medium">Autopay: </span>
+                  {autopay ? `${autopay.label}, since ${formatInstant(autopay.since, member.timezone)}` : <span className="text-fg-muted">off. The customer turns it on from their account page.</span>}
+                </p>
+                {autopay ? (
+                  <form action={turnOffAutopayAction}>
+                    <input type="hidden" name="customerId" value={customer.id} />
+                    <Button type="submit" variant="ghost" size="sm">
+                      Turn off autopay
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
             </Panel>
           ) : null}
 

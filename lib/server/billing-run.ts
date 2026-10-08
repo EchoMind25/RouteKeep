@@ -62,6 +62,8 @@ async function postInvoice(tx: Tx, input: { tenantId: string; customerId: string
   if (!visits.length) return null;
   const total = visits.reduce((sum, v) => sum + v.price_cents, 0);
   // A period already invoiced (a visit finished late) gets a supplementary invoice.
+  // FR-BIL-02: a customer on autopay is charged when the invoice is issued (lib/jobs/autopay.ts).
+  const autopay = await tx.selectFrom("payment_methods").select("id").where("tenant_id", "=", input.tenantId).where("customer_id", "=", input.customerId).where("status", "=", "active").executeTakeFirst();
   const taken = input.subscriptionId
     ? await tx.selectFrom("invoices").select("id").where("subscription_id", "=", input.subscriptionId).where("period_key", "=", input.periodKey).executeTakeFirst()
     : undefined;
@@ -79,6 +81,7 @@ async function postInvoice(tx: Tx, input: { tenantId: string; customerId: string
       issued_at: input.now,
       due_date: input.today,
       source: "billing_run",
+      autopay_next_at: autopay ? input.now : null,
       // The number comes from the per-tenant counter (app.assign_invoice_number).
       number: undefined as unknown as number,
     })

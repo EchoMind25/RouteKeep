@@ -266,6 +266,12 @@ begin
   insert into public.portal_tokens (tenant_id, customer_id, token_hash, expires_at)
   values (v_tenant, v_customer, 'seed-' || p_label, now() + interval '20 minutes');
 
+  insert into public.payment_methods (tenant_id, customer_id, stripe_payment_method_id, kind, label, exp_month, exp_year, consent_text, consented_at)
+  values (v_tenant, v_customer, 'pm_seed_' || p_label, 'card', 'Visa ending 4242', 12, 2030, 'I allow this business to charge this card for each invoice.', now());
+
+  insert into public.reconciliation_issues (tenant_id, kind, stripe_object_id, payment_id, details)
+  values (v_tenant, 'amount_mismatch', 'pi_seed_' || p_label, v_payment, 'Stripe shows 199.00, the ledger 189.00');
+
   insert into public.sync_conflicts (tenant_id, appointment_id, technician_id, kind, details, client_key)
   values (v_tenant, v_appt, v_tech, 'completed_after_change', '{"server_status": "cancelled"}', 'conflict-' || p_label || '-1');
 

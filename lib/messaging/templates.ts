@@ -8,7 +8,7 @@ import { BRAND } from "@/lib/brand";
 // text first; the HTML is the same words with light formatting, colours from
 // the design tokens. No tracking pixels, no remote images.
 
-export type Topic = "appointment.reminder" | "appointment.on_the_way" | "appointment.completed" | "invoice.issued" | "payment.received" | "portal.sign_in" | "customer.switch_notice";
+export type Topic = "appointment.reminder" | "appointment.on_the_way" | "appointment.completed" | "invoice.issued" | "payment.received" | "portal.sign_in" | "customer.switch_notice" | "payment.failed" | "autopay.enabled";
 
 export interface EmailBusiness {
   name: string;
@@ -31,8 +31,10 @@ export type TopicData =
   | { topic: "appointment.on_the_way"; serviceType: string; technicianName: string | null }
   | { topic: "payment.received"; amountText: string; methodText: string; invoiceNumber: number | null; balanceText: string; receiptUrl: string }
   | { topic: "customer.switch_notice"; message: string | null }
+  | { topic: "payment.failed"; amountText: string; invoiceNumber: number | null; reasonText: string; retryText: string | null; newMethod: boolean; payUrl: string }
+  | { topic: "autopay.enabled"; methodLabel: string; consentText: string; manageUrl: string }
   | { topic: "appointment.completed"; serviceType: string; dateText: string; technicianName: string | null; recordUrl: string }
-  | { topic: "invoice.issued"; number: number; totalText: string; dueText: string; invoiceUrl: string }
+  | { topic: "invoice.issued"; number: number; totalText: string; dueText: string; invoiceUrl: string; autopayText?: string | null }
   | { topic: "portal.sign_in"; link: string };
 
 export interface RenderedEmail {
@@ -86,6 +88,29 @@ function body(data: TopicData, input: EmailInput): Body {
         ],
         action: { label: "See your account", url: data.receiptUrl },
       };
+    case "payment.failed":
+      return {
+        subject: `Payment didn't go through: ${data.amountText} to ${b}`,
+        lines: [
+          `Hi ${input.greeting},`,
+          `We tried to take ${data.amountText}${data.invoiceNumber ? ` for invoice ${data.invoiceNumber}` : ""} and it didn't go through. ${data.reasonText}.`,
+          data.retryText
+            ? `We'll try again ${data.retryText}.${data.newMethod ? " The same card or account is unlikely to work, so please update it before then." : ""}`
+            : "You can pay it from your account page, or update the card or bank account we have on file.",
+        ],
+        action: { label: data.newMethod ? "Update how you pay" : "Pay or update how you pay", url: data.payUrl },
+        after: ["Already sorted it out? Thanks, and ignore this email."],
+      };
+    case "autopay.enabled":
+      return {
+        subject: `Autopay is on with ${b}`,
+        lines: [
+          `Hi ${input.greeting},`,
+          `Autopay is on. From now on, each new invoice from ${b} is paid with ${data.methodLabel} when it's issued, and you'll get a receipt each time.`,
+          `What you agreed to: "${data.consentText}"`,
+        ],
+        action: { label: "Change or turn off autopay", url: data.manageUrl },
+      };
     case "customer.switch_notice":
       return {
         subject: `Your ${b} account has a new home`,
@@ -109,7 +134,7 @@ function body(data: TopicData, input: EmailInput): Body {
     case "invoice.issued":
       return {
         subject: `Invoice ${data.number} from ${b}: ${data.totalText}`,
-        lines: [`Hi ${input.greeting},`, `Here's invoice ${data.number} for ${data.totalText}, due ${data.dueText}.`],
+        lines: [`Hi ${input.greeting},`, `Here's invoice ${data.number} for ${data.totalText}, due ${data.dueText}.`, ...(data.autopayText ? [data.autopayText] : [])],
         action: { label: "View invoice", url: data.invoiceUrl },
         after: ["Questions about it? Reply to this email or give us a call."],
       };

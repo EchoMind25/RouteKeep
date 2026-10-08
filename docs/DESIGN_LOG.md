@@ -130,3 +130,10 @@ was opened.
   export, deletion, subprocessors), not adapted from any competitor's terms.
   The white label palette rule (keep the hue, move lightness until AA on
   surface, canvas and its own tint) is our own.
+- Card payments and autopay (M4 stage 2), 2026-10-09: built from the PRD
+  (D-09, FR-BIL-02/04/06/07, CR-05, CR-06, ENG-02/03) and Stripe's public API
+  reference and SDK type definitions. The retry schedule (3 and 4 days), the
+  consent wording, "refund and credit" as the default, and the reconciliation
+  findings are our own. The test stand-in models Stripe's answers for the
+  calls we make; it copies nothing of Stripe's. No competitor billing screen,
+  flow or help page was looked at.

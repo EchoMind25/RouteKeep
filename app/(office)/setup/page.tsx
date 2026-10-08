@@ -28,7 +28,7 @@ export default async function SetupPage() {
     { done: p.techLogins > 0, title: "Invite your technicians", body: "Each signs in on their phone and installs the tech app.", href: "/settings/team", cta: "Invite" },
     { done: p.optimized > 0, title: "Plan your first route", body: "Open a day, check pins, optimize, publish.", href: "/schedule", cta: "Open schedule" },
     { done: p.emailOn, title: "Turn on email", body: "Reminders, service complete notices and invoices.", href: "/settings/messages", cta: "Check" },
-    { done: p.stripeConnected, title: "Connect card payments", body: "Coming next: autopay and card payments through Stripe.", href: "/settings/messages", cta: "Not yet", disabled: true },
+    { done: p.stripeConnected, title: "Connect card payments", body: "Your own Stripe account, so customers can pay online and use autopay.", href: "/settings/payments", cta: "Connect" },
     { done: p.live, title: "Go live", body: "Imported customers start getting messages. Do this once you stop using the old system.", href: "/settings/messages", cta: "Go live" },
   ];
 

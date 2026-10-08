@@ -245,7 +245,7 @@ Billing rules as built in M4 stage 1 (2026-10-07; change only with the owner):
 - Payments taken in the field post against their visit's invoice on the next run; one whose visit is not invoiced yet (a plan billed by period, mid-period) posts as credit on the customer's account and lowers what they owe, but is not tied to the later invoice.
 - An invoice is paid when its ledger balance reaches zero. Recording more than an invoice still owes is refused. Void needs a reason and posts an offsetting credit; void and uncollectible invoices never reopen.
 - The run is started by the office ("Invoice finished visits") or the nightly job (`npm run billing:run`); each invoice and each payment is its own transaction, failures are listed on the run, and a rerun only does what is left.
-- Card and bank payments, autopay, retries and reconciliation (FR-BIL-02, 04 retry part, 05, 07) wait for the owner's Stripe account (stage 2).
+- Stage 2 (built 2026-10-09, tested end to end against a local stand-in for Stripe's API; not yet run against a real Stripe account): the owner connects the business's own Stripe account (Standard, D-09) in Settings, Payments. Customers pay an invoice from the portal on Stripe's Checkout page, and set up autopay with a card or bank account on Stripe's page, which shows the words they agree to; those words are stored with the method (CR-06), and the portal and the office can turn autopay off at once. Autopay charges an invoice when it is issued, then retries 3 and 7 days later; each failure emails the customer and leaves the invoice in collections. Owners and admins refund from the invoice; the refund and, by default, a matching credit are ledger entries. Webhooks are verified and deduplicated (ENG-03); every Stripe call that moves money carries a key derived from our row (ENG-02). A nightly check applies anything a lost webhook missed and lists what it cannot square (FR-BIL-07).
 
 ### 8.8 Messaging `[MVP]`
 - FR-MSG-01 Email reminders, "on the way", service complete, invoice, payment failed.
@@ -396,7 +396,7 @@ Status 2026-10-08 (details in `replica/features.csv` and `replica/build-log.md`)
 | Milestone | State | What is left |
 |---|---|---|
 | M0 to M3 | Done | CI on GitHub Actions (account permission), real-iPhone offline test (RISK-01) |
-| M4 Money | Stage 1 done: invoices, cash and check, credits, voids, collections, money reports, invoice email | Stage 2 needs the owner's Stripe account: Connect onboarding, card and ACH, autopay, webhooks, refunds, reconciliation (FR-BIL-02/04/07) |
+| M4 Money | Stage 1 done: invoices, cash and check, credits, voids, collections, money reports, invoice email. Stage 2 built and tested against a Stripe stand-in: Connect onboarding, portal pay, autopay with retries, webhooks, refunds, reconciliation | The owner's Stripe platform account and keys, then one live test payment and refund before customers use it |
 | M5 Migration and export | Done for customer lists and full export | XLSX, named-vendor presets (from a real customer's file), technicians/products/history import, 10,000-customer export timing |
 | M6 Messaging and portal | Email and portal done | SMS needs a provider account and 10DLC approval; online payment in the portal needs Stripe |
 | M7 Pilot hardening | Legal templates, status page, restore drill script, white label theming, switch-over checklist done | Attorney review (D-13), legal entity (OQ-02), Supabase Pro and a production restore drill (CR-09) |

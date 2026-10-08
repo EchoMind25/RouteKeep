@@ -4,6 +4,7 @@ import { withServiceRole } from "@/lib/db/service";
 import type { Tx } from "@/lib/db/rls";
 import { formatAddress, formatPhone } from "@/lib/domain/contact";
 import { formatCents } from "@/lib/domain/money";
+import { todayIn } from "@/lib/domain/time";
 import { appSecret, env } from "@/lib/env";
 import { sign } from "@/lib/messaging/signed";
 import { emailSender, PermanentEmailError } from "@/lib/messaging/providers";
@@ -121,6 +122,44 @@ async function topicData(tx: Tx, e: Event, portal: string): Promise<{ data: Topi
       invoiceId: pay.invoice_id ?? undefined,
     };
   }
+  if (e.topic === "payment.failed") {
+    const pay = await tx
+      .selectFrom("payments as p")
+      .leftJoin("invoices as i", (j) => j.onRef("i.id", "=", "p.invoice_id").onRef("i.tenant_id", "=", "p.tenant_id"))
+      .select(["p.customer_id", "p.amount_cents", "p.status", "p.failure_message", "i.number", "i.id as invoice_id", "i.status as invoice_status"])
+      .where("p.tenant_id", "=", e.tenant_id)
+      .where("p.id", "=", String(p.paymentId))
+      .executeTakeFirst();
+    if (!pay) return { suppress: "The payment no longer exists" };
+    if (pay.status !== "failed") return { suppress: "The payment went through after all" };
+    if (pay.invoice_id && pay.invoice_status !== "open") return { suppress: "The invoice was paid or voided before the email went out" };
+    const tz = (await tx.selectFrom("tenants").select("timezone").where("id", "=", e.tenant_id).executeTakeFirstOrThrow()).timezone;
+    const retryAt = typeof p.retryAt === "string" ? new Date(p.retryAt) : null;
+    return {
+      data: {
+        topic: "payment.failed",
+        amountText: formatCents(pay.amount_cents),
+        invoiceNumber: pay.number === null ? null : Number(pay.number),
+        reasonText: pay.failure_message ?? "The payment was declined",
+        retryText: retryAt ? `on ${formatLocalDate(todayIn(tz, retryAt), "full")}` : null,
+        newMethod: p.newMethod === true,
+        payUrl: portal,
+      },
+      customerId: pay.customer_id,
+      invoiceId: pay.invoice_id ?? undefined,
+    };
+  }
+  if (e.topic === "autopay.enabled") {
+    const m = await tx
+      .selectFrom("payment_methods")
+      .select(["customer_id", "label", "consent_text", "status"])
+      .where("tenant_id", "=", e.tenant_id)
+      .where("stripe_payment_method_id", "=", String(p.paymentMethodId))
+      .executeTakeFirst();
+    if (!m) return { suppress: "The payment method is no longer on file" };
+    if (m.status !== "active") return { suppress: "Autopay was turned off or changed before the email went out" };
+    return { data: { topic: "autopay.enabled", methodLabel: m.label, consentText: m.consent_text, manageUrl: portal }, customerId: m.customer_id };
+  }
   if (e.topic === "customer.switch_notice") {
     return { data: { topic: "customer.switch_notice", message: typeof p.message === "string" && p.message.trim() ? p.message.trim() : null }, customerId: String(p.customerId) };
   }
@@ -134,8 +173,16 @@ async function topicData(tx: Tx, e: Event, portal: string): Promise<{ data: Topi
       .executeTakeFirst();
     if (!i) return { suppress: "The invoice no longer exists" };
     if (i.status !== "open" || Number(i.open_cents) <= 0) return { suppress: "Already paid or voided before the email went out" };
+    const auto = await tx.selectFrom("payment_methods").select("label").where("tenant_id", "=", e.tenant_id).where("customer_id", "=", i.customer_id).where("status", "=", "active").executeTakeFirst();
     return {
-      data: { topic: "invoice.issued", number: Number(i.number), totalText: formatCents(i.total_cents), dueText: i.due_date ? `on ${formatLocalDate(i.due_date, "full")}` : "on receipt", invoiceUrl: `${portal}/invoices/${i.id}` },
+      data: {
+        topic: "invoice.issued",
+        number: Number(i.number),
+        totalText: formatCents(i.total_cents),
+        dueText: i.due_date ? `on ${formatLocalDate(i.due_date, "full")}` : "on receipt",
+        invoiceUrl: `${portal}/invoices/${i.id}`,
+        autopayText: auto ? `You're on autopay, so it's paid with ${auto.label}. Nothing to do.` : null,
+      },
       customerId: i.customer_id,
       invoiceId: i.id,
     };

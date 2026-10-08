@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: "2026-10-09",
+    title: "Card payments and autopay",
+    items: [
+      "Connect your own Stripe account in Settings, Payments. Money goes straight to your bank; Stripe sets the fee and RouteKeep adds nothing.",
+      "Customers can pay an invoice from their account page, and turn on autopay with a card or bank account. Card and bank numbers are only typed into Stripe's own pages.",
+      "Autopay pays each new invoice when it's issued. If a payment fails, the customer gets an email and it's tried again 3 days later, then 4 days after that.",
+      "Refund a card or bank payment from the invoice. Each night your payments are checked against Stripe, and anything that needs you shows in Settings, Payments.",
+    ],
+  },
+  {
     date: "2026-10-08",
     title: "Ready for your first switch-over",
     items: [

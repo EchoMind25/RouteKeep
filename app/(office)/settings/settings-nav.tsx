@@ -12,6 +12,7 @@ const TABS = [
   { href: "/settings/products", label: "Products" },
   { href: "/settings/sales", label: "Sales" },
   { href: "/settings/messages", label: "Messages" },
+  { href: "/settings/payments", label: "Payments" },
   { href: "/settings/import", label: "Import" },
   { href: "/settings/export", label: "Export" },
   { href: "/settings/changes", label: "What's new" },

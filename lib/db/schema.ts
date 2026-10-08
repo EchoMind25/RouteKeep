@@ -328,6 +328,9 @@ export interface InvoiceLines {
 
 export interface Invoices {
   appointment_id: string | null;
+  autopay_attempts: Generated<number>;
+  autopay_last_error: string | null;
+  autopay_next_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   customer_id: string;
   due_date: string | null;
@@ -434,6 +437,25 @@ export interface OutboxEvents {
   updated_at: Generated<Timestamp>;
 }
 
+export interface PaymentMethods {
+  consent_text: string;
+  consented_at: Timestamp;
+  created_at: Generated<Timestamp>;
+  customer_id: string;
+  exp_month: number | null;
+  exp_year: number | null;
+  id: Generated<string>;
+  kind: string;
+  label: string;
+  revoked_at: Timestamp | null;
+  revoked_by: string | null;
+  status: Generated<string>;
+  stripe_mandate_id: string | null;
+  stripe_payment_method_id: string;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Payments {
   amount_cents: number;
   appointment_id: string | null;
@@ -449,10 +471,12 @@ export interface Payments {
   import_job_id: string | null;
   invoice_id: string | null;
   method: string;
+  payment_method_id: string | null;
   received_at: Timestamp | null;
   refunded_cents: Generated<number>;
   source: Generated<string>;
   status: Generated<string>;
+  stripe_checkout_session_id: string | null;
   stripe_payment_intent_id: string | null;
   tenant_id: Generated<string>;
   updated_at: Generated<Timestamp>;
@@ -516,6 +540,20 @@ export interface Properties {
   tenant_id: Generated<string>;
   updated_at: Generated<Timestamp>;
   version: Generated<number>;
+}
+
+export interface ReconciliationIssues {
+  created_at: Generated<Timestamp>;
+  details: string;
+  found_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  payment_id: string | null;
+  resolved_at: Timestamp | null;
+  resolved_by: string | null;
+  stripe_object_id: string;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface RouteAiRuns {
@@ -693,6 +731,8 @@ export interface Tenants {
   state: string;
   stripe_account_id: string | null;
   stripe_charges_enabled: Generated<boolean>;
+  stripe_details_submitted: Generated<boolean>;
+  stripe_reconciled_at: Timestamp | null;
   tech_sales_enabled: Generated<boolean>;
   timezone: string;
   updated_at: Generated<Timestamp>;
@@ -738,10 +778,12 @@ export interface DB {
   messages: Messages;
   offices: Offices;
   outbox_events: OutboxEvents;
+  payment_methods: PaymentMethods;
   payments: Payments;
   portal_tokens: PortalTokens;
   products: Products;
   properties: Properties;
+  reconciliation_issues: ReconciliationIssues;
   route_ai_runs: RouteAiRuns;
   routes: Routes;
   service_plans: ServicePlans;

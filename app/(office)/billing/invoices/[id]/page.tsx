@@ -10,14 +10,27 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { requireMember } from "@/lib/auth/session";
 import { formatCents } from "@/lib/domain/money";
 import { getInvoice } from "@/lib/server/billing";
+import { onlinePayments } from "@/lib/server/payments";
 import { formatInstant, formatLocalDate } from "@/lib/ui/format";
 import { INVOICE_STATUS } from "../../status";
-import { CreditForm, PaymentForm, VoidForm } from "./forms";
+import { CreditForm, PaymentForm, RefundForm, VoidForm } from "./forms";
 
 export const metadata: Metadata = { title: "Invoice" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DONE: Record<string, string> = { paid: "Payment recorded.", credited: "Credit applied.", voided: "Invoice voided. It stays on file with the reason." };
+const DONE: Record<string, string> = {
+  paid: "Payment recorded.",
+  credited: "Credit applied.",
+  voided: "Invoice voided. It stays on file with the reason.",
+  refunded: "Refunded. The money is on its way back to the customer.",
+  "refund-pending": "Refund sent. Bank refunds take a few days; it shows in the history once the bank confirms.",
+};
+const ONLINE_STATUS: Record<string, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+  succeeded: { label: "Paid", tone: "success" },
+  processing: { label: "On its way", tone: "warning" },
+  failed: { label: "Declined", tone: "danger" },
+  canceled: { label: "Not completed", tone: "neutral" },
+};
 const ENTRY: Record<string, string> = { invoice: "Invoiced", payment: "Payment", credit: "Credit", refund: "Refund", opening_balance: "Opening balance" };
 const METHOD: Record<string, string> = { cash: "cash", check: "check", other: "other", card: "card", ach: "bank", card_on_file: "card on file" };
 
@@ -29,6 +42,8 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const invoice = await getInvoice(member, id);
   if (!invoice) notFound();
   const done = DONE[(await searchParams).done ?? ""];
+  const online = await onlinePayments(member, invoice.id);
+  const canRefund = member.role === "owner" || member.role === "admin";
   const status = INVOICE_STATUS[invoice.status] ?? INVOICE_STATUS.open!;
   const tz = invoice.timeZone;
   const open = invoice.status === "open";
@@ -96,9 +111,43 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
             </ol>
           </Panel>
 
+          {online.length ? (
+            <Panel title="Card and bank payments" description="Paid online or by autopay, through your Stripe account.">
+              <ul className="divide-y divide-line">
+                {online.map((p) => {
+                  const st = ONLINE_STATUS[p.status] ?? ONLINE_STATUS.canceled!;
+                  return (
+                    <li key={p.id} className="grid gap-3 px-5 py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-3">
+                        <span>
+                          <span className="font-medium">{METHOD[p.method] ?? p.method}</span>
+                          <span className="text-sm text-fg-muted">, {formatInstant(p.receivedAt ?? p.createdAt, tz)}</span>
+                          {p.failure ? <span className="block text-sm text-fg-muted">{p.failure}</span> : null}
+                          {p.refundedCents ? <span className="block text-sm text-fg-muted">{formatCents(p.refundedCents)} refunded</span> : null}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <Badge tone={st.tone}>{st.label}</Badge>
+                          <span className="w-24 text-right font-medium tabular">{formatCents(p.amountCents)}</span>
+                        </span>
+                      </div>
+                      {p.refundable && canRefund ? (
+                        <details className="rounded-control border border-line px-4 py-3">
+                          <summary className="cursor-pointer font-medium">Refund this payment</summary>
+                          <div className="pt-4">
+                            <RefundForm invoiceId={invoice.id} paymentId={p.id} refundKey={randomUUID()} maxAmount={((p.amountCents - p.refundedCents) / 100).toFixed(2)} />
+                          </div>
+                        </details>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </Panel>
+          ) : null}
+
           {open ? (
             <>
-              <Panel title="Record a payment" description="Cash, check or another way it was paid. Card payments arrive with Stripe.">
+              <Panel title="Record a payment" description="Cash, check or another way it was paid. Card and bank payments made online show up on their own.">
                 <div className="px-5 py-4">
                   <PaymentForm invoiceId={invoice.id} paymentKey={`pay-${randomUUID()}`} openAmount={(invoice.openCents / 100).toFixed(2)} />
                 </div>

@@ -26,7 +26,15 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     // The AI route planner talks to a stand-in model API that the test starts
     // itself (tests/e2e/route-ai.spec.ts); no real key, nothing leaves the machine.
-    env: { ANTHROPIC_API_KEY: "e2e-not-a-real-key", ANTHROPIC_BASE_URL: "http://127.0.0.1:3199", CRON_SECRET: "e2e-cron-secret-not-real-1234" },
+    // Payments likewise talk to a stand-in for Stripe's API (tests/e2e/stripe-standin.ts).
+    env: {
+      ANTHROPIC_API_KEY: "e2e-not-a-real-key",
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:3199",
+      CRON_SECRET: "e2e-cron-secret-not-real-1234",
+      STRIPE_SECRET_KEY: "sk_test_e2e_not_a_real_key",
+      STRIPE_WEBHOOK_SECRET: "whsec_e2e_not_a_real_secret",
+      STRIPE_API_BASE: "http://127.0.0.1:3198",
+    },
     timeout: 120_000,
   },
 });
