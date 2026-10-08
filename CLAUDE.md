@@ -33,3 +33,10 @@ npm run test:db      # pgTAP
 npm run db:types     # regenerate lib/db/schema.ts after a migration
 npm run build && npm run test:e2e
 ```
+
+## Usage policy (opus-saver, `.claude/README.md`)
+
+Search and summaries go to `scout`, mechanical edits and test runs to `scribe`,
+specified builds to `builder`; design, debugging and final review stay on the
+main model. Under about three tool calls, do it directly. Every brief repeats
+the hard rules above in its Constraints line.
