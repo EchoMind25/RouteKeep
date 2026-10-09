@@ -37,6 +37,8 @@ export function CustomerForm(props: {
   sellers?: { id: string; name: string }[];
   /** Technician only: the owner's rule, to show the commission before saving. */
   commission?: CommissionRule;
+  /** ENG-01: made on the server for each render of the page. */
+  clientKey: string;
   action?: (prev: FormState, data: FormData) => Promise<FormState>;
 }) {
   const field = props.mode === "technician";
@@ -57,6 +59,7 @@ export function CustomerForm(props: {
 
   return (
     <form action={action} className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]" noValidate>
+      <input type="hidden" name="clientKey" value={props.clientKey} />
       <div className="grid gap-10">
         {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
 

@@ -136,6 +136,8 @@ export async function getCustomer(m: MemberSession, id: string) {
 }
 
 export interface NewCustomerInput {
+  /** ENG-01: one per form render; a retry or double submit returns the customer it made. */
+  clientKey: string;
   kind: "residential" | "commercial";
   firstName: string | null;
   lastName: string | null;
@@ -192,9 +194,16 @@ export async function createCustomer(m: MemberSession, input: NewCustomerInput):
         email_opt_in_at: input.emailOptIn ? now : null,
         notes: input.notes,
         sold_by_technician_id: input.soldByTechnicianId ?? null,
+        client_key: input.clientKey,
       })
+      .onConflict((oc) => oc.columns(["tenant_id", "client_key"]).doNothing())
       .returning("id")
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
+    if (!customer) {
+      // ENG-01: already created by an earlier submit. Nothing else is made, so no second set of visits or commission.
+      const existing = await tx.selectFrom("customers").select("id").where("client_key", "=", input.clientKey).executeTakeFirstOrThrow();
+      return { customerId: existing.id, visitsCreated: 0, commissionId: null };
+    }
 
     const property = await tx
       .insertInto("properties")
