@@ -37,10 +37,10 @@ create table app.product_events (
   props jsonb not null default '{}'::jsonb
     check (jsonb_typeof(props) = 'object' and pg_column_size(props) <= 2048)
 );
--- The console reads by time window, by event name over a window, and the
--- setting trigger finds a business's rows; nothing else queries this table.
+-- The console reads by time window and the setting trigger finds a business's
+-- rows; nothing else queries this table. Add a (name, hour) index when a
+-- per-event query shows up slow, not before.
 create index product_events_hour on app.product_events (hour desc);
-create index product_events_name_hour on app.product_events (name, hour desc);
 create index product_events_tenant on app.product_events (tenant_id) where tenant_id is not null;
 revoke all on app.product_events from public, anon, authenticated, portal, platform_operator;
 
@@ -93,7 +93,10 @@ begin
     end if;
     v_level := 'anonymous';
   else
-    select t.data_sharing into v_level from public.tenants t where t.id = v_tenant;
+    -- FOR SHARE: a concurrent switch to none (or anonymous) waits for this
+    -- insert to commit and then deletes or unlinks it, or this read waits for
+    -- the switch and sees the new level. Never a linked row left behind.
+    select t.data_sharing into v_level from public.tenants t where t.id = v_tenant for share;
     if v_level is null or v_level = 'none' then
       return false;
     end if;

@@ -50,7 +50,7 @@ Business deleted: its identified events are deleted with it.
 
 - Customer names, addresses, emails, phone numbers, notes, message bodies, photos, signatures, payment details.
 - User ids, technician names, emails, IP addresses, precise location, device ids, advertising ids.
-- Free text typed by anyone. Error messages are scrubbed (emails, phone numbers, long digit runs, ids, quoted values removed) and cut to 200 characters.
+- Free text typed by anyone. Error messages are scrubbed (emails, phone numbers, long digit runs, ids, quoted values, names and street addresses removed) and cut to 200 characters.
 - No cookies, no localStorage, no fingerprinting. The reporter keeps a per-page-load in-memory counter only.
 - No third-party analytics or error SDK. Everything is stored in RouteVerde's own Supabase Postgres.
 

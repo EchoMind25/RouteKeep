@@ -78,3 +78,16 @@ describe("fingerprint (OPS-03)", () => {
     expect(firstAppFrame(stack)).toBe("at render (/_next/static/chunks/app/page-abc.js)");
   });
 });
+
+describe("OPS-03: unquoted names and addresses", () => {
+  it("removes runs of capitalized words and street addresses", () => {
+    expect(scrubMessage("customer Jane Smith not found")).toBe("customer <name> not found");
+    expect(scrubMessage("visit at 123 Main St failed")).toBe("visit at <address> failed");
+    expect(scrubMessage("at 450 N 200 E today")).toBe("at <address> today");
+    expect(scrubMessage("delivered to 88 west canyon rd")).toBe("delivered to <address>");
+  });
+  it("keeps ordinary error text readable", () => {
+    expect(scrubMessage("TypeError: Failed to fetch")).toBe("TypeError: Failed to fetch");
+    expect(scrubMessage("7 stops in 3 days")).toBe("7 stops in 3 days");
+  });
+});

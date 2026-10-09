@@ -12,6 +12,7 @@ import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
 import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
 import { errorText, log } from "@/lib/observability/log";
 import type { EventProps } from "@/lib/telemetry/events";
+import { memberDataSharing } from "@/lib/telemetry/sharing";
 import { track } from "@/lib/telemetry/track";
 import {
   SYNC_PROTOCOL,
@@ -295,7 +296,7 @@ async function outOfOrder(tx: Tx, techId: string, visitId: string, date: string)
   return { published_position: Math.min(position, 1000), actual_position: Math.min(actual, 1000), stops: Math.min(published.length, 1000) };
 }
 
-async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "complete" }>, signal: (s: OutOfOrder) => void = () => {}): Promise<MutationResult> {
+async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "complete" }>, signal?: (s: OutOfOrder) => void): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
   const tech = (await tx.selectFrom("technicians").select(["display_name", "applicator_license_no"]).where("id", "=", techId).executeTakeFirstOrThrow())!;
@@ -388,8 +389,9 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   const mine = visit.technician_id === techId && visit.local_date === mutation.date;
   if (mine && visit.status === "completed") return { key: mutation.key, status: "duplicate" };
   if (mine && OPEN.includes(visit.status)) {
-    const order = await outOfOrder(tx, techId, visit.id, mutation.date);
-    if (order) signal(order);
+    // OPS-04: only when the business shares; at `none` this adds no query to the completion.
+    const order = signal ? await outOfOrder(tx, techId, visit.id, mutation.date) : null;
+    if (order) signal?.(order);
     await tx
       .updateTable("appointments")
       .set({
@@ -478,6 +480,7 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
   // result, so they stay queued on the device for the next upload. At least
   // one is always applied, so a slow server still makes progress.
   const deadline = Date.now() + UPLOAD_BUDGET_MS;
+  const sharing = await memberDataSharing(m.claims);
   for (const mutation of mutations) {
     if (results.length > 0 && Date.now() > deadline) break;
     // OPS-03: recorded only once the completion has committed, in its own transaction.
@@ -488,7 +491,7 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
           mutation.kind === "arrive"
             ? arrive(tx, techId, mutation)
             : mutation.kind === "complete"
-              ? complete(tx, m, techId, mutation, (s) => outOfOrderStops.push(s))
+              ? complete(tx, m, techId, mutation, sharing === "none" ? undefined : (s) => outOfOrderStops.push(s))
               : mutation.kind === "on_the_way"
                 ? onTheWay(tx, m, techId, mutation)
                 : mutation.kind === "running_late"

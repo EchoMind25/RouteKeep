@@ -1,7 +1,8 @@
 // OPS-03: scrubbing for error reports, shared by the browser reporter and the
 // server (which scrubs again: it never trusts the browser's work). Pure, no
 // Node APIs, so the same code runs in both. Contract section 2: no emails,
-// phone numbers, long digit runs, ids or quoted values; 200 characters at most.
+// phone numbers, long digit runs, ids, quoted values, unquoted names or street
+// addresses; 200 characters at most.
 
 export const MAX_MESSAGE = 200;
 
@@ -14,6 +15,12 @@ const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g
 const TOKEN = /\b(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}\b/g;
 const PHONE = /(?:\+|\()?\d[\d\s().-]{6,}\d/g;
 const DIGITS = /\d{4,}/g;
+// Unquoted names and street addresses ("customer Jane Smith", "123 Main St"):
+// a house number with a street word or a Utah-style grid (450 N 200 E), and runs
+// of two or more Capitalized words.
+// Over-matches some English on purpose; the error class and frame still group it.
+const STREET = /\b\d{1,6}\s+(?:(?:[NSEW]\.?\s+\d{1,6}\s+[NSEW]\b\.?)|(?:[A-Za-z]+\.?\s+){0,3}(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Blvd|Way|Ct|Court|Cir|Circle|Pl|Place|Pkwy|Hwy|Ter|Trl|Loop)\b\.?)/gi;
+const CAPITALIZED_RUN = /\b[A-Z][a-z'’-]+(?:\s+[A-Z][a-z'’.-]*){1,4}\b/g;
 
 /** A message with personal data and identifiers removed, whitespace collapsed, at most 200 characters. */
 export function scrubMessage(input: unknown): string {
@@ -27,6 +34,8 @@ export function scrubMessage(input: unknown): string {
     .replace(UUID, "<id>")
     .replace(TOKEN, "<id>")
     .replace(PHONE, "<phone>")
+    .replace(STREET, "<address>")
+    .replace(CAPITALIZED_RUN, "<name>")
     .replace(DIGITS, "<n>")
     .replace(/\s+/g, " ")
     .trim();
