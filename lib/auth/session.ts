@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { authMode } from "@/lib/auth-mode";
 import { withRls, type DbClaims } from "@/lib/db/rls";
+import { mfaRequired } from "@/lib/env";
 import { readLocalSession } from "./local";
-import { readSupabaseSession } from "./supabase";
+import { MFA_PATH, mfaStep, type MfaStep } from "./mfa";
+import { hasVerifiedFactor, readSupabaseSession } from "./supabase";
 
 export const MEMBER_ROLES = ["owner", "admin", "office", "dispatcher", "technician"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];
@@ -33,7 +35,7 @@ export const getUserSession = cache(async (): Promise<UserSession | null> =>
  * tenant claim is only a hint: a revoked or demoted member is caught here on
  * their next request, not when the token expires.
  */
-export const getMemberSession = cache(async (): Promise<MemberSession | null> => {
+const loadMember = cache(async (): Promise<MemberSession | null> => {
   const user = await getUserSession();
   if (!user?.claims.tenant_id) return null;
   const row = await withRls(user.claims, (tx) =>
@@ -48,6 +50,26 @@ export const getMemberSession = cache(async (): Promise<MemberSession | null> =>
   return { ...user, tenantId: row.id, tenantName: row.name, timezone: row.timezone, role: row.role as MemberRole };
 });
 
+/**
+ * CR-15: what an owner or admin must do before the office app opens to them;
+ * "allow" for everyone else. aal comes from the verified claims, and the
+ * factor list is only fetched when the session is below aal2.
+ */
+export const getMfaStep = cache(async (): Promise<MfaStep> => {
+  const member = await loadMember();
+  if (!member || !mfaRequired()) return "allow";
+  const aal = member.claims.aal as string | undefined;
+  const checkFactor = aal !== "aal2" && (member.role === "owner" || member.role === "admin");
+  return mfaStep({ role: member.role, aal, hasVerifiedFactor: checkFactor ? await hasVerifiedFactor() : false, required: true });
+});
+
+/** The signed-in member; null when not a member or (CR-15) an owner or admin who has not completed the second factor. */
+export const getMemberSession = cache(async (): Promise<MemberSession | null> => {
+  const member = await loadMember();
+  if (!member) return null;
+  return (await getMfaStep()) === "allow" ? member : null;
+});
+
 export async function requireUser(): Promise<UserSession> {
   const user = await getUserSession();
   if (!user) redirect("/sign-in");
@@ -56,6 +78,8 @@ export async function requireUser(): Promise<UserSession> {
 
 export async function requireMember(allowed?: readonly MemberRole[]): Promise<MemberSession> {
   await requireUser();
+  const step = await getMfaStep();
+  if (step !== "allow") redirect(MFA_PATH[step]);
   const member = await getMemberSession();
   if (!member) redirect("/onboarding");
   if (allowed && !allowed.includes(member.role)) redirect("/app?denied=1");

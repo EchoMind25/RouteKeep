@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
+import { mfaRequired } from "@/lib/env";
 import { instantToZoned } from "@/lib/domain/time";
 import { listTeam } from "@/lib/server/team";
 import { formatLocalDate } from "@/lib/ui/format";
@@ -44,6 +46,14 @@ export default async function TeamPage() {
             <InviteForm isOwner={member.role === "owner"} />
           </div>
         </Panel>
+      ) : null}
+      {canManage(member.role) && mfaRequired() ? (
+        <p className="text-sm text-fg-muted xl:col-span-2">
+          <Link href="/account/mfa" className="text-accent underline-offset-4 hover:underline">
+            Two-step sign-in
+          </Link>{" "}
+          for owners and admins: add another phone or remove one.
+        </p>
       ) : null}
     </div>
   );

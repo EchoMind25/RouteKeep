@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { getMemberSession, type MemberRole, type MemberSession } from "./session";
+import { mfaBlockedMessage } from "./mfa";
+import { getMemberSession, getMfaStep, type MemberRole, type MemberSession } from "./session";
 
 // Route handlers answer in JSON: a background sync cannot follow a redirect to
 // the sign-in page the way a person can.
@@ -21,7 +22,11 @@ export async function apiMember(request: Request, allowed?: readonly MemberRole[
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
   if (origin && (!host || new URL(origin).host !== host)) return json({ error: "Cross-site requests are not accepted." }, 403);
   const member = await getMemberSession();
-  if (!member) return json({ error: "Sign in again to sync." }, 401);
+  if (!member) {
+    const step = await getMfaStep();
+    if (step !== "allow") return json({ error: mfaBlockedMessage(step) }, 401);
+    return json({ error: "Sign in again to sync." }, 401);
+  }
   if (allowed && !allowed.includes(member.role)) return json({ error: "Your role cannot do this." }, 403);
   return member;
 }

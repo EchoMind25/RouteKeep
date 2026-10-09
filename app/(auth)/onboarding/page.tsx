@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getMemberSession, requireUser } from "@/lib/auth/session";
+import { MFA_PATH } from "@/lib/auth/mfa";
+import { getMemberSession, getMfaStep, requireUser } from "@/lib/auth/session";
 import { BusinessForm } from "./business-form";
 
 export const metadata: Metadata = { title: "Set up your business" };
 
 export default async function OnboardingPage() {
   const user = await requireUser();
+  const step = await getMfaStep();
+  if (step !== "allow") redirect(MFA_PATH[step]);
   if (await getMemberSession()) redirect("/app");
   return (
     <div className="grid gap-8">

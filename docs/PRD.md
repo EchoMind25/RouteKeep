@@ -337,7 +337,7 @@ These are the floor. None may be traded for cost.
 | CR-12 | Audit log on financial and compliance tables | $0 |
 | CR-13 | Publish Terms, Privacy Policy, a DPA, and a subprocessor list before the first customer. Templates are acceptable for customer 1; attorney review is deferred risk (D-13) | $0 now |
 | CR-14 | No card surcharge feature in MVP. Offer ACH as the low-fee option instead | $0 |
-| CR-15 | MFA available for owner and admin roles | $0 |
+| CR-15 | MFA available for owner and admin roles. Required for them (Supabase Auth TOTP, aal2); office, dispatcher and technician roles are not forced. Lost single factor: reset through support | $0 |
 | CR-16 | Restricted use pesticides: the customer gets a copy of the application record within 30 days (7 U.S.C. 136i-1(a)(2)). The service record PDF covers it; M6 emails it automatically for RUP applications | $0 |
 
 ## 11. Non-functional requirements

@@ -13,6 +13,8 @@ const schema = z
     NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+    // CR-15: owners and admins need a second factor. Default on with Supabase, off in local mode.
+    MFA_REQUIRED: z.stringbool().optional(),
     LOCAL_AUTH_SECRET: z.string().min(32, "LOCAL_AUTH_SECRET needs at least 32 characters").optional(),
     GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
     // D-07. Only the built-in estimate exists so far; the Google and VROOM
@@ -108,6 +110,11 @@ export function storageProvider(e: Env = env()): "supabase" | "local" {
 
 export function parseEnvForTest(source: Record<string, string | undefined>) {
   return schema.safeParse(source);
+}
+
+/** CR-15: whether owners and admins must use a second factor: explicit, or on exactly when sign-in is Supabase. */
+export function mfaRequired(e: Env = env()): boolean {
+  return e.MFA_REQUIRED ?? e.AUTH_MODE === "supabase";
 }
 
 /** M6: the secret for portal sessions and unsubscribe links, or null when none is configured. */
