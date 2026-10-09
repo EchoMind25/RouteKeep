@@ -36,7 +36,7 @@ export function saveConsent(choice: Pick<Consent, "analytics" | "source">): Cons
   return saved;
 }
 
-/** False once the person picks "Essential only", and always while Global Privacy Control is on. */
+/** True only after the person chose "Allow", and never while Global Privacy Control is on. */
 export function analyticsAllowed(): boolean {
   return analyticsPermitted(readConsent(), gpcEnabled());
 }

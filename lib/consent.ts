@@ -1,9 +1,9 @@
 // CR-17: cookie and browser-storage consent. Essential storage (sign-in, the
 // offline technician app, this choice itself) needs no consent and is always on.
-// Anonymous product measurement uses no cookies or storage and runs only where
-// the business allows it (tenants.data_sharing); each person can still turn it
-// off for themselves with "Essential only", and Global Privacy Control turns it
-// off without asking. Shared by the banner (client) and the server.
+// Anonymous product measurement is opt-in twice: the business must allow it
+// (tenants.data_sharing) and each person must choose "Allow" in the banner,
+// which says exactly what is recorded. Global Privacy Control turns it off
+// without asking (owner decision 2026-10-09). Shared by the banner (client) and the server.
 
 export const CONSENT_COOKIE = "rv_consent";
 /** Bump when a new optional category is added, so everyone is asked again. */
@@ -35,13 +35,11 @@ export function serializeConsent(c: Pick<Consent, "analytics" | "source">): stri
 
 /**
  * Whether this person's browser may send anonymous measurement (the business
- * setting is checked separately, on the server). Off when they chose
- * "Essential only"; GPC always wins, even over an earlier "allow", because it
- * is the visitor's standing instruction (CCPA regs 7025). Measurement stores
- * nothing on the device, so it needs no opt-in under cookie rules; owner
- * decision pending on opt-out vs opt-in (thread "Privacy policies and cookie banner").
+ * setting is checked separately, on the server). Only after they chose "Allow";
+ * GPC always wins, even over an earlier "allow", because it is the visitor's
+ * standing instruction (CCPA regs 7025).
  */
 export function analyticsPermitted(consent: Consent | null, gpc: boolean): boolean {
   if (gpc) return false;
-  return consent?.analytics !== false;
+  return consent?.analytics === true;
 }

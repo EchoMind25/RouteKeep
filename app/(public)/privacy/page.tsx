@@ -72,8 +72,9 @@ export default function PrivacyPage() {
 
       <h2 id="product-data">Product improvement data, and the business&apos;s choice</h2>
       <p>
-        To find bugs and make the app better, we can record how the app is used: errors, how long screens take, which features get used, and moments where the app&apos;s suggestion was not
-        followed, such as a dispatcher changing a suggested route. Each business picks one of three levels in Settings, and can change it at any time:
+        To find bugs and make the app better, we can record errors and what happens to the app&apos;s automatic route suggestions (accepted, changed, undone, or driven out of order). We add a
+        kind of event only after listing it here and in the banner first. It is opt-in twice: the business chooses a level, and each person chooses in the banner.
+        The business&apos;s levels, which an owner picks during setup and can change in Settings at any time:
       </p>
       <ul>
         {PRODUCT_DATA_LEVELS.map((l) => (
@@ -86,8 +87,8 @@ export default function PrivacyPage() {
         At every level, product data never contains customer names, addresses, phone numbers, emails, notes, messages, photos, signatures or payment details, and never a person&apos;s name,
         user id, IP address, location or device id. Error messages are scrubbed of anything that looks like contact details or ids. Events are timed to the hour, stored in our own database (no
         third-party analytics), kept 180 days, and readable only by our developers through an audited console. Anonymous data can&apos;t be traced back to a business, so it can&apos;t be
-        deleted per business; we don&apos;t try to re-identify it and don&apos;t let anyone else try. Each person can also stop their own browser sending measurement with &quot;Essential only&quot;
-        in the cookie banner, and browsers that send Global Privacy Control never send it; events recorded on our servers follow the business&apos;s setting. On the public website we record only anonymous error reports, no page views.
+        deleted per business; we don&apos;t try to re-identify it and don&apos;t let anyone else try. A person&apos;s browser sends measurement only after they choose &quot;Allow&quot; in the banner,
+        which lists exactly what is recorded; browsers that send Global Privacy Control never send it. Events recorded on our servers follow the business&apos;s setting. On the public website we record only anonymous error reports, no page views.
       </p>
       <h2 id="ai">AI features</h2>
       <p>
@@ -147,7 +148,7 @@ export default function PrivacyPage() {
           . We confirm who you are using the email on file, answer within 45 days, and won&apos;t treat you differently for asking. An authorized agent may ask for you with your signed
           permission. If we say no, you can ask us to reconsider by replying, and you may contact your state attorney general or data protection authority.
         </li>
-        <li>We treat Global Privacy Control, on the website and in the app, as an opt-out of optional measurement.</li>
+        <li>We treat Global Privacy Control, on the website and in the app, as a standing &quot;no&quot; to optional measurement.</li>
       </ul>
 
       <h2 id="where">Where data is stored</h2>

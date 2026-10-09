@@ -16,13 +16,13 @@ export const PRODUCT_DATA_LEVELS = [
   {
     key: "none",
     label: "Off",
-    summary: "we record no product events or error reports from your office app, technician app or customer account pages. Turning this on later starts fresh; turning it off deletes every stored event that carries your business.",
+    summary: "we record no product events or error reports from your office app, technician app or customer account pages. This is the setting until an owner chooses, which we ask during setup. Turning it off later deletes every stored event that carries your business.",
   },
   {
     key: "anonymous",
     label: "Anonymous",
     summary:
-      "we record errors and feature use with no business id, no person and no customer data, so the records can't be traced back to your business, even by us. This is the default.",
+      "we record errors and feature use with no business id, no person and no customer data, so the records can't be traced back to your business, even by us.",
   },
   {
     key: "identified",
@@ -30,6 +30,14 @@ export const PRODUCT_DATA_LEVELS = [
     summary: "the same events, tagged with your business (never a person) so we can see a problem you hit and help. Switching back to anonymous removes your business from past events.",
   },
 ] as const;
+
+/** What anonymous measurement records and why, shown in the banner before anyone opts in. Exactly the contract v1.1 event catalog: add a line here before a new kind of event ships. */
+export const MEASURED = [
+  { what: "Errors and crashes", why: "so we can fix them, often before you notice", detail: "the kind of error, a cleaned-up message and the page pattern (like /customers/:id)" },
+  { what: "Auto route results", why: "so route suggestions get better", detail: "whether a suggested route was accepted, changed, undone, or driven out of order, with the number of stops" },
+] as const;
+
+export const NEVER_MEASURED = "Times are rounded to the hour. Never recorded: names, addresses, phone numbers, emails, notes, photos, anything you type, your location, your IP address or a device id. No cookies are used for it, and it is deleted after 180 days.";
 
 export const RETENTION = [
   { what: "Business records", howLong: "while the account is open. After it closes, the business has 30 days to export, then we delete them." },

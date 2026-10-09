@@ -43,9 +43,9 @@ export default function CookiesPage() {
       </Table>
       <h2>Anonymous measurement (no cookies)</h2>
       <p>
-        The app counts errors, how long screens take and which features get used, so we can fix and improve it. This uses no cookies or browser storage, no advertising ids and nothing that
-        identifies you, and it runs only if the business allows it, as the <Link href="/privacy#product-data" className="underline">privacy policy</Link> describes. You can stop your browser
-        sending it with &quot;Essential only&quot;. On the public website, only error reports are sent.
+        If you choose &quot;Allow&quot;, the app sends anonymous error reports and what happens to automatic route suggestions, so we can fix and improve it. It uses no cookies or browser
+        storage, no advertising ids and nothing that identifies you, and it runs only if the business allows it too, as the{" "}
+        <Link href="/privacy#product-data" className="underline">privacy policy</Link> describes. Nothing is sent until you allow it. On the public website, only error reports are sent.
       </p>
       <h2>Your choice</h2>
       <ul>

@@ -6,7 +6,7 @@ import { expect, expectAccessible, test } from "./fixtures";
 test("CR-17: first visit shows the banner; Essential only saves and hides it; Privacy choices reopens it", async ({ page, context }) => {
   await context.clearCookies();
   await page.goto("/");
-  const banner = page.getByRole("region", { name: "Cookies on this site" });
+  const banner = page.getByRole("region", { name: "Help us improve, anonymously?" });
   await expect(banner).toBeVisible();
   await expectAccessible(page, { include: "section[aria-labelledby=cookie-banner-title]" });
   await banner.getByRole("button", { name: "Essential only" }).click();
@@ -28,7 +28,7 @@ test("CR-17: Global Privacy Control is the answer, so the banner never shows", a
   await page.goto("/privacy");
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
   await expect.poll(async () => (await context.cookies()).find((c) => c.name === "rv_consent")?.value).toBe("v1.a0.gpc");
-  await expect(page.getByRole("region", { name: "Cookies on this site" })).toBeHidden();
+  await expect(page.getByRole("region", { name: "Help us improve, anonymously?" })).toBeHidden();
   await page.getByRole("button", { name: "Privacy choices" }).click();
   await expect(page.getByRole("button", { name: "Allow anonymous measurement" })).toBeDisabled();
 });
