@@ -1,3 +1,5 @@
+import { SHARING_LEVELS, type SharingLevel } from "@/lib/domain/data-sharing";
+
 // OPS-01: what the developer console shows, as pure functions over the rows
 // the app.ops_* functions return. Thresholds live here so they are tested and
 // changed in one place.
@@ -160,4 +162,125 @@ const ORDER: Record<Tone, number> = { danger: 3, warning: 2, neutral: 1, success
 
 export function worstTone(tones: Tone[]): Tone {
   return tones.reduce<Tone>((worst, t) => (ORDER[t] > ORDER[worst] ? t : worst), "success");
+}
+
+// OPS-03: product signals. Shapes match app.ops_product_summary and
+// app.ops_product_errors (supabase/migrations/20261014090000_product_analytics.sql);
+// the helpers below turn the counts into rates and a day-by-day series.
+
+export type { SharingLevel };
+
+export interface RouteCounts {
+  shown: number;
+  accepted: number;
+  dismissed: number;
+  undone: number;
+  manual_change: number;
+}
+
+export interface ProductSummary {
+  days: number;
+  sharing: Record<SharingLevel, number>;
+  events: Record<string, number>;
+  errors_by_surface: Record<string, number>;
+  errors_by_day: { day: string; count: number }[];
+  routes: Record<string, RouteCounts>;
+  out_of_order: { stops: number; avg_jump: number };
+  identified: { tenant_id: string; name: string; events: number; errors: number }[];
+}
+
+export interface ProductError {
+  fingerprint: string;
+  name: string;
+  surface: string;
+  kind: string | null;
+  route: string | null;
+  message: string | null;
+  occurrences: number;
+  firstHour: string;
+  lastHour: string;
+  versions: string[];
+  businesses: string[];
+}
+
+/** n / d, or null when there is nothing to divide by. */
+export function rate(n: number, d: number): number | null {
+  return d > 0 ? n / d : null;
+}
+
+/** A rate as a whole percent, or "n/a" when there was nothing to measure. */
+export function formatRate(r: number | null): string {
+  return r === null ? "n/a" : `${Math.round(r * 100)}%`;
+}
+
+export const ENGINE_LABEL: Record<string, string> = { solver: "Route solver", ai: "AI planner", unknown: "Not recorded" };
+
+export interface EngineRow {
+  engine: string;
+  label: string;
+  shown: number;
+  accepted: number;
+  dismissed: number;
+  undone: number;
+  manualChange: number;
+  /** accepted / shown */
+  acceptedRate: number | null;
+  /** dismissed / shown */
+  dismissedRate: number | null;
+  /** undone / accepted: saved, then taken back */
+  undoneRate: number | null;
+  /** stops moved by hand / accepted: how much people still fix after saving */
+  manualChangePerAccepted: number | null;
+}
+
+/** One row per engine, most shown first. */
+export function engineRows(routes: Record<string, RouteCounts>): EngineRow[] {
+  return Object.entries(routes)
+    .map(([engine, c]) => ({
+      engine,
+      label: ENGINE_LABEL[engine] ?? engine,
+      shown: c.shown,
+      accepted: c.accepted,
+      dismissed: c.dismissed,
+      undone: c.undone,
+      manualChange: c.manual_change,
+      acceptedRate: rate(c.accepted, c.shown),
+      dismissedRate: rate(c.dismissed, c.shown),
+      undoneRate: rate(c.undone, c.accepted),
+      manualChangePerAccepted: rate(c.manual_change, c.accepted),
+    }))
+    .sort((a, b) => b.shown - a.shown || a.engine.localeCompare(b.engine));
+}
+
+/** Technician stops completed out of the published order, in plain words. */
+export function outOfOrderSummary(o: ProductSummary["out_of_order"], days: number): string {
+  if (o.stops === 0) return `No technician finished a stop out of order in the last ${days} days.`;
+  return `${plural(o.stops, "stop")} finished out of the published order in ${days} days, on average ${o.avg_jump} ${o.avg_jump === 1 ? "place" : "places"} away from where it was planned.`;
+}
+
+/** Every UTC day in the window, oldest first, with zero where nothing was reported. */
+export function errorDays(byDay: { day: string; count: number }[], days: number, now: Date): { day: string; count: number }[] {
+  const counts = new Map(byDay.map((d) => [d.day.slice(0, 10), d.count]));
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const out: { day: string; count: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(today - i * 86_400_000).toISOString().slice(0, 10);
+    out.push({ day, count: counts.get(day) ?? 0 });
+  }
+  return out;
+}
+
+/** The text alternative for the errors-per-day strip. */
+export function errorDaysSummary(series: { day: string; count: number }[], formatDay: (day: string) => string): string {
+  const total = series.reduce((s, d) => s + d.count, 0);
+  if (total === 0) return `No errors reported in the last ${series.length} days.`;
+  const busiest = series.reduce((m, d) => (d.count > m.count ? d : m), series[0]!);
+  const last7 = series.slice(-7).reduce((s, d) => s + d.count, 0);
+  return `${plural(total, "error")} in ${series.length} days, ${last7} in the last 7. Busiest day ${formatDay(busiest.day)} with ${busiest.count}.`;
+}
+
+/** How many businesses chose each level, and the total. */
+export function sharingTotals(s: Record<SharingLevel, number>): { level: SharingLevel; count: number; share: number | null }[] {
+  const total = SHARING_LEVELS.reduce((sum, l) => sum + (s[l] ?? 0), 0);
+  return SHARING_LEVELS.map((level) => ({ level, count: s[level] ?? 0, share: rate(s[level] ?? 0, total) }));
 }

@@ -11,6 +11,9 @@ import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records
 import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
 import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
 import { errorText, log } from "@/lib/observability/log";
+import type { EventProps } from "@/lib/telemetry/events";
+import { memberDataSharing } from "@/lib/telemetry/sharing";
+import { track } from "@/lib/telemetry/track";
 import {
   SYNC_PROTOCOL,
   type Mutation,
@@ -268,7 +271,32 @@ async function arrive(tx: Tx, techId: string, mutation: Extract<Mutation, { kind
   return { key: mutation.key, status: "conflict", message: "The office changed this visit." };
 }
 
-async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "complete" }>): Promise<MutationResult> {
+type OutOfOrder = EventProps<"route.stop_out_of_order">;
+
+/**
+ * OPS-03: when the day's route was published, the stop's place in the
+ * published order against how many stops on that lane were already done.
+ * Positions only, never ids. Null when there is no published order or they agree.
+ */
+async function outOfOrder(tx: Tx, techId: string, visitId: string, date: string): Promise<OutOfOrder | null> {
+  const route = await tx.selectFrom("routes").select("published_order").where("technician_id", "=", techId).where("local_date", "=", date as LocalDate).executeTakeFirst();
+  const published = Array.isArray(route?.published_order) ? (route.published_order as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  const position = published.indexOf(visitId) + 1;
+  if (position === 0) return null;
+  const done = await tx
+    .selectFrom("appointments")
+    .select((eb) => eb.fn.countAll<string>().as("n"))
+    .where("technician_id", "=", techId)
+    .where("local_date", "=", date as LocalDate)
+    .where("status", "=", "completed")
+    .where("id", "!=", visitId)
+    .executeTakeFirst();
+  const actual = Number(done?.n ?? 0) + 1;
+  if (actual === position) return null;
+  return { published_position: Math.min(position, 1000), actual_position: Math.min(actual, 1000), stops: Math.min(published.length, 1000) };
+}
+
+async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "complete" }>, signal?: (s: OutOfOrder) => void): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
   const tech = (await tx.selectFrom("technicians").select(["display_name", "applicator_license_no"]).where("id", "=", techId).executeTakeFirstOrThrow())!;
@@ -361,6 +389,9 @@ async function complete(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   const mine = visit.technician_id === techId && visit.local_date === mutation.date;
   if (mine && visit.status === "completed") return { key: mutation.key, status: "duplicate" };
   if (mine && OPEN.includes(visit.status)) {
+    // OPS-04: only when the business shares; at `none` this adds no query to the completion.
+    const order = signal ? await outOfOrder(tx, techId, visit.id, mutation.date) : null;
+    if (order) signal?.(order);
     await tx
       .updateTable("appointments")
       .set({
@@ -449,15 +480,18 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
   // result, so they stay queued on the device for the next upload. At least
   // one is always applied, so a slow server still makes progress.
   const deadline = Date.now() + UPLOAD_BUDGET_MS;
+  const sharing = await memberDataSharing(m.claims);
   for (const mutation of mutations) {
     if (results.length > 0 && Date.now() > deadline) break;
+    // OPS-03: recorded only once the completion has committed, in its own transaction.
+    const outOfOrderStops: OutOfOrder[] = [];
     try {
       results.push(
         await withRls(m.claims, (tx) =>
           mutation.kind === "arrive"
             ? arrive(tx, techId, mutation)
             : mutation.kind === "complete"
-              ? complete(tx, m, techId, mutation)
+              ? complete(tx, m, techId, mutation, sharing === "none" ? undefined : (s) => outOfOrderStops.push(s))
               : mutation.kind === "on_the_way"
                 ? onTheWay(tx, m, techId, mutation)
                 : mutation.kind === "running_late"
@@ -465,6 +499,7 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
                   : skip(tx, techId, mutation),
         ),
       );
+      for (const s of outOfOrderStops) await track(m, "route.stop_out_of_order", s);
     } catch (error) {
       // Not the device's fault: keep it queued and try again later.
       log.error("tech upload failed", { tenant: m.tenantId, key: mutation.key, kind: mutation.kind, error: errorText(error) });

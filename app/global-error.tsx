@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { reportError } from "@/components/telemetry/error-reporter";
 
 // Replaces the root layout, so it brings its own document and uses no app styles.
 export default function GlobalError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   useEffect(() => {
     console.error("app error", error.digest);
-  }, [error.digest]);
+    // OPS-03: scrubbed, and only when this business shares product data.
+    reportError(error);
+  }, [error]);
   return (
     <html lang="en">
       <body style={{ fontFamily: "system-ui, sans-serif", margin: 0, padding: "3rem 1rem" }}>

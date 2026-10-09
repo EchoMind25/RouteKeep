@@ -7,9 +7,11 @@ import { BrandTheme } from "@/components/brand-theme";
 import { TenantMark } from "@/components/tenant-mark";
 import { tenantBranding } from "@/lib/server/branding";
 import { OfficeNav } from "@/components/office/nav";
+import { ErrorReporter } from "@/components/telemetry/error-reporter";
 import { Button } from "@/components/ui/button";
 import { isDeveloperUser, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { isEnabled } from "@/lib/flags";
+import { memberDataSharing } from "@/lib/telemetry/sharing";
 import { signOut } from "../(auth)/sign-in/actions";
 
 // FR-BRD-03: the browser tab names the business, not the product, for white label.
@@ -27,10 +29,13 @@ export default async function OfficeLayout({ children }: { children: React.React
   const brand = await tenantBranding(member);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const developer = await isDeveloperUser();
+  // OPS-04: no reporter at all for a business that shares no product data.
+  const reportErrors = (await memberDataSharing(member.claims)) !== "none";
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
       {brand.whiteLabel ? <BrandTheme accent={brand.accent} nonce={nonce} /> : null}
+      {reportErrors ? <ErrorReporter /> : null}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>

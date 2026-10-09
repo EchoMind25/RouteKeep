@@ -737,6 +737,11 @@ export interface Tenants {
   commission_pct: Generated<Numeric>;
   created_at: Generated<Timestamp>;
   created_by: string | null;
+  /**
+   * OPS-04: product analytics level. none stores nothing; anonymous stores events with no business id; identified adds the business id.
+   */
+  data_sharing: Generated<string>;
+  data_sharing_changed_at: Timestamp | null;
   id: Generated<string>;
   logo_path: string | null;
   /**

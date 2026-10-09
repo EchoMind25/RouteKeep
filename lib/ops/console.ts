@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { DeveloperSession } from "@/lib/auth/session";
 import { withOperator } from "@/lib/db/operator";
-import type { OpsHealth, OpsTenant } from "./console-model";
+import type { OpsHealth, OpsTenant, ProductError, ProductSummary } from "./console-model";
 
 // OPS-01: everything the developer console reads, through the app.ops_*
 // functions only. OPS-02: the view is recorded first, in its own transaction,
@@ -29,6 +29,9 @@ export interface ConsoleData {
   health: OpsHealth;
   errors: OpsError[];
   audit: OpsAuditEntry[];
+  /** OPS-03: product events over 30 days, errors grouped over 7. */
+  product: ProductSummary;
+  productErrors: ProductError[];
 }
 
 const iso = (v: Date | string | null): string | null => (v === null ? null : v instanceof Date ? v.toISOString() : v);
@@ -65,6 +68,22 @@ export async function loadConsole(dev: DeveloperSession): Promise<ConsoleData> {
       select * from app.ops_recent_errors(50)`.execute(tx);
     const audit = await sql<{ at: Date; actor_email: string; action: string; target_tenant_id: string | null }>`
       select at, actor_email, action, target_tenant_id from app.ops_audit_recent(25)`.execute(tx);
+    // OPS-03: counts and scrubbed error text only; business names come back
+    // only for rows whose business chose to share as identified (OPS-04).
+    const product = await sql<{ s: ProductSummary }>`select app.ops_product_summary(30) as s`.execute(tx);
+    const productErrors = await sql<{
+      fingerprint: string;
+      name: string;
+      surface: string;
+      kind: string | null;
+      route: string | null;
+      message: string | null;
+      occurrences: number;
+      first_hour: Date;
+      last_hour: Date;
+      versions: string[] | null;
+      businesses: string[] | null;
+    }>`select * from app.ops_product_errors(7, 50)`.execute(tx);
     return {
       tenants: tenants.rows.map((r) => ({
         tenantId: r.tenant_id,
@@ -88,6 +107,20 @@ export async function loadConsole(dev: DeveloperSession): Promise<ConsoleData> {
       health: health.rows[0]!.h,
       errors: errors.rows.map((r) => ({ at: iso(r.at)!, source: r.source, kind: r.kind, tenantId: r.tenant_id, tenantName: r.tenant_name, error: r.error })),
       audit: audit.rows.map((r) => ({ at: iso(r.at)!, actorEmail: r.actor_email, action: r.action, targetTenantId: r.target_tenant_id })),
+      product: product.rows[0]!.s,
+      productErrors: productErrors.rows.map((r) => ({
+        fingerprint: r.fingerprint,
+        name: r.name,
+        surface: r.surface,
+        kind: r.kind,
+        route: r.route,
+        message: r.message,
+        occurrences: r.occurrences,
+        firstHour: iso(r.first_hour)!,
+        lastHour: iso(r.last_hour)!,
+        versions: r.versions ?? [],
+        businesses: r.businesses ?? [],
+      })),
     };
   });
 }

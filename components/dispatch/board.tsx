@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import {
   commitOptimizeAction,
+  dismissProposalAction,
   moveStopAction,
   moveStopToDayAction,
   previewOptimizeAction,
@@ -493,6 +494,15 @@ export function DispatchBoard(props: {
     );
   }
 
+  /** Close the preview without saving. OPS-03: counted as a refused proposal; never blocks closing. */
+  function dismissPreview() {
+    if (preview) {
+      const engine = preview.proposed.provider === "ai" ? "ai" : "solver";
+      void dismissProposalAction({ engine, stops: preview.proposed.order.length }).catch(() => {});
+    }
+    setPreview(null);
+  }
+
   function undo(technicianId: string) {
     persist(() => undoOptimizeAction({ technicianId, date: props.date, expected: base[technicianId] ?? [] }), base, "Previous order restored.");
   }
@@ -666,7 +676,7 @@ export function DispatchBoard(props: {
         ) : null}
       </DndContext>
 
-      <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
+      <Dialog open={preview !== null} onOpenChange={(open) => !open && dismissPreview()}>
         {preview ? (
           <DialogContent
             title={aiNotes ? `AI plan for ${laneName(preview.technicianId)}` : `Optimize ${laneName(preview.technicianId)}`}
@@ -677,7 +687,7 @@ export function DispatchBoard(props: {
             {aiNotes ? <AiPlanNotes notes={aiNotes} byId={byId} /> : null}
             <OptimizeSummary preview={preview} byId={byId} />
             <div className="flex flex-wrap justify-end gap-2">
-              <Button variant="secondary" onClick={() => setPreview(null)}>
+              <Button variant="secondary" onClick={dismissPreview}>
                 Discard
               </Button>
               <Button onClick={commit}>Save this order</Button>

@@ -6,6 +6,8 @@ import { env } from "@/lib/env";
 import { estimateOptimizer } from "@/lib/providers/route-optimizer";
 import { advance, solverResult, startState, type CreateMessage, type PlannerProblem, type PlannerResult, type PlannerState } from "@/lib/routing/ai-planner";
 import { errorText, log } from "@/lib/observability/log";
+import { savedMinutes } from "@/lib/server/dispatch";
+import { trackForTenant } from "@/lib/telemetry/job";
 
 // D-07 (revised), D-04: one step of an AI route plan. A step claims the run
 // for a short lease (so two browser tabs never drive it at once), runs model
@@ -85,6 +87,14 @@ export async function stepAiRun(tenantId: string, runId: string, create: CreateM
       .where("id", "=", runId)
       .where("tenant_id", "=", tenantId)
       .execute(),
+  );
+  // OPS-03: the plan is ready and goes to the dispatcher's preview. Shown in the
+  // office, recorded here because this step runs as the job (service role).
+  await trackForTenant(
+    tenantId,
+    "route.proposal_shown",
+    { engine: result.source === "ai" ? "ai" : "solver", stops: Math.min(result.order.length, 1000), saved_minutes: savedMinutes(current, proposed) },
+    "office",
   );
   return "done";
 }

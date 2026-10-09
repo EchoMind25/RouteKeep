@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { chargeDueAutopay, type AutopayResult } from "@/lib/jobs/autopay";
 import { billTenant } from "@/lib/jobs/billing";
-import { remindAll } from "@/lib/jobs/daily";
+import { remindAll, telemetryRetention } from "@/lib/jobs/daily";
 import { listTenantIds } from "@/lib/jobs/generate-appointments";
 import { reconcileIntents, reconcileRefunds, reconcileSweep } from "@/lib/jobs/reconcile";
 import { processOutbox } from "@/lib/jobs/outbox";
@@ -89,4 +89,9 @@ export const tenantPayments = inngest.createFunction(
   },
 );
 
-export const messagingFunctions = [outboxSweep, dailyReminders, nightlyBilling, tenantBilling, nightlyPayments, tenantPayments];
+// OPS-03: raw product events are kept 180 days (data-collection contract section 6).
+export const telemetryRetentionDaily = inngest.createFunction({ id: "telemetry-retention-daily", triggers: [{ cron: "TZ=America/Denver 15 4 * * *" }] }, async ({ step }) =>
+  step.run("purge", () => telemetryRetention()),
+);
+
+export const messagingFunctions = [outboxSweep, dailyReminders, nightlyBilling, tenantBilling, nightlyPayments, tenantPayments, telemetryRetentionDaily];

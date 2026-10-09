@@ -5,6 +5,7 @@ import { reconcileTenant } from "./reconcile";
 import { GENERATION_BATCH, generateBatch, listTenantIds } from "./generate-appointments";
 import { processOutbox } from "./outbox";
 import { queueReminders } from "./reminders";
+import { purgeProductEvents } from "@/lib/telemetry/job";
 
 // The scheduled work outside visit generation, one place for every runner
 // (Inngest, /api/cron, the npm scripts). Each piece is idempotent.
@@ -31,6 +32,11 @@ export async function billEveryone(now = new Date()) {
     results.push({ tenantId, ...r });
   }
   return results;
+}
+
+/** OPS-03: product events older than 180 days are deleted (data-collection contract section 6). */
+export async function telemetryRetention() {
+  return purgeProductEvents();
 }
 
 /** FR-BIL-02/04: autopay charges and retries that are due, every business. */

@@ -4,12 +4,27 @@ import { Alert, EmptyState, PageHeader, Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { requireDeveloper } from "@/lib/auth/session";
 import { formatCents } from "@/lib/domain/money";
-import { healthChecks, planUsage, tenantFlags, worstTone, type Tone } from "@/lib/ops/console-model";
+import {
+  engineRows,
+  errorDays,
+  errorDaysSummary,
+  formatRate,
+  healthChecks,
+  outOfOrderSummary,
+  planUsage,
+  sharingTotals,
+  tenantFlags,
+  worstTone,
+  type SharingLevel,
+  type Tone,
+} from "@/lib/ops/console-model";
 import { loadConsole } from "@/lib/ops/console";
 
 // OPS-01: one read-only page across every business: platform health, each
 // business's size and problems, recent system errors, and (OPS-02) the audit of
 // what developers looked at. No customer records are shown or reachable from here.
+// OPS-03: product signals (auto route outcomes, errors) from businesses that
+// share them; names only for businesses that chose identified sharing (OPS-04).
 
 const when = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" });
 const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -21,6 +36,13 @@ function at(iso: string): string {
 
 const TONE_LABEL: Record<Tone, string> = { success: "OK", neutral: "Info", warning: "Check", danger: "Act now" };
 const PLAN_LABEL: Record<string, string> = { starter: "Starter", pro: "Pro", growth: "Growth" };
+const short = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const SHARING_LABEL: Record<SharingLevel, { title: string; detail: string }> = {
+  none: { title: "Share nothing", detail: "Nothing is stored for these businesses." },
+  anonymous: { title: "Share anonymously", detail: "Counted with no business attached." },
+  identified: { title: "Share with name", detail: "Their name shows next to their errors." },
+};
+const SURFACE_LABEL: Record<string, string> = { office: "Office app", tech: "Tech app", portal: "Customer portal", public: "Public site", server: "Server", job: "Background job" };
 const SOURCE_LABEL: Record<string, string> = { webhook: "Webhook", export: "Export", import: "Import", route_ai: "Route planner", reconciliation: "Reconciliation" };
 
 function ToneIcon({ tone }: { tone: Tone }) {
@@ -46,6 +68,10 @@ export default async function DeveloperConsolePage() {
   const checks = healthChecks(data.health, now);
   const overall = worstTone(checks.map((c) => c.tone));
   const needsLook = data.tenants.filter((t) => tenantFlags(t).length > 0).length;
+  const product = data.product;
+  const engines = engineRows(product.routes);
+  const errorSeries = errorDays(product.errors_by_day, product.days, now);
+  const errorPeak = Math.max(1, ...errorSeries.map((d) => d.count));
 
   return (
     <div className="grid gap-8">
@@ -184,6 +210,166 @@ export default async function DeveloperConsolePage() {
           </Table>
         )}
       </div>
+
+      <section aria-labelledby="product-signals" className="grid gap-4">
+        <div className="grid gap-1">
+          <h2 id="product-signals" className="text-lg font-semibold text-fg">
+            Product signals
+          </h2>
+          <p className="text-sm text-fg-muted">
+            Last {product.days} days, from businesses that share product data. Counts and scrubbed error text only: no customers, no people. A business name shows only where that business chose to share it.
+          </p>
+        </div>
+
+        <ul aria-label="Data sharing choices" className="grid gap-3 sm:grid-cols-3">
+          {sharingTotals(product.sharing).map((s) => (
+            <li key={s.level} data-sharing={s.level}>
+              <Stat
+                label={SHARING_LABEL[s.level].title}
+                value={`${count.format(s.count)} ${s.count === 1 ? "business" : "businesses"}`}
+                detail={`${s.share === null ? "" : `${formatRate(s.share)} of all. `}${SHARING_LABEL[s.level].detail}`}
+              />
+            </li>
+          ))}
+        </ul>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <h3 className="text-md font-semibold text-fg">Auto routes</h3>
+            <p className="text-sm text-fg-muted">How dispatchers answer a proposed route. Changed by hand counts stops moved on a lane after its auto route was saved.</p>
+          </div>
+          {engines.length === 0 ? (
+            <p className="rounded-panel border border-dashed border-line-strong px-5 py-4 text-sm text-fg-muted">No route proposals yet. They appear here once a dispatcher previews an auto route.</p>
+          ) : (
+            <Table label="Route proposals by engine" className="text-sm">
+              <THead>
+                <tr>
+                  <TH>Engine</TH>
+                  <TH className="text-right">Shown</TH>
+                  <TH className="text-right">Accepted</TH>
+                  <TH className="text-right">Dismissed</TH>
+                  <TH className="text-right">Undone after saving</TH>
+                  <TH className="text-right">Changed by hand after</TH>
+                </tr>
+              </THead>
+              <TBody>
+                {engines.map((r) => (
+                  <TR key={r.engine}>
+                    <TD className="font-medium">{r.label}</TD>
+                    <TD className="text-right tabular-nums">{count.format(r.shown)}</TD>
+                    <TD className="text-right tabular-nums">
+                      {formatRate(r.acceptedRate)}
+                      <p className="text-fg-muted">{count.format(r.accepted)}</p>
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {formatRate(r.dismissedRate)}
+                      <p className="text-fg-muted">{count.format(r.dismissed)}</p>
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {formatRate(r.undoneRate)}
+                      <p className="text-fg-muted">{count.format(r.undone)}</p>
+                    </TD>
+                    <TD className="text-right tabular-nums">
+                      {count.format(r.manualChange)} {r.manualChange === 1 ? "stop" : "stops"}
+                      <p className="text-fg-muted">{r.manualChangePerAccepted === null ? "n/a" : `${r.manualChangePerAccepted.toFixed(1)} per saved route`}</p>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+          <p className="text-sm text-fg-muted" data-testid="out-of-order">
+            <span className="font-medium text-fg">Technicians: </span>
+            {outOfOrderSummary(product.out_of_order, product.days)}
+          </p>
+        </div>
+
+        <Panel title="Errors per day" description={`Crashes and failed requests in the office app, tech app, portal, public site and server, last ${product.days} days (UTC).`}>
+          <div className="grid gap-3 px-5 py-4">
+            <div aria-hidden className="flex h-16 items-end gap-px" data-testid="error-strip">
+              {errorSeries.map((d) => (
+                <div
+                  key={d.day}
+                  title={`${short.format(new Date(`${d.day}T00:00:00Z`))}: ${d.count}`}
+                  className={d.count > 0 ? "flex-1 bg-danger" : "flex-1 bg-line"}
+                  style={{ height: d.count > 0 ? `${Math.max(8, Math.round((d.count / errorPeak) * 100))}%` : "2px" }}
+                />
+              ))}
+            </div>
+            <p className="text-sm text-fg-muted">{errorDaysSummary(errorSeries, (iso) => short.format(new Date(`${iso}T00:00:00Z`)))}</p>
+          </div>
+        </Panel>
+
+        <div className="grid gap-3">
+          <h3 className="text-md font-semibold text-fg">Top errors, last 7 days</h3>
+          {data.productErrors.length === 0 ? (
+            <Alert tone="success">No errors reported from the apps in the last 7 days.</Alert>
+          ) : (
+            <Table label="Top errors">
+              <THead>
+                <tr>
+                  <TH>Error</TH>
+                  <TH>Where</TH>
+                  <TH className="text-right">Count</TH>
+                  <TH>First and last seen</TH>
+                  <TH>Versions</TH>
+                  <TH>Business</TH>
+                </tr>
+              </THead>
+              <TBody>
+                {data.productErrors.map((e) => (
+                  <TR key={`${e.fingerprint}-${e.name}-${e.surface}`}>
+                    <TD className="text-sm">
+                      <p className="font-mono break-words">{e.message ?? "No message"}</p>
+                      <p className="text-fg-muted">{e.kind ?? e.name}</p>
+                    </TD>
+                    <TD className="text-sm">
+                      <p>{SURFACE_LABEL[e.surface] ?? e.surface}</p>
+                      {e.route ? <p className="font-mono text-fg-muted">{e.route}</p> : null}
+                    </TD>
+                    <TD className="text-right tabular-nums">{count.format(e.occurrences)}</TD>
+                    <TD className="whitespace-nowrap text-sm tabular-nums">
+                      <p>{at(e.firstHour)}</p>
+                      <p className="text-fg-muted">{at(e.lastHour)}</p>
+                    </TD>
+                    <TD className="font-mono text-sm">{e.versions.length > 0 ? e.versions.join(", ") : <span className="font-sans text-fg-muted">Unknown</span>}</TD>
+                    <TD className="text-sm">{e.businesses.length > 0 ? e.businesses.join(", ") : <span className="text-fg-muted">Anonymous</span>}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </div>
+
+        <div className="grid gap-3">
+          <div className="grid gap-1">
+            <h3 className="text-md font-semibold text-fg">Businesses sharing their name</h3>
+            <p className="text-sm text-fg-muted">The 20 with the most errors in {product.days} days. Only businesses that chose to share with their name are listed.</p>
+          </div>
+          {product.identified.length === 0 ? (
+            <p className="rounded-panel border border-dashed border-line-strong px-5 py-4 text-sm text-fg-muted">No business has shared events with its name in this period.</p>
+          ) : (
+            <Table label="Businesses sharing their name">
+              <THead>
+                <tr>
+                  <TH>Business</TH>
+                  <TH className="text-right">Events</TH>
+                  <TH className="text-right">Errors</TH>
+                </tr>
+              </THead>
+              <TBody>
+                {product.identified.map((b) => (
+                  <TR key={b.tenant_id}>
+                    <TD className="font-medium">{b.name}</TD>
+                    <TD className="text-right tabular-nums">{count.format(b.events)}</TD>
+                    <TD className="text-right tabular-nums">{count.format(b.errors)}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </div>
+      </section>
 
       <div className="grid gap-3">
         <div className="grid gap-1">

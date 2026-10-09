@@ -21,8 +21,15 @@ test("FR-SET-01: a new owner creates a business and lands on setup", async ({ pa
 
   await expect(page).toHaveURL(/\/setup$/);
   await expect(page.getByRole("heading", { name: "Get set up" })).toBeVisible();
-  await expect(page.getByText("4 of 5 steps left")).toBeVisible();
+  await expect(page.getByText("5 of 6 steps left")).toBeVisible();
+  // OPS-04: opt-in. The product data question comes first, with nothing shared until answered.
+  const question = page.getByRole("region", { name: "Help us improve RouteVerde?" });
+  await expect(question.getByRole("radio", { name: /Don't share anything/ })).toBeChecked();
   await expectAccessible(page);
+  await question.getByRole("radio", { name: /Share anonymously/ }).check();
+  await question.getByRole("button", { name: "Save choice" }).click();
+  await expect(page.getByText("4 of 6 steps left")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Help us improve RouteVerde?" })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Go to schedule" }).click();
   await expect(page.getByRole("heading", { name: "Nothing scheduled yet" })).toBeVisible();

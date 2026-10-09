@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { BrandTheme } from "@/components/brand-theme";
+import { ErrorReporter } from "@/components/telemetry/error-reporter";
 import { BRAND } from "@/lib/brand";
 import { isEnabled } from "@/lib/flags";
 import { publicBusiness } from "@/lib/portal/data";
+import { portalSession } from "@/lib/portal/session";
+import { portalDataSharing } from "@/lib/telemetry/sharing";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,9 +25,14 @@ export default async function PortalLayout({ children, params }: { children: Rea
   const business = await publicBusiness(tenant);
   if (!business) notFound();
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // OPS-04: only a signed-in customer of a business that shares product data
+  // loads the reporter; signed out, the business's setting cannot be read.
+  const customer = await portalSession(tenant);
+  const reportErrors = customer ? (await portalDataSharing(customer)) !== "none" : false;
   return (
     <div className="min-h-dvh bg-canvas text-fg">
       {business.whiteLabel ? <BrandTheme accent={business.accent} nonce={nonce} /> : null}
+      {reportErrors ? <ErrorReporter to={`/p/${tenant}/telemetry`} /> : null}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>

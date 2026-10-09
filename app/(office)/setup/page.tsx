@@ -3,19 +3,33 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/layout";
-import { OFFICE_ROLES, requireMember } from "@/lib/auth/session";
+import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { cn } from "@/lib/cn";
+import { DEFAULT_SHARING, isSharingLevel } from "@/lib/domain/data-sharing";
 import { setupProgress } from "@/lib/server/catalog";
+import { DataSharingForm } from "../settings/data-sharing/data-sharing-form";
 
 export const metadata: Metadata = { title: "Get set up" };
 
-export default async function SetupPage() {
+export default async function SetupPage({ searchParams }: { searchParams: Promise<{ later?: string }> }) {
   const member = await requireMember(OFFICE_ROLES);
   const p = await setupProgress(member);
+  // OPS-04: the product data question comes first for a new business, until an
+  // owner or admin answers. "Skip for now" hides it for this visit; the
+  // business stays at none and the step below stays open.
+  const { later } = await searchParams;
+  const askData = !p.dataSharingAnswered && canManage(member.role) && later !== "product-data";
 
   // S03 / FR-SET accept: a usable empty schedule in under 10 minutes.
   const steps = [
     { done: true, title: "Create your business", body: "Name, license number, address and time zone.", href: "/settings", cta: "Review" },
+    {
+      done: p.dataSharingAnswered,
+      title: "Choose what product data to share",
+      body: "Off until you choose. Sharing error reports and auto route changes helps us fix problems faster and improve routes.",
+      href: askData ? "#product-data" : "/settings#data-sharing",
+      cta: "Choose",
+    },
     { done: p.technicians > 0, title: "Add your technicians", body: "Each needs an applicator license number and expiry; both print on every record.", href: "/settings/technicians", cta: "Add technicians" },
     { done: p.plans > 0, title: "Set up service plans", body: "Price, initial visit price and how often you come back.", href: "/settings/plans", cta: "Create a plan" },
     { done: p.products > 0, title: "Add the products you apply", body: "EPA registration number, signal word and default mix rate.", href: "/settings/products", cta: "Add products" },
@@ -43,6 +57,11 @@ export default async function SetupPage() {
           </Button>
         }
       />
+      {askData ? (
+        <div className="pb-6">
+          <DataSharingForm variant="onboarding" level={isSharingLevel(p.dataSharing) ? p.dataSharing : DEFAULT_SHARING} answered={false} readOnly={false} skipHref="/setup?later=product-data" />
+        </div>
+      ) : null}
       <ol className="grid max-w-3xl divide-y divide-line rounded-panel border border-line bg-surface">
         {steps.map((s) => (
           <li key={s.title} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

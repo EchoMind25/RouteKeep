@@ -17,6 +17,7 @@ import {
 } from "@/lib/server/dispatch";
 import { stepAiRun } from "@/lib/jobs/route-ai";
 import { aiRunTenant, readAiPlan, requestAiPlan, type AiPlanView } from "@/lib/server/route-ai";
+import { track } from "@/lib/telemetry/track";
 
 // The board is for people who run the schedule.
 const DISPATCH = ["owner", "admin", "office", "dispatcher"] as const;
@@ -111,6 +112,16 @@ export async function undoOptimizeAction(input: unknown): Promise<BoardResult> {
     const v = z.object({ technicianId: z.uuid(), date, expected: lane }).parse(input);
     await undoOptimize(member, v);
   });
+}
+
+/**
+ * OPS-03: the dispatcher closed an optimize or AI preview without saving it.
+ * Counts only: the engine and how many stops it proposed. Never fails the board.
+ */
+export async function dismissProposalAction(input: unknown): Promise<void> {
+  const member = await requireMember(DISPATCH);
+  const v = z.object({ engine: z.enum(["solver", "ai"]), stops: z.number().int().min(0).max(1000) }).safeParse(input);
+  if (v.success) await track(member, "route.proposal_dismissed", v.data);
 }
 
 export async function publishRouteAction(input: unknown): Promise<BoardResult> {

@@ -1,11 +1,11 @@
 import { timingSafeEqual } from "node:crypto";
 import { PRIVATE } from "@/lib/auth/api";
 import { env } from "@/lib/env";
-import { autopayEveryone, billEveryone, generateEveryone, reconcileEveryone, remindAll } from "@/lib/jobs/daily";
+import { autopayEveryone, billEveryone, generateEveryone, reconcileEveryone, remindAll, telemetryRetention } from "@/lib/jobs/daily";
 import { processOutbox } from "@/lib/jobs/outbox";
 
 // For a scheduler other than Inngest (a GitHub Action, a Netlify scheduled
-// function, cron on any box): POST /api/cron?job=generation|outbox|reminders|billing|autopay|reconcile
+// function, cron on any box): POST /api/cron?job=generation|outbox|reminders|billing|autopay|reconcile|telemetry-retention
 // with "Authorization: Bearer <CRON_SECRET>". Off when CRON_SECRET is unset.
 // generation is the FR-SUB-02 fallback that keeps the 60-day window rolling
 // without Inngest; inserts are idempotent, so a timed-out run is safe to repeat.
@@ -20,6 +20,8 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   },
   autopay: () => autopayEveryone(),
   reconcile: () => reconcileEveryone(),
+  // OPS-03: raw product events are kept 180 days.
+  "telemetry-retention": () => telemetryRetention(),
 };
 
 export async function POST(request: Request) {
