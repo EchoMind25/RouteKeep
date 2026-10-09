@@ -89,6 +89,8 @@ export async function requireMember(allowed?: readonly MemberRole[]): Promise<Me
 }
 
 export const OFFICE_ROLES = ["owner", "admin", "office", "dispatcher"] as const satisfies readonly MemberRole[];
+/** FR-INV: who may see inventory, forecasts and orders (matches lib/server/inventory.ts); dispatchers do not. */
+export const INVENTORY_ROLES = ["owner", "admin", "office"] as const satisfies readonly MemberRole[];
 export const ADMIN_ROLES = ["owner", "admin"] as const satisfies readonly MemberRole[];
 
 export function canManage(role: MemberRole): boolean {

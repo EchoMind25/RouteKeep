@@ -1,4 +1,4 @@
-import { CaretRight, ChartLineUp, Flask, HandCoins } from "@phosphor-icons/react/ssr";
+import { Bug, CaretRight, ChartLineUp, Flask, HandCoins, Package } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -54,6 +54,34 @@ export default async function ReportsPage() {
             <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
           </Link>
         </li>
+        {isEnabled("inventory") ? (
+          <>
+            <li>
+              <Link href="/reports/pests" className="flex items-center gap-4 rounded-panel border border-line bg-surface p-5 hover:border-line-strong">
+                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent-soft text-accent" aria-hidden>
+                  <Bug size={22} />
+                </span>
+                <span className="grid min-w-0 flex-1 gap-0.5">
+                  <span className="font-semibold">Pest activity by area</span>
+                  <span className="text-sm text-fg-muted">Target pests by ZIP code and week, with rising areas flagged. Your own business&apos;s visits only.</span>
+                </span>
+                <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
+              </Link>
+            </li>
+            <li>
+              <Link href="/inventory" className="flex items-center gap-4 rounded-panel border border-line bg-surface p-5 hover:border-line-strong">
+                <span className="grid size-10 shrink-0 place-items-center rounded-control bg-accent-soft text-accent" aria-hidden>
+                  <Package size={22} />
+                </span>
+                <span className="grid min-w-0 flex-1 gap-0.5">
+                  <span className="font-semibold">Usage forecast</span>
+                  <span className="text-sm text-fg-muted">How much product the schedule will use this week, the next three weeks and the rest of the month, and what to order.</span>
+                </span>
+                <CaretRight size={18} aria-hidden className="shrink-0 text-fg-muted" />
+              </Link>
+            </li>
+          </>
+        ) : null}
       </ul>
     </div>
   );

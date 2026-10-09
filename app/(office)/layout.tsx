@@ -8,8 +8,9 @@ import { TenantMark } from "@/components/tenant-mark";
 import { tenantBranding } from "@/lib/server/branding";
 import { OfficeNav } from "@/components/office/nav";
 import { Button } from "@/components/ui/button";
-import { isDeveloperUser, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
+import { INVENTORY_ROLES, isDeveloperUser, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
 import { isEnabled } from "@/lib/flags";
+import { inventoryModeFor } from "@/lib/server/inventory";
 import { signOut } from "../(auth)/sign-in/actions";
 
 // FR-BRD-03: the browser tab names the business, not the product, for white label.
@@ -27,14 +28,16 @@ export default async function OfficeLayout({ children }: { children: React.React
   const brand = await tenantBranding(member);
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const developer = await isDeveloperUser();
+  // FR-INV-01: the Inventory area shows for owner, admin and office once the business turns it on.
+  const inventory = isEnabled("inventory") && (INVENTORY_ROLES as readonly string[]).includes(member.role) && (await inventoryModeFor(member)) !== "off";
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr] print:block">
       {brand.whiteLabel ? <BrandTheme accent={brand.accent} nonce={nonce} /> : null}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>
-      <aside className="sticky top-0 z-20 border-b border-line bg-surface lg:h-dvh lg:border-r lg:border-b-0">
+      <aside className="sticky top-0 z-20 print:hidden border-b border-line bg-surface lg:h-dvh lg:border-r lg:border-b-0">
         <div className="flex items-center justify-between gap-3 px-4 pt-3 lg:block lg:px-4 lg:pt-5">
           {brand.whiteLabel ? <TenantMark name={brand.name} logoSrc={brand.hasLogo ? "/api/branding/logo" : null} /> : <BrandMark />}
           <form action={signOut} className="lg:hidden">
@@ -44,7 +47,7 @@ export default async function OfficeLayout({ children }: { children: React.React
           </form>
         </div>
         <div className="px-3 py-3 lg:px-3 lg:pt-6">
-          <OfficeNav enabled={{ billing: isEnabled("billing"), reports: isEnabled("reports") }} />
+          <OfficeNav enabled={{ billing: isEnabled("billing"), reports: isEnabled("reports"), inventory }} />
         </div>
         <div className="hidden border-t border-line px-4 py-4 lg:absolute lg:inset-x-0 lg:bottom-0 lg:grid lg:gap-3">
           <div className="grid gap-0.5">

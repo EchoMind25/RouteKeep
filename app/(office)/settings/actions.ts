@@ -282,3 +282,31 @@ export async function createProduct(_prev: FormState, data: FormData): Promise<F
   revalidatePath("/setup");
   return { ok: true, message: `${v.name} added.` };
 }
+
+// FR-INV-02, FR-INV-05: the unit a product's stock is kept in, and the days of cover to keep above zero.
+const stockSchema = z.object({
+  id: z.uuid(),
+  stockUnit: z.string().transform((v) => v || null).pipe(z.enum(AMOUNT_UNITS, { error: "Choose a unit" }).nullable()),
+  safetyDays: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? 0 : Number(v)))
+    .pipe(z.number({ error: "Enter a number of days" }).int("Use whole days").min(0, "Use 0 to 365 days").max(365, "Use 0 to 365 days")),
+});
+
+export async function updateProductStock(_prev: FormState, data: FormData): Promise<FormState> {
+  const member = await requireMember(ADMIN_ROLES);
+  const values = formValues(data);
+  const parsed = stockSchema.safeParse(values);
+  if (!parsed.success) return failure(values, "Check the highlighted fields.", fieldErrors(parsed.error));
+  try {
+    await withRls(member.claims, (tx) =>
+      tx.updateTable("products").set({ stock_unit: parsed.data.stockUnit, safety_days: parsed.data.safetyDays }).where("id", "=", parsed.data.id).execute(),
+    );
+  } catch (error) {
+    return deniedOr(error, values);
+  }
+  revalidatePath("/settings/products");
+  revalidatePath("/inventory", "layout");
+  return { ok: true, message: "Saved." };
+}

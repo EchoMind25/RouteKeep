@@ -3,10 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState, Panel } from "@/components/ui/layout";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { canManage, OFFICE_ROLES, requireMember } from "@/lib/auth/session";
-import { formatNumber, isMixUnit, mixLabel } from "@/lib/domain/units";
+import { amountLabel, formatNumber, isAmountUnit, isMixUnit, mixLabel } from "@/lib/domain/units";
 import { listProducts } from "@/lib/server/catalog";
 import { PRODUCT_KIND, SIGNAL_WORD } from "@/lib/ui/format";
-import { ProductForm } from "../forms";
+import { ProductForm, ProductStockForm } from "../forms";
 
 export const metadata: Metadata = { title: "Products" };
 
@@ -27,6 +27,7 @@ export default async function ProductsPage() {
               <TH>Product</TH>
               <TH>EPA reg. no.</TH>
               <TH className="hidden md:table-cell">Default mix</TH>
+              <TH>Stock</TH>
             </tr>
           </THead>
           <TBody>
@@ -43,6 +44,17 @@ export default async function ProductsPage() {
                 <TD className="font-mono text-sm whitespace-nowrap">{p.epa_reg_no ?? <span className="font-sans text-fg-muted">None</span>}</TD>
                 <TD className="hidden text-sm text-fg-muted md:table-cell">
                   {p.default_mix_rate && p.default_mix_unit && isMixUnit(p.default_mix_unit) ? `${formatNumber(Number(p.default_mix_rate))} ${mixLabel(p.default_mix_unit)}` : "Not set"}
+                </TD>
+                <TD className="text-sm">
+                  <span className="text-fg-muted">
+                    {p.stock_unit && isAmountUnit(p.stock_unit) ? amountLabel(p.stock_unit) : "Automatic unit"}, {p.safety_days} safety {p.safety_days === 1 ? "day" : "days"}
+                  </span>
+                  {canManage(member.role) ? (
+                    <details>
+                      <summary className="w-fit cursor-pointer font-medium text-accent hover:underline">Change</summary>
+                      <ProductStockForm id={p.id} stockUnit={p.stock_unit} safetyDays={p.safety_days} />
+                    </details>
+                  ) : null}
                 </TD>
               </TR>
             ))}

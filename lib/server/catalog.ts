@@ -34,7 +34,7 @@ export async function listProducts(m: MemberSession) {
   return withRls(m.claims, (tx) =>
     tx
       .selectFrom("products")
-      .select(["id", "name", "kind", "epa_reg_no", "signal_word", "restricted_use", "default_mix_rate", "default_mix_unit", "default_amount_unit", "active"])
+      .select(["id", "name", "kind", "epa_reg_no", "signal_word", "restricted_use", "default_mix_rate", "default_mix_unit", "default_amount_unit", "stock_unit", "safety_days", "active"])
       .orderBy("active", "desc")
       .orderBy("name")
       .execute(),

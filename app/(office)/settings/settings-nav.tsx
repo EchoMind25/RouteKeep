@@ -10,6 +10,7 @@ const TABS = [
   { href: "/settings/technicians", label: "Technicians" },
   { href: "/settings/plans", label: "Plans" },
   { href: "/settings/products", label: "Products" },
+  { href: "/settings/inventory", label: "Inventory" },
   { href: "/settings/sales", label: "Sales" },
   { href: "/settings/messages", label: "Messages" },
   { href: "/settings/payments", label: "Payments" },

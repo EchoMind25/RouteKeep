@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-09",
+    title: "Usage forecast, resupply and truck stock",
+    items: [
+      "Turn on Inventory in Settings, Inventory. Forecast mode shows how much product the visits on your schedule will use this week, the next three weeks and the rest of the month. Tracked mode also keeps stock for your shop and each truck.",
+      "Resupply suggests what to order from each vendor, then makes a draft order you can print or email from your own mail app. RouteVerde never contacts your vendor. Mark it sent, then received, into the shop or a truck.",
+      "On resupply day each technician counts their truck in the app. You see what was counted against what was expected, and a restock list for each truck.",
+      "Reports now has Pest activity by area, from your own visits only, and Spend shows material cost by month, vendor and service type.",
+      "Set a stock unit and safety days for each product in Settings, Products.",
+    ],
+  },
+  {
+    date: "2026-10-09",
     title: "Two-step sign-in for owners and admins",
     items: [
       "Owners and admins now enter a 6-digit code from an authenticator app after the emailed code. You set it up the first time you sign in.",

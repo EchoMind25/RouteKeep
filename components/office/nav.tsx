@@ -1,20 +1,21 @@
 "use client";
 
-import { CalendarDots, ChartBar, Gear, Receipt, UsersThree, type Icon } from "@phosphor-icons/react";
+import { CalendarDots, ChartBar, Gear, Package, Receipt, UsersThree, type Icon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-// UX-01: at most five top-level areas.
-const ITEMS: { href: string; label: string; icon: Icon; flag?: "billing" | "reports" }[] = [
+// UX-01: five top-level areas; Inventory (FR-INV) joins them only for businesses that turned it on.
+const ITEMS: { href: string; label: string; icon: Icon; flag?: "billing" | "reports" | "inventory" }[] = [
   { href: "/schedule", label: "Schedule", icon: CalendarDots },
   { href: "/customers", label: "Customers", icon: UsersThree },
   { href: "/billing", label: "Billing", icon: Receipt, flag: "billing" },
+  { href: "/inventory", label: "Inventory", icon: Package, flag: "inventory" },
   { href: "/reports", label: "Reports", icon: ChartBar, flag: "reports" },
   { href: "/settings", label: "Settings", icon: Gear },
 ];
 
-export function OfficeNav({ enabled }: { enabled: { billing: boolean; reports: boolean } }) {
+export function OfficeNav({ enabled }: { enabled: { billing: boolean; reports: boolean; inventory: boolean } }) {
   const pathname = usePathname();
   const items = ITEMS.filter((i) => !i.flag || enabled[i.flag]);
   return (

@@ -9,7 +9,7 @@ import { PLAN_PRESETS } from "@/lib/domain/recurrence";
 import { initialFormState, type FormState } from "@/lib/forms";
 import { BILLING_MODE, CATEGORY_LABEL, PRODUCT_KIND, SIGNAL_WORD } from "@/lib/ui/format";
 import { AMOUNT_UNITS, amountLabel, MIX_UNITS, mixLabel } from "@/lib/domain/units";
-import { createPlan, createProduct, createTechnician, inviteMemberAction, updateBusiness } from "./actions";
+import { createPlan, createProduct, createTechnician, inviteMemberAction, updateBusiness, updateProductStock } from "./actions";
 
 function Status({ state }: { state: FormState }) {
   if (!state.message) return null;
@@ -291,6 +291,40 @@ export function ProductForm() {
       </div>
       <div>
         <SubmitButton pendingLabel="Adding">Add product</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+/** FR-INV-02, FR-INV-05: stock unit and safety days for one product. */
+export function ProductStockForm({ id, stockUnit, safetyDays }: { id: string; stockUnit: string | null; safetyDays: number }) {
+  const [state, action] = useActionState(updateProductStock, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
+  const v = state.values ?? { stockUnit: stockUnit ?? "", safetyDays: String(safetyDays) };
+  const e = state.errors ?? {};
+  return (
+    <form ref={formRef} action={action} className="grid gap-3 pt-2" noValidate>
+      <Status state={state} />
+      <input type="hidden" name="id" value={id} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Stock unit" hint="Automatic uses the unit of the default mix rate." error={e.stockUnit}>
+          <Select name="stockUnit" defaultValue={v.stockUnit ?? ""}>
+            <option value="">Automatic</option>
+            {AMOUNT_UNITS.map((u) => (
+              <option key={u} value={u}>
+                {amountLabel(u)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Safety days" hint="Days of use to keep in stock above zero." error={e.safetyDays}>
+          <Input name="safetyDays" type="number" min={0} max={365} step={1} inputMode="numeric" defaultValue={v.safetyDays} />
+        </Field>
+      </div>
+      <div>
+        <SubmitButton variant="secondary" size="sm" pendingLabel="Saving">
+          Save stock settings
+        </SubmitButton>
       </div>
     </form>
   );

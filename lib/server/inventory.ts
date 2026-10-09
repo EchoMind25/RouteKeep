@@ -71,6 +71,22 @@ export async function updateInventorySettings(m: MemberSession, input: { mode: I
   });
 }
 
+/** FR-INV-01: the business's mode for the navigation; any signed-in member may ask, it exposes nothing else. */
+export async function inventoryModeFor(m: MemberSession): Promise<InventoryMode> {
+  return (await withRls(m.claims, settingsIn)).mode;
+}
+
+/** FR-INV-06: receiving an order needs a place to put it; a business in forecast mode gets its Shop on first use. Returns the Shop's id. */
+export async function ensureShop(m: MemberSession): Promise<string> {
+  allow(m, WRITE_ROLES);
+  return withRls(m.claims, async (tx) => {
+    const shop = await tx.selectFrom("stock_locations").select("id").where("kind", "=", "shop").where("active", "=", true).orderBy("created_at").executeTakeFirst();
+    if (shop) return shop.id;
+    const row = await tx.insertInto("stock_locations").values({ kind: "shop", name: "Shop" }).returning("id").executeTakeFirstOrThrow();
+    return row.id;
+  });
+}
+
 async function ensureLocations(tx: Tx): Promise<void> {
   const locations = await tx.selectFrom("stock_locations").select(["kind", "name", "technician_id"]).where("active", "=", true).execute();
   const names = new Set(locations.map((l) => l.name.toLowerCase()));
