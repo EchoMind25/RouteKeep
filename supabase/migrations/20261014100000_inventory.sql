@@ -7,7 +7,8 @@
 -- amendment corrects stock automatically. What is stored here is only what the
 -- records cannot know: counts, receipts, transfers between the shop and trucks,
 -- and adjustments. On hand at a location = the latest count + movements after
--- it - product used by that truck's technician after it (lib/domain/inventory.ts).
+-- it - product used by that truck's technician after it (lib/domain/inventory.ts). A pair
+-- never counted starts at the location's created_at, not the beginning of time.
 -- The weekly resupply-day count bounds how far back that sum ever reaches.
 
 -- Tenant settings (FR-INV-01) -------------------------------------------------------------
@@ -106,20 +107,26 @@ call app.secure_table('public.stock_locations',
 
 -- A technician added while the business tracks stock gets a truck at once, so
 -- their first resupply-day check is never skipped for want of a location (FR-INV-07).
+-- One naming rule, shared with ensureLocations in lib/server/inventory.ts: "Truck <name>",
+-- then "Truck <name> 2", "Truck <name> 3" when the name is taken. A clash never costs a technician their truck.
 create or replace function app.truck_for_new_technician() returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_base text := left('Truck ' || btrim(new.display_name), 76);
+  v_name text := v_base;
+  n integer := 1;
 begin
-  if exists (select 1 from public.tenants t where t.id = new.tenant_id and t.inventory_mode = 'tracked') then
-    insert into public.stock_locations (tenant_id, kind, name, technician_id)
-    select new.tenant_id, 'truck', left('Truck ' || new.display_name, 80), new.id
-    where not exists (
-      select 1 from public.stock_locations l
-      where l.tenant_id = new.tenant_id and l.technician_id = new.id and l.active
-    )
-    on conflict do nothing;
+  if exists (select 1 from public.tenants t where t.id = new.tenant_id and t.inventory_mode = 'tracked')
+     and not exists (select 1 from public.stock_locations l where l.tenant_id = new.tenant_id and l.technician_id = new.id and l.active) then
+    perform pg_advisory_xact_lock(hashtextextended('truck:' || new.tenant_id::text, 0));
+    while exists (select 1 from public.stock_locations l where l.tenant_id = new.tenant_id and l.active and lower(l.name) = lower(v_name)) loop
+      n := n + 1;
+      v_name := v_base || ' ' || n;
+    end loop;
+    insert into public.stock_locations (tenant_id, kind, name, technician_id) values (new.tenant_id, 'truck', v_name, new.id);
   end if;
   return new;
 end
@@ -144,7 +151,6 @@ create table public.purchase_orders (
   received_location_id uuid,
   notes text check (notes is null or length(notes) <= 2000),
   client_key text not null default gen_random_uuid()::text,
-  version integer not null default 1,
   created_by uuid default auth.uid(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -177,7 +183,7 @@ create trigger number_purchase_order before insert on public.purchase_orders
 
 call app.secure_table('public.purchase_orders',
   p_select => '{owner,admin,office}', p_insert => '{owner,admin}', p_update => '{owner,admin}', p_delete => '{owner,admin}');
-call app.add_version_trigger('public.purchase_orders');
+-- State changes (send, receive, cancel) lock the row in lib/server/inventory.ts, so no version column is needed.
 
 create table public.purchase_order_lines (
   id uuid primary key default gen_random_uuid(),
@@ -253,10 +259,11 @@ create table public.stock_movements (
   constraint adjust_has_reason check (kind <> 'adjust' or reason is not null),
   constraint cost_only_on_receive check (cost_cents is null or kind = 'receive')
 );
--- The on-hand read: newest count per location and product, then everything after it.
+-- The on-hand read: per location and product, the newest count, then only the movements after it,
+-- both by range on occurred_at, so cost follows the window since the last count (FR-INV-06).
 create index stock_movements_ledger on public.stock_movements (tenant_id, location_id, product_id, occurred_at desc);
+create index stock_movements_latest_count on public.stock_movements (tenant_id, location_id, product_id, occurred_at desc) where kind = 'count';
 create index stock_movements_product on public.stock_movements (tenant_id, product_id);
-create index stock_movements_po_line on public.stock_movements (tenant_id, purchase_order_line_id) where purchase_order_line_id is not null;
 create index stock_movements_counts on public.stock_movements (tenant_id, local_date, location_id) where kind = 'count';
 -- The FK index test wants an index led by the FK columns, partial ones excepted.
 create index stock_movements_po_line_fk on public.stock_movements (tenant_id, purchase_order_line_id);
@@ -264,21 +271,48 @@ create index stock_movements_po_line_fk on public.stock_movements (tenant_id, pu
 create trigger guard_immutable before update or delete on public.stock_movements
   for each row execute function app.guard_immutable();
 
--- Every member may read and add; the restrictive policy below narrows technicians
--- to counting their own truck (FR-INV-07).
+-- The database does not trust what a technician's phone sends (FR-INV-07, ENG-06):
+-- created_at is the server clock, created_by the signed-in user, nothing is dated in the future
+-- (clock skew allowance 5 minutes), and a technician's expected_qty is never stored. Their variance is
+-- derived from the ledger at read time (countVariances), so a forged expectation cannot hide shrinkage.
+create or replace function app.guard_stock_movement() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.created_at := now();
+  if new.occurred_at > now() + interval '5 minutes' then
+    raise exception 'A stock movement cannot be dated in the future' using errcode = '22008';
+  end if;
+  if auth.uid() is not null then
+    new.created_by := auth.uid();
+    if not app.has_role('{owner,admin,office,dispatcher}') then
+      new.expected_qty := null;
+    end if;
+  end if;
+  return new;
+end
+$$;
+create trigger guard_stock_movement before insert on public.stock_movements
+  for each row execute function app.guard_stock_movement();
+
+-- Every member may read; the restrictive policy below narrows who adds what (FR-INV-06, FR-INV-07).
 call app.secure_table('public.stock_movements',
   p_select => '{*}', p_insert => '{*}', p_update => '{}', p_delete => '{}');
 
+-- receive, adjust and transfers: owner and admin (as the server). Counts: owner, admin, office, dispatcher,
+-- and a technician on their own active truck.
 create or replace function app.can_write_stock_movement(p_kind text, p_location_id uuid) returns boolean
 language sql
 stable
 security definer
 set search_path = ''
 as $$
-  select app.has_role('{owner,admin,office,dispatcher}')
-    or (
-      p_kind = 'count'
-      and exists (
+  select case
+    when p_kind = 'count' then
+      app.has_role('{owner,admin,office,dispatcher}')
+      or exists (
         select 1
         from public.stock_locations l
         join public.technicians t on t.tenant_id = l.tenant_id and t.id = l.technician_id
@@ -287,9 +321,9 @@ as $$
           and l.active
           and t.user_id = auth.uid()
       )
-    )
+    else app.has_role('{owner,admin}')
+  end
 $$;
-grant execute on function app.can_write_stock_movement(text, uuid) to authenticated, service_role;
 
 create policy technicians_count_own_truck on public.stock_movements as restrictive for insert to authenticated
   with check ((select app.can_write_stock_movement(kind, location_id)));

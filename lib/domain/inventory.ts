@@ -63,31 +63,53 @@ export interface StockMove {
   qty: number;
   unit: AmountUnit;
   at: Date;
+  /** Microseconds past the millisecond (0 to 999) when the database has them, so ties compare as the database does. */
+  micros?: number;
+  /** Tie-break when two moves share an instant: created_at then id, as one sortable string. Missing sorts first. */
+  seq?: string;
 }
 /** Product used by the location's technician, already in the stock unit (productUsed). */
 export interface StockUse {
   qty: number;
   at: Date;
+  micros?: number;
 }
 export interface OnHand {
   qty: number;
-  /** When the baseline count was taken; null when the pair was never counted (baseline 0). */
+  /** When the baseline count was taken; null when the pair was never counted (baseline is `since`). */
   countedAt: Date | null;
   /** Movements that could not be converted to the stock unit and were left out. */
   skipped: number;
 }
+export interface OnHandOptions {
+  /** Exclusive: the expected quantity at an instant, which a count stores as expected_qty (FR-INV-07). */
+  asOf?: Date;
+  /** The baseline of a pair never counted: the location's created_at. Nothing before it counts; without it, all history does. */
+  since?: Date;
+}
+
+/** Microseconds since the epoch: a safe integer, so ties compare exactly as the database does. */
+const instant = (x: { at: Date; micros?: number }) => x.at.getTime() * 1000 + (x.micros ?? 0);
 
 /**
  * FR-INV-06: latest count as the baseline, then receipts, transfers and
- * adjustments, minus usage, all after it. `asOf` (exclusive) gives the
- * expected quantity at an instant, which a count stores as expected_qty (FR-INV-07).
+ * adjustments, minus usage, all after it. One rule for both baselines, shared with
+ * computeOnHand's SQL: after a count, only moves and usage strictly later count (the count
+ * wins a tie at its instant; of two counts at one instant the later created wins). With
+ * no count, the baseline is `since` and moves at that instant count (a location's first
+ * receipt can share its creation transaction's timestamp).
  */
-export function onHand(moves: readonly StockMove[], uses: readonly StockUse[], stockUnit: AmountUnit, asOf?: Date): OnHand {
-  const cutoff = asOf?.getTime() ?? Infinity;
-  const live = moves.filter((m) => m.at.getTime() < cutoff);
+export function onHand(moves: readonly StockMove[], uses: readonly StockUse[], stockUnit: AmountUnit, opts: OnHandOptions = {}): OnHand {
+  const cutoff = opts.asOf ? opts.asOf.getTime() * 1000 : Infinity;
+  const live = moves.filter((m) => instant(m) < cutoff);
   let base: StockMove | null = null;
-  for (const m of live) if (m.kind === "count" && (!base || m.at.getTime() >= base.at.getTime())) base = m;
-  const from = base ? base.at.getTime() : -Infinity;
+  for (const m of live) {
+    if (m.kind !== "count") continue;
+    if (!base || instant(m) > instant(base) || (instant(m) === instant(base) && (m.seq ?? "") >= (base.seq ?? ""))) base = m;
+  }
+  const from = base ? instant(base) : opts.since ? opts.since.getTime() * 1000 : -Infinity;
+  // After a count the floor is exclusive; from the location's creation it is inclusive.
+  const after = (t: number) => (base ? t > from : t >= from);
   let qty = 0;
   let skipped = 0;
   if (base) {
@@ -96,12 +118,12 @@ export function onHand(moves: readonly StockMove[], uses: readonly StockUse[], s
     else qty = q;
   }
   for (const m of live) {
-    if (m.kind === "count" || m.at.getTime() <= from) continue;
+    if (m.kind === "count" || !after(instant(m))) continue;
     const q = convertQty(m.qty, m.unit, stockUnit);
     if (q === null) skipped++;
     else qty += q;
   }
-  for (const u of uses) if (u.at.getTime() > from && u.at.getTime() < cutoff) qty -= u.qty;
+  for (const u of uses) if (after(instant(u)) && instant(u) < cutoff) qty -= u.qty;
   return { qty: roundQty(qty), countedAt: base?.at ?? null, skipped };
 }
 
@@ -211,7 +233,11 @@ export interface ForecastRow {
 /** FR-INV-03: expected product on each day, from scheduled visits times the per-visit rate. Visits of a type with no rate are counted apart. */
 export function forecastByDay(groups: readonly ScheduledGroup[], rates: readonly UsageRate[]): { rows: ForecastRow[]; unforecastVisits: number } {
   const byType = new Map<string, UsageRate[]>();
-  for (const r of rates) byType.set(r.serviceTypeId, [...(byType.get(r.serviceTypeId) ?? []), r]);
+  for (const r of rates) {
+    const list = byType.get(r.serviceTypeId);
+    if (list) list.push(r);
+    else byType.set(r.serviceTypeId, [r]);
+  }
   const rows = new Map<string, ForecastRow>();
   let unforecastVisits = 0;
   for (const g of groups) {
@@ -358,6 +384,10 @@ export function suggestResupply(i: SuggestInput): Suggestion {
   }
 
   const have = (i.onHand ?? 0) + (i.openOrderQty ?? 0);
+  // One pass over the forecast: per-day totals inside the horizon, instead of a scan per day.
+  const horizonEnd = addDays(i.today, HORIZON_DAYS - 1);
+  const perDay = new Map<LocalDate, number>();
+  for (const f of i.forecast) if (f.localDate >= i.today && f.localDate <= horizonEnd) perDay.set(f.localDate, (perDay.get(f.localDate) ?? 0) + f.qty);
   const avgDaily = forecastBetween(i.forecast, i.today, addDays(i.today, 27)) / 28;
   const safetyStock = i.safetyDays * avgDaily;
   const projected = have - forecastBetween(i.forecast, i.today, addDays(arrivalDate, -1));
@@ -367,7 +397,7 @@ export function suggestResupply(i: SuggestInput): Suggestion {
   let stock = have;
   for (let d = 0; d < HORIZON_DAYS; d++) {
     const day = addDays(i.today, d);
-    stock -= forecastBetween(i.forecast, day, day);
+    stock -= perDay.get(day) ?? 0;
     if (stock < safetyStock) {
       orderBy = addDays(day, -i.leadTimeDays);
       break;
@@ -428,7 +458,9 @@ export function usageOutliers(rows: readonly TechUsage[], minVisits = MIN_RATE_V
   for (const r of rows) {
     if (r.visits < minVisits) continue;
     const key = `${r.serviceTypeId}|${r.productId}`;
-    groups.set(key, [...(groups.get(key) ?? []), r]);
+    const list = groups.get(key);
+    if (list) list.push(r);
+    else groups.set(key, [r]);
   }
   const out: Outlier[] = [];
   for (const group of groups.values()) {

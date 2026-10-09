@@ -89,10 +89,35 @@ describe("onHand (FR-INV-06)", () => {
     expect(r.skipped).toBe(1);
   });
 
+  it("FR-INV-06: a pair never counted starts at the location's creation, not at minus infinity", () => {
+    const since = at("2026-10-01T00:00:00");
+    const uses = [{ qty: 500, at: at("2026-09-01T10:00:00") }, { qty: 12, at: at("2026-10-02T10:00:00") }];
+    const moves = [move("receive", 100, "2026-10-01T00:00:00"), move("receive", 999, "2026-09-30T23:59:59")];
+    expect(onHand(moves, uses, "fl_oz", { since }).qty).toBe(88);
+    expect(onHand(moves, uses, "fl_oz").qty).toBe(100 + 999 - 512);
+  });
+
+  it("FR-INV-06: a count wins a tie at its instant; of two counts at one instant the later created wins", () => {
+    const t = "2026-10-06T14:00:00";
+    const withTie = [{ ...move("count", 50, t), seq: "a" }, { ...move("receive", 7, t), seq: "b" }, move("receive", 3, "2026-10-06T14:00:01")];
+    expect(onHand(withTie, [{ qty: 4, at: at(t) }], "fl_oz").qty).toBe(53);
+    const twoCounts = [{ ...move("count", 10, t), seq: "2026-10-06 14:00:00+00 a" }, { ...move("count", 20, t), seq: "2026-10-06 14:00:00.5+00 b" }];
+    expect(onHand(twoCounts, [], "fl_oz").qty).toBe(20);
+    expect(onHand([...twoCounts].reverse(), [], "fl_oz").qty).toBe(20);
+  });
+
+  it("FR-INV-06: sub-millisecond ordering is kept", () => {
+    const t = at("2026-10-06T14:00:00");
+    const moves = [{ ...move("count", 10, "2026-10-06T14:00:00"), micros: 100 }, { ...move("receive", 5, "2026-10-06T14:00:00"), micros: 200 }];
+    expect(onHand(moves, [], "fl_oz").qty).toBe(15);
+    expect(onHand([{ ...moves[0]!, micros: 300 }, moves[1]!], [], "fl_oz").qty).toBe(10);
+    expect(t).toBeInstanceOf(Date);
+  });
+
   it("gives the expected quantity at an instant, for the count's variance", () => {
     const moves = [move("count", 100, "2026-10-01T10:00:00"), move("receive", 50, "2026-10-05T10:00:00")];
     const uses = [{ qty: 30, at: at("2026-10-04T10:00:00") }, { qty: 20, at: at("2026-10-07T10:00:00") }];
-    expect(onHand(moves, uses, "fl_oz", at("2026-10-06T00:00:00")).qty).toBe(120);
+    expect(onHand(moves, uses, "fl_oz", { asOf: at("2026-10-06T00:00:00") }).qty).toBe(120);
     expect(onHand(moves, uses, "fl_oz").qty).toBe(100);
   });
 });

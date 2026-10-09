@@ -34,10 +34,14 @@ Stored movements are only what records cannot know: `count`, `receive`, `transfe
 
 ```
 on_hand(location L, product P) =
-    last count of (L, P) [or 0 at the epoch if never counted]
-  + Σ receive, transfer_in, adjust, transfer_out after that count
-  - Σ product used on current-version applications of P by L's technician after that count   (trucks only)
+    last count of (L, P) [or 0 at L.created_at if never counted]
+  + Σ receive, transfer_in, adjust, transfer_out after that baseline
+  - Σ product used on current-version applications of P by L's technician after that baseline   (trucks only)
 ```
+
+One rule for both baselines, in `onHand` (domain) and `computeOnHand` (SQL): after a count, only moves and usage strictly later count (the count wins a tie; of two counts at one instant the later `created_at, id` wins); from a location's creation, moves at that instant count. Only active locations and pairs with at least one ledger row are listed. Reads are ranges from the baseline on `stock_movements_latest_count`, `stock_movements_ledger` and `applications_tech_recent`, so cost follows the window since the last count.
+
+The database sets `created_at` and `created_by`, refuses an `occurred_at` more than 5 minutes ahead, and drops a technician's `expected_qty`: their variance is derived from the ledger as of the count (`countVariances`). Receive, adjust and transfers are owner and admin; counts are owner, admin, office, dispatcher, and a technician on their own active truck. Trucks are named `Truck <name>`, then ` 2`, ` 3` on a clash.
 
 The shop has no technician, so its stock goes down only by transfers to trucks and adjustments. A count is a baseline; the weekly truck check keeps every sum short. Expected quantity at count time = on_hand just before it, stored in `expected_qty`.
 

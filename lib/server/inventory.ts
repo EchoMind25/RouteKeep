@@ -35,8 +35,11 @@ const num = (v: string | null) => (v === null ? null : Number(v));
 const ld = (v: string) => parseLocalDate(v);
 const isUnit = (u: string): u is AmountUnit => (AMOUNT_UNITS as readonly string[]).includes(u);
 
+const MAX_KEY = 120;
+
 function keyOk(key: string): string {
-  if (key.length < 8 || key.length > 160) throw new InventoryError("The request key must be 8 to 160 characters.");
+  // The column allows 160; callers append up to 37 characters (":<uuid>", ":out", "po:...:receive").
+  if (key.length < 8 || key.length > MAX_KEY) throw new InventoryError(`The request key must be 8 to ${MAX_KEY} characters.`);
   return key;
 }
 
@@ -99,10 +102,12 @@ async function ensureLocations(tx: Tx): Promise<void> {
   const technicians = await tx.selectFrom("technicians").select(["id", "display_name"]).where("active", "=", true).orderBy("display_name").execute();
   for (const t of technicians) {
     if (trucked.has(t.id)) continue;
-    let name = `${t.display_name} truck`;
-    for (let n = 2; names.has(name.toLowerCase()); n++) name = `${t.display_name} truck ${n}`;
+    // Same rule as the truck_for_new_technician trigger: "Truck <name>", then " 2", " 3" on a clash.
+    const base = `Truck ${t.display_name.trim()}`.slice(0, 76);
+    let name = base;
+    for (let n = 2; names.has(name.toLowerCase()); n++) name = `${base} ${n}`;
     names.add(name.toLowerCase());
-    await tx.insertInto("stock_locations").values({ kind: "truck", name: name.slice(0, 80), technician_id: t.id }).execute();
+    await tx.insertInto("stock_locations").values({ kind: "truck", name, technician_id: t.id }).execute();
   }
 }
 
@@ -308,7 +313,11 @@ export async function usageAndForecast(m: MemberSession, opts: { today?: LocalDa
     const techs = await tx.selectFrom("technicians").select(["id", "display_name"]).execute();
     const techName = new Map(techs.map((t) => [t.id, t.display_name]));
     const perTech = new Map<string | null, ForecastRow[]>();
-    for (const r of model.forecast) perTech.set(r.technicianId, [...(perTech.get(r.technicianId) ?? []), r]);
+    for (const r of model.forecast) {
+      const list = perTech.get(r.technicianId);
+      if (list) list.push(r);
+      else perTech.set(r.technicianId, [r]);
+    }
     const technicians: TechnicianForecast[] = [...perTech]
       .map(([technicianId, rows]) => ({
         technicianId,
@@ -539,80 +548,115 @@ export interface StockRow {
 }
 
 /**
- * docs/INVENTORY.md "On hand": for each (location, product), the latest count
- * plus movements after it, minus the location's technician's usage after it.
- * One query for the movements not superseded by a later count (that is the
- * latest count and everything after it), one grouped query for usage.
- * `asOf` (exclusive) gives the expected quantity at that instant.
+ * docs/INVENTORY.md "On hand": for each (location, product) in the ledger, the latest
+ * count (else the location's creation) plus movements after it, minus the location's
+ * technician's usage after it. Every read is a range from that baseline on an index
+ * (stock_movements_latest_count, stock_movements_ledger, applications_tech_recent), so
+ * cost follows the window since the last count, not total history. Inactive locations
+ * are left out of moves and usage alike. `asOf` (exclusive) gives the expected quantity
+ * at that instant. Usage counts only for pairs that have a ledger row (a product never
+ * stocked on a truck has nothing to subtract from).
  */
-async function computeOnHand(tx: Tx, filter: { locationId?: string; productIds?: readonly string[] }, products: Map<string, ProductInfo>, asOf?: Date): Promise<Map<string, StockRow>> {
+async function computeOnHand(tx: Tx, filter: { locationId?: string; productIds?: readonly string[] }, products: Map<string, ProductInfo>, asOf?: Date | string): Promise<Map<string, StockRow>> {
   if (filter.productIds?.length === 0) return new Map();
   const cutoff = asOf ?? null;
-  const limit = (alias: string) => [
-    filter.locationId ? sql`and ${sql.ref(`${alias}.location_id`)} = ${filter.locationId}` : sql``,
-    filter.productIds ? sql`and ${sql.ref(`${alias}.product_id`)} = any(${sql.val([...filter.productIds])}::uuid[])` : sql``,
-  ];
-  const moves = await sql<{ location_id: string; product_id: string; kind: string; qty: string; unit: string; at: Date }>`
-    select m.location_id, m.product_id, m.kind, m.qty::text, m.unit, m.occurred_at as at
-    from public.stock_movements m
-    where (${cutoff}::timestamptz is null or m.occurred_at < ${cutoff}::timestamptz)
-      ${sql.join(limit("m"), sql` `)}
-      and not exists (
-        select 1 from public.stock_movements c
-        where c.tenant_id = m.tenant_id and c.location_id = m.location_id and c.product_id = m.product_id
-          and c.kind = 'count' and c.occurred_at > m.occurred_at
-          and (${cutoff}::timestamptz is null or c.occurred_at < ${cutoff}::timestamptz))
+  const before = (col: string) => (cutoff === null ? sql`` : sql`and ${sql.ref(col)} < ${cutoff}::timestamptz`);
+  const loc = filter.locationId ?? null;
+  const locFilter = loc ? sql`and m.location_id = ${loc}::uuid` : sql``;
+  const productIds = filter.productIds ? [...filter.productIds] : null;
+  const micros = (expr: string) => sql`(extract(epoch from ${sql.raw(expr)}) * 1000000)::bigint::text`;
+
+  // Every (location, product) in the ledger: given directly, or walked with a loose index scan.
+  const ledgerPairs =
+    loc && productIds
+      ? sql`select ${loc}::uuid as location_id, p.product_id from unnest(${sql.val(productIds)}::uuid[]) as p(product_id)`
+      : sql`(select m.location_id, m.product_id from public.stock_movements m
+              where m.tenant_id = app.current_tenant_id() ${locFilter}
+              order by m.location_id, m.product_id limit 1)
+            union all
+            select n.location_id, n.product_id from ledger_pairs p
+            cross join lateral (
+              select m.location_id, m.product_id from public.stock_movements m
+              where m.tenant_id = app.current_tenant_id() ${locFilter}
+                and (m.location_id, m.product_id) > (p.location_id, p.product_id)
+              order by m.location_id, m.product_id limit 1) n`;
+
+  const bases = await sql<{
+    location_id: string; product_id: string; floor_at: string; since_us: string; c_us: string | null; c_seq: string | null; c_qty: string | null; c_unit: string | null;
+  }>`
+    with recursive ledger_pairs as (${ledgerPairs})
+    select p.location_id, p.product_id,
+           coalesce(c.occurred_at, l.created_at - interval '1 microsecond')::text as floor_at,
+           ${micros("l.created_at")} as since_us,
+           ${micros("c.occurred_at")} as c_us, (c.created_at::text || ' ' || c.id::text) as c_seq, c.qty::text as c_qty, c.unit as c_unit
+    from ledger_pairs p
+    join public.stock_locations l on l.tenant_id = app.current_tenant_id() and l.id = p.location_id and l.active
+    left join lateral (
+      select m.qty, m.unit, m.occurred_at, m.created_at, m.id from public.stock_movements m
+      where m.tenant_id = l.tenant_id and m.location_id = l.id and m.product_id = p.product_id and m.kind = 'count' ${before("m.occurred_at")}
+      order by m.occurred_at desc, m.created_at desc, m.id desc limit 1) c on true
+    where ${productIds ? sql`p.product_id = any(${sql.val(productIds)}::uuid[])` : sql`true`}
+      and exists (select 1 from public.stock_movements e where e.tenant_id = l.tenant_id and e.location_id = l.id and e.product_id = p.product_id)
+  `.execute(tx);
+  if (bases.rows.length === 0) return new Map();
+
+  const locs = sql.val(bases.rows.map((b) => b.location_id));
+  const prods = sql.val(bases.rows.map((b) => b.product_id));
+  const floors = sql.val(bases.rows.map((b) => b.floor_at));
+  const baseline = sql`unnest(${locs}::uuid[], ${prods}::uuid[], ${floors}::timestamptz[]) as b(location_id, product_id, floor_at)`;
+
+  // Movements strictly after the baseline (a never-counted pair counts from its location's creation on).
+  const moves = await sql<{ location_id: string; product_id: string; kind: string; qty: string; unit: string; us: string; seq: string }>`
+    select b.location_id, b.product_id, m.kind, m.qty::text, m.unit, ${micros("m.occurred_at")} as us, (m.created_at::text || ' ' || m.id::text) as seq
+    from ${baseline}
+    join public.stock_movements m on m.tenant_id = app.current_tenant_id() and m.location_id = b.location_id and m.product_id = b.product_id
+      and m.kind <> 'count' and m.occurred_at > b.floor_at ${before("m.occurred_at")}
   `.execute(tx);
 
-  const usage = await tx
-    .selectFrom("applications as a")
-    .innerJoin("stock_locations as l", (j) => j.onRef("l.technician_id", "=", "a.technician_id").onRef("l.tenant_id", "=", "a.tenant_id"))
-    .where("l.kind", "=", "truck")
-    .where("l.active", "=", true)
-    .where("a.product_id", "is not", null)
-    .where(isCurrentVersion("a"))
-    .$if(Boolean(filter.locationId), (q) => q.where("l.id", "=", filter.locationId!))
-    .$if(Boolean(filter.productIds), (q) => q.where("a.product_id", "in", [...filter.productIds!]))
-    .$if(cutoff !== null, (q) => q.where("a.applied_at", "<", cutoff!))
-    .where(
-      sql<boolean>`a.applied_at > coalesce((
-        select max(c.occurred_at) from public.stock_movements c
-        where c.tenant_id = a.tenant_id and c.location_id = l.id and c.product_id = a.product_id and c.kind = 'count'
-          and (${cutoff}::timestamptz is null or c.occurred_at < ${cutoff}::timestamptz)), '-infinity'::timestamptz)`,
-    )
-    .select([
-      "l.id as location_id", "a.product_id", "a.mix_rate", "a.mix_unit", "a.amount_unit",
-      sql<string | null>`sum(a.total_amount)::text`.as("total"),
-      sql<boolean>`(a.total_amount is null)`.as("amount_missing"),
-      sql<Date>`max(a.applied_at)`.as("at"),
-      sql<number>`count(*)::int`.as("n"),
-    ])
-    .groupBy(["l.id", "a.product_id", "a.mix_rate", "a.mix_unit", "a.amount_unit", sql`(a.total_amount is null)`])
-    .execute();
+  // Usage by the truck's technician: one range per technician from their earliest baseline, then per pair.
+  const usage = await sql<{ location_id: string; product_id: string; mix_rate: string | null; mix_unit: string | null; amount_unit: string | null; total: string | null; amount_missing: boolean; us: string; n: number }>`
+    with b as (select * from ${baseline}),
+    tmin as (
+      select l.id as location_id, l.tenant_id, l.technician_id, min(b.floor_at) as mb
+      from b join public.stock_locations l on l.tenant_id = app.current_tenant_id() and l.id = b.location_id
+      where l.kind = 'truck' and l.technician_id is not null
+      group by l.id, l.tenant_id, l.technician_id)
+    select b.location_id, b.product_id, a.mix_rate::text as mix_rate, a.mix_unit, a.amount_unit, sum(a.total_amount)::text as total,
+           (a.total_amount is null) as amount_missing, ${micros("max(a.applied_at)")} as us, count(*)::int as n
+    from tmin t
+    join public.applications a on a.tenant_id = t.tenant_id and a.technician_id = t.technician_id and a.applied_at > t.mb ${before("a.applied_at")}
+    join b on b.location_id = t.location_id and b.product_id = a.product_id and a.applied_at > b.floor_at
+    where ${isCurrentVersion("a")}
+    group by b.location_id, b.product_id, a.mix_rate, a.mix_unit, a.amount_unit, (a.total_amount is null)
+  `.execute(tx);
 
-  const pairs = new Map<string, { locationId: string; productId: string; moves: StockMove[]; uses: StockUse[]; unusable: number }>();
-  const pair = (locationId: string, productId: string) => {
-    const key = `${locationId}|${productId}`;
-    let p = pairs.get(key);
-    if (!p) pairs.set(key, (p = { locationId, productId, moves: [], uses: [], unusable: 0 }));
-    return p;
+  const at = (us: string) => {
+    const n = Number(us);
+    return { at: new Date(Math.floor(n / 1000)), micros: n % 1000 };
   };
-  for (const r of moves.rows) {
-    if (isUnit(r.unit)) pair(r.location_id, r.product_id).moves.push({ kind: r.kind as StockMove["kind"], qty: Number(r.qty), unit: r.unit, at: new Date(r.at) });
+  const pairs = new Map<string, { locationId: string; productId: string; since: Date; moves: StockMove[]; uses: StockUse[]; unusable: number }>();
+  for (const b of bases.rows) {
+    const p = { locationId: b.location_id, productId: b.product_id, since: at(b.since_us).at, moves: [] as StockMove[], uses: [] as StockUse[], unusable: 0 };
+    pairs.set(`${b.location_id}|${b.product_id}`, p);
+    if (b.c_us && b.c_qty && b.c_unit && isUnit(b.c_unit)) p.moves.push({ kind: "count", qty: Number(b.c_qty), unit: b.c_unit, seq: b.c_seq ?? undefined, ...at(b.c_us) });
   }
-  for (const g of usage) {
-    const p = pair(g.location_id, g.product_id!);
-    const unit = products.get(g.product_id!)?.unit ?? null;
+  for (const r of moves.rows) {
+    if (isUnit(r.unit)) pairs.get(`${r.location_id}|${r.product_id}`)?.moves.push({ kind: r.kind as StockMove["kind"], qty: Number(r.qty), unit: r.unit, seq: r.seq, ...at(r.us) });
+  }
+  for (const g of usage.rows) {
+    const p = pairs.get(`${g.location_id}|${g.product_id}`);
+    if (!p) continue;
+    const unit = products.get(g.product_id)?.unit ?? null;
     const used = unit ? usedByGroup({ productId: g.product_id, technicianId: null, mixRate: g.mix_rate, mixUnit: g.mix_unit, amountUnit: g.amount_unit, total: g.total, amountMissing: g.amount_missing, n: g.n }, unit) : null;
     if (used === null) p.unusable += g.n;
-    else p.uses.push({ qty: used, at: new Date(g.at) });
+    else p.uses.push({ qty: used, ...at(g.us) });
   }
 
   const out = new Map<string, StockRow>();
   for (const [key, p] of pairs) {
     const unit = products.get(p.productId)?.unit;
     if (!unit) continue;
-    const r = domainOnHand(p.moves, p.uses, unit);
+    const r = domainOnHand(p.moves, p.uses, unit, { since: p.since });
     out.set(key, { locationId: p.locationId, productId: p.productId, qty: r.qty, unit, countedAt: r.countedAt, skipped: r.skipped + p.unusable });
   }
   return out;
@@ -768,26 +812,60 @@ export async function truckCheckFor(session: { claims: DbClaims }, technicianId:
   });
 }
 
-/** FR-INV-07: counted minus expected for counts in the last `days`, for the office. */
+/**
+ * FR-INV-07: counted minus expected for counts in the last `days` business days, for the office.
+ * A technician's count carries no stored expectation (the database drops it), so it is derived here
+ * from the ledger as of the instant of the count, once per count session.
+ */
 export async function countVariances(m: MemberSession, days = 30) {
   allow(m, READ_ROLES);
   return withRls(m.claims, async (tx) => {
+    const settings = await settingsIn(tx);
+    const since = addDays(todayIn(settings.timezone), -Math.max(1, Math.trunc(days)));
     const rows = await tx
       .selectFrom("stock_movements as s")
       .innerJoin("stock_locations as l", (j) => j.onRef("l.id", "=", "s.location_id").onRef("l.tenant_id", "=", "s.tenant_id"))
       .innerJoin("products as p", (j) => j.onRef("p.id", "=", "s.product_id").onRef("p.tenant_id", "=", "s.tenant_id"))
       .where("s.kind", "=", "count")
-      .where("s.occurred_at", ">=", sql<Date>`now() - ${days} * interval '1 day'`)
-      .select(["s.id", "s.local_date", "l.name as location_name", "p.name as product_name", "s.qty", "s.expected_qty", "s.unit"])
+      .where("s.local_date", ">=", since)
+      .select([
+        "s.id", "s.local_date", "s.location_id", "s.product_id", "l.name as location_name", "p.name as product_name", "s.qty", "s.expected_qty", "s.unit",
+        sql<string>`s.occurred_at::text`.as("at"),
+      ])
       .orderBy("s.local_date", "desc")
       .orderBy("l.name")
       .orderBy("p.name")
       .limit(500)
       .execute();
-    return rows.map((r) => ({
-      id: r.id, localDate: r.local_date, location: r.location_name, product: r.product_name, unit: r.unit, counted: Number(r.qty),
-      expected: num(r.expected_qty), variance: r.expected_qty === null ? null : roundVariance(Number(r.qty) - Number(r.expected_qty)),
-    }));
+
+    const sessions = new Map<string, { locationId: string; at: string; productIds: string[] }>();
+    for (const r of rows) {
+      if (r.expected_qty !== null) continue;
+      const key = `${r.location_id}|${r.at}`;
+      const session = sessions.get(key);
+      if (session) session.productIds.push(r.product_id);
+      else sessions.set(key, { locationId: r.location_id, at: r.at, productIds: [r.product_id] });
+    }
+    const derived = new Map<string, number>();
+    if (sessions.size > 0) {
+      const products = await productsIn(tx);
+      for (const s of sessions.values()) {
+        const stock = await computeOnHand(tx, { locationId: s.locationId, productIds: s.productIds }, products, s.at);
+        for (const r of rows) {
+          if (r.expected_qty !== null || r.location_id !== s.locationId || r.at !== s.at || !isUnit(r.unit)) continue;
+          const have = stock.get(`${s.locationId}|${r.product_id}`);
+          const q = have ? convertQty(have.qty, have.unit, r.unit) : products.has(r.product_id) ? 0 : null;
+          if (q !== null) derived.set(r.id, q);
+        }
+      }
+    }
+    return rows.map((r) => {
+      const expected = r.expected_qty !== null ? Number(r.expected_qty) : (derived.get(r.id) ?? null);
+      return {
+        id: r.id, localDate: r.local_date, location: r.location_name, product: r.product_name, unit: r.unit, counted: Number(r.qty),
+        expected, variance: expected === null ? null : roundVariance(Number(r.qty) - expected),
+      };
+    });
   });
 }
 
@@ -904,6 +982,12 @@ export async function resupplySuggestions(m: MemberSession, opts: { today?: Loca
       }
     }
 
+    const forecastByProduct = new Map<string, ForecastRow[]>();
+    for (const f of model.forecast) {
+      const list = forecastByProduct.get(f.productId);
+      if (list) list.push(f);
+      else forecastByProduct.set(f.productId, [f]);
+    }
     const byVendor = new Map<string, VendorResupply>();
     const sourced = new Set<string>();
     for (const p of packages) {
@@ -914,7 +998,7 @@ export async function resupplySuggestions(m: MemberSession, opts: { today?: Loca
       if (qty === null || !(qty > 0)) continue;
       const s = suggestResupply({
         mode, today: model.today, orderWeekdays: p.order_weekdays, leadTimeDays: p.lead_time_days, packageQty: qty, safetyDays: product.safetyDays,
-        forecast: model.forecast.filter((f) => f.productId === p.product_id), onHand: held.get(p.product_id) ?? 0, openOrderQty: open.get(p.product_id) ?? 0,
+        forecast: forecastByProduct.get(p.product_id) ?? [], onHand: held.get(p.product_id) ?? 0, openOrderQty: open.get(p.product_id) ?? 0,
       });
       if (s.packages === 0) continue;
       let v = byVendor.get(p.vendor_id);
@@ -949,17 +1033,15 @@ async function insertLines(tx: Tx, orderId: string, vendorId: string, lines: rea
   const ids = lines.map((l) => l.vendorProductId);
   const packs = await tx.selectFrom("vendor_products").selectAll().where("id", "in", ids).where("vendor_id", "=", vendorId).execute();
   const byId = new Map(packs.map((p) => [p.id, p]));
-  for (const l of lines) {
+  const rows = lines.map((l) => {
     const p = byId.get(l.vendorProductId);
     if (!p) throw new InventoryError("A product on this order is not sold by this vendor.");
-    await tx
-      .insertInto("purchase_order_lines")
-      .values({
-        purchase_order_id: orderId, vendor_product_id: p.id, product_id: p.product_id, package_label: p.package_label, package_qty: p.package_qty,
-        package_unit: p.package_unit, packages: l.packages, price_cents: p.price_cents,
-      })
-      .execute();
-  }
+    return {
+      purchase_order_id: orderId, vendor_product_id: p.id, product_id: p.product_id, package_label: p.package_label, package_qty: p.package_qty,
+      package_unit: p.package_unit, packages: l.packages, price_cents: p.price_cents,
+    };
+  });
+  await tx.insertInto("purchase_order_lines").values(rows).execute();
 }
 
 /** A draft order: line price and package are copied from the vendor's catalog now, so later price changes never move it. */
@@ -983,8 +1065,9 @@ export async function createDraft(m: MemberSession, vendorId: string, lines: rea
   });
 }
 
+/** The order, locked until the transaction ends, so two requests cannot both move it (double receive, cancel after receive). */
 async function orderIn(tx: Tx, orderId: string) {
-  const order = await tx.selectFrom("purchase_orders").selectAll().where("id", "=", orderId).executeTakeFirst();
+  const order = await tx.selectFrom("purchase_orders").selectAll().where("id", "=", orderId).forUpdate().executeTakeFirst();
   if (!order) throw new InventoryError("That order no longer exists.");
   return order;
 }
@@ -1037,18 +1120,22 @@ export async function markReceived(m: MemberSession, orderId: string, locationId
     if (order.status !== "sent") throw new InventoryError("Mark the order sent before receiving it.");
     const lines = await tx.selectFrom("purchase_order_lines").selectAll().where("purchase_order_id", "=", orderId).execute();
     const got = new Map(received.map((r) => [r.lineId, r.packages]));
-    for (const line of lines) {
-      const packages = got.get(line.id) ?? line.packages;
-      await tx.updateTable("purchase_order_lines").set({ received_packages: packages }).where("id", "=", line.id).execute();
-      if (packages === 0) continue;
-      await tx
-        .insertInto("stock_movements")
-        .values({
-          location_id: locationId, product_id: line.product_id, kind: "receive", qty: packages * Number(line.package_qty), unit: line.package_unit,
-          cost_cents: line.price_cents === null ? null : packages * line.price_cents, purchase_order_line_id: line.id, client_key: `po:${line.id}:receive`,
-        })
-        .onConflict((oc) => oc.columns(["tenant_id", "client_key"]).doNothing())
-        .execute();
+    const counted = lines.map((line) => ({ line, packages: got.get(line.id) ?? line.packages }));
+    if (counted.length > 0) {
+      await sql`
+        update public.purchase_order_lines l set received_packages = v.packages
+        from unnest(${sql.val(counted.map((c) => c.line.id))}::uuid[], ${sql.val(counted.map((c) => c.packages))}::int[]) as v(id, packages)
+        where l.id = v.id and l.purchase_order_id = ${orderId}::uuid
+      `.execute(tx);
+    }
+    const movements = counted
+      .filter((c) => c.packages > 0)
+      .map(({ line, packages }) => ({
+        location_id: locationId, product_id: line.product_id, kind: "receive" as const, qty: packages * Number(line.package_qty), unit: line.package_unit,
+        cost_cents: line.price_cents === null ? null : packages * line.price_cents, purchase_order_line_id: line.id, client_key: `po:${line.id}:receive`,
+      }));
+    if (movements.length > 0) {
+      await tx.insertInto("stock_movements").values(movements).onConflict((oc) => oc.columns(["tenant_id", "client_key"]).doNothing()).execute();
     }
     await tx.updateTable("purchase_orders").set({ status: "received", received_at: sql<Date>`now()`, received_location_id: locationId }).where("id", "=", orderId).execute();
   });
@@ -1088,7 +1175,7 @@ export async function getPurchaseOrder(m: MemberSession, orderId: string) {
     const order = await tx
       .selectFrom("purchase_orders as o")
       .innerJoin("vendors as v", (j) => j.onRef("v.id", "=", "o.vendor_id").onRef("v.tenant_id", "=", "o.tenant_id"))
-      .select(["o.id", "o.number", "o.status", "o.order_date", "o.expected_date", "o.sent_at", "o.received_at", "o.received_location_id", "o.notes", "o.version", "o.vendor_id", "v.name as vendor_name", "v.email as vendor_email", "v.account_no as vendor_account_no"])
+      .select(["o.id", "o.number", "o.status", "o.order_date", "o.expected_date", "o.sent_at", "o.received_at", "o.received_location_id", "o.notes", "o.vendor_id", "v.name as vendor_name", "v.email as vendor_email", "v.account_no as vendor_account_no"])
       .where("o.id", "=", orderId)
       .executeTakeFirst();
     if (!order) return null;

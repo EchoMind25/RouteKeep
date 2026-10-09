@@ -1,9 +1,9 @@
 -- Inventory ledger and purchasing (FR-INV-04..07, ENG-01, ENG-06): a technician counts only their own truck,
--- the office receives, the ledger is append-only, orders are numbered per business, one preferred package per product.
+-- owner and admin receive and adjust, the database sets who and when, the ledger is append-only, orders are numbered per business, one preferred package per product.
 begin;
 create extension if not exists pgtap with schema extensions;
 \ir _helpers.psql
-select plan(16);
+select plan(28);
 
 create temp table fx on commit drop as select pg_temp.seed_tenant('inv1') as a, pg_temp.seed_tenant('inv2') as b;
 create temp table ids on commit drop as
@@ -47,15 +47,57 @@ select throws_ok(
   $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, local_date, client_key)
     values ((select truck from ids), (select product from ids), 'count', 40, 'fl_oz', date '2026-10-13', 'inv-count-0001')$$,
   '23505', null, 'ENG-01: the same client key is stored once');
+select throws_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, local_date, occurred_at, client_key)
+    values ((select truck from ids), (select product from ids), 'count', 40, 'fl_oz', date '2026-10-13', now() + interval '1 day', 'inv-count-0004')$$,
+  '22008', null, 'FR-INV-07: a count dated in the future is refused');
+select lives_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, local_date, expected_qty, created_by, created_at, client_key)
+    values ((select truck from ids), (select product from ids), 'count', 41, 'fl_oz', date '2026-10-13', 999, gen_random_uuid(), timestamptz '2001-01-01', 'inv-count-0005')$$,
+  'FR-INV-07: a technician count with forged fields is accepted, then corrected by the database');
+select is(
+  (select created_by from public.stock_movements where client_key = 'inv-count-0005'),
+  (select tech_user from ids), 'ENG-06: created_by is the signed-in user, whatever was sent');
+select ok(
+  (select created_at > now() - interval '1 minute' from public.stock_movements where client_key = 'inv-count-0005'),
+  'ENG-06: created_at is the server clock');
+select is(
+  (select expected_qty from public.stock_movements where client_key = 'inv-count-0005'), null,
+  'FR-INV-07: a technician cannot state what was expected');
+select throws_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, client_key, transfer_id)
+    values ((select truck from ids), (select product from ids), 'transfer_in', 5, 'fl_oz', 'inv-xfer-0002', gen_random_uuid())$$,
+  '42501', null, 'a technician cannot transfer stock to their truck');
 reset role;
 
 select pg_temp.login((select office from ids), (select tenant from ids));
+select throws_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, cost_cents, purchase_order_line_id, client_key)
+    values ((select shop from ids), (select product from ids), 'receive', 256, 'fl_oz', 17800, (select po_line from ids), 'po:line:receive')$$,
+  '42501', null, 'FR-INV-06: the office cannot receive an order (owner and admin only)');
+select throws_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, client_key, reason)
+    values ((select shop from ids), (select product from ids), 'adjust', -5, 'fl_oz', 'inv-adjust-0002', 'spilled')$$,
+  '42501', null, 'FR-INV-06: nor adjust stock');
+select lives_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, local_date, expected_qty, client_key)
+    values ((select shop from ids), (select product from ids), 'count', 10, 'fl_oz', date '2026-10-13', 12, 'inv-count-0006')$$,
+  'FR-INV-07: the office counts a location');
+select is(
+  (select expected_qty from public.stock_movements where client_key = 'inv-count-0006'), 12::numeric,
+  'FR-INV-07: the office''s expected quantity is kept for the variance report');
+select throws_ok($$update public.stock_movements set qty = 1$$, '42501', null, 'ENG-06: movements are never rewritten');
+select throws_ok($$delete from public.stock_movements$$, '42501', null, 'or deleted');
+reset role;
+select pg_temp.login((select owner from ids), (select tenant from ids));
 select lives_ok(
   $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, cost_cents, purchase_order_line_id, client_key)
     values ((select shop from ids), (select product from ids), 'receive', 256, 'fl_oz', 17800, (select po_line from ids), 'po:line:receive')$$,
-  'FR-INV-06: the office receives an order into the shop');
-select throws_ok($$update public.stock_movements set qty = 1$$, '42501', null, 'ENG-06: movements are never rewritten');
-select throws_ok($$delete from public.stock_movements$$, '42501', null, 'or deleted');
+  'FR-INV-06: the owner receives an order into the shop');
+select lives_ok(
+  $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, client_key, reason)
+    values ((select shop from ids), (select product from ids), 'adjust', -5, 'fl_oz', 'inv-adjust-0003', 'spilled')$$,
+  'FR-INV-06: the owner adjusts stock');
 select throws_ok(
   $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, client_key)
     values ((select shop from ids), (select product from ids), 'receive', -5, 'fl_oz', 'inv-receive-0002')$$,
@@ -64,9 +106,6 @@ select throws_ok(
   $$insert into public.stock_movements (location_id, product_id, kind, qty, unit, client_key, transfer_id)
     values ((select shop from ids), (select product from ids), 'transfer_out', 5, 'fl_oz', 'inv-xfer-0001', gen_random_uuid())$$,
   '23514', null, 'a transfer out removes stock: the sign is checked');
-
-reset role;
-select pg_temp.login((select owner from ids), (select tenant from ids));
 insert into public.purchase_orders (vendor_id) select vendor from ids;
 select ok(
   (select count(distinct number) = 2 and max(number) - min(number) = 1 from public.purchase_orders),
@@ -80,6 +119,16 @@ select lives_ok(
     values ((select vendor from ids), (select product from ids), '5 gal pail', 5, 'gal', false)$$,
   'FR-INV-04: other packages may be listed unpreferred');
 reset role;
+
+-- A technician added while tracking gets "Truck <name>", and a numeric suffix when the name is taken.
+update public.tenants set inventory_mode = 'tracked' where id = (select tenant from ids);
+insert into public.technicians (tenant_id, display_name, applicator_license_no, license_expiry)
+select tenant, 'Bob', 'UT-inv1-0101', date '2027-12-31' from ids;
+insert into public.technicians (tenant_id, display_name, applicator_license_no, license_expiry)
+select tenant, 'Bob', 'UT-inv1-0102', date '2027-12-31' from ids;
+select is(
+  (select array_agg(name order by name) from public.stock_locations where name like 'Truck Bob%'),
+  array['Truck Bob', 'Truck Bob 2'], 'FR-INV-07: a second technician with the same name still gets a truck, named with a suffix');
 
 select pg_temp.login((select tech_user from ids), (select other_tenant from ids));
 select is((select count(*)::int from public.stock_movements where tenant_id = (select tenant from ids)), 0, 'DB-02: another business sees none of this ledger');

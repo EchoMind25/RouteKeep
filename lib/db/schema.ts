@@ -582,7 +582,6 @@ export interface PurchaseOrders {
   tenant_id: Generated<string>;
   updated_at: Generated<Timestamp>;
   vendor_id: string;
-  version: Generated<number>;
 }
 
 export interface ReconciliationIssues {
