@@ -278,6 +278,7 @@ async function claim(size: number, tenantId?: string): Promise<Event[]> {
       .where("attempts", "<", MAX_ATTEMPTS)
       .where("available_at", "<=", sql<Date>`now()`)
       .where((eb) => eb.or([eb("locked_until", "is", null), eb("locked_until", "<", sql<Date>`now()`)]))
+      .orderBy("priority")
       .orderBy("available_at")
       .limit(size)
       .forUpdate()
