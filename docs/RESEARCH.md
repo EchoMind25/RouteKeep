@@ -168,7 +168,7 @@ Free tier limits for Inngest, Sentry, Resend, Better Stack; exact current librar
 - R-COMP-01 Commercial applicators must record each application within 24 hours.
 - R-COMP-02 Required fields: customer name and address; application address if different; size of area treated; specific target sites; date and time; brand name; EPA registration number; mix rate; total amount applied per location; purpose and target pest; applicator name, business address, license number.
 - R-COMP-03 Business name and license number must appear on service records and notices.
-- R-COMP-04 Restricted-use products with Danger or Danger-Poison signal words require a written customer statement before application.
+- R-COMP-04 Restricted-use products with Danger or Danger-Poison signal words: the business gives the customer a written statement before each application (R68-7-16(4); corrected 2026-10-09, it was written the wrong way round). Business name and license on service records is R68-7-16(3)(b); termite diagrams are R68-7-17; retention of at least two years is confirmed in R68-7-11(11)(c). Plain guide: `/utah-pesticide-records`.
 - R-COMP-05 Termite treatments require a structure diagram.
 - R-COMP-06 Retention is two years in the rule text reviewed. Confirm the current clause with UDAF `[U]`.
 - R-COMP-07 `[U]` Other states vary in fields and retention. Build records as a per-state template.

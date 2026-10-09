@@ -1,18 +1,20 @@
-import { ArrowRight, CellSignalSlash, CheckCircle, DeviceMobile, FilePdf, HandCoins, Ruler, SealCheck } from "@phosphor-icons/react/ssr";
+import { ArrowsLeftRight, CellSignalSlash, CheckCircle, DeviceMobile, DownloadSimple, FilePdf, HandCoins, LockKey, Ruler, SealCheck } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { BrandMark } from "@/components/brand-mark";
 import { HeroStage } from "@/components/landing/hero-stage";
 import s from "@/components/landing/landing.module.css";
 import { RouteScene } from "@/components/landing/route-scene";
+import { Cta, SecondaryCta } from "@/components/marketing/cta";
+import { JsonLd, organization, website } from "@/components/marketing/json-ld";
 import { BRAND } from "@/lib/brand";
 import { formatCents } from "@/lib/domain/money";
 import { FAQS, PLANS, WHITE_LABEL } from "@/lib/landing/content";
+import { salesHref, SITE_PAGES } from "@/lib/landing/pages";
 import { publicEnv } from "@/lib/public-env";
 
-// The public landing page. Static, indexable, and the only page search engines
-// are invited to read (app/robots.ts). Signed-in people go to /app.
+// The public landing page. Static and indexable, with its guides beside it in
+// app/(marketing) (lib/landing/pages.ts). Signed-in people go to /app.
 
 const TITLE = `Pest Control Software That Works Offline | ${BRAND.name}`;
 const DESCRIPTION =
@@ -21,7 +23,6 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
-  metadataBase: new URL(publicEnv.siteUrl),
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: { type: "website", url: "/", siteName: BRAND.name, title: TITLE, description: DESCRIPTION },
@@ -43,12 +44,14 @@ function jsonLd() {
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
+      "@id": `${url}/#software`,
       name: BRAND.name,
       url,
       applicationCategory: "BusinessApplication",
       applicationSubCategory: "Pest control and lawn care software",
       operatingSystem: "Web browser; installable app for iPhone and Android",
       description: DESCRIPTION,
+      publisher: { "@id": `${url}/#organization` },
       featureList: [
         "Scheduling and recurring service plans",
         "Route optimization with preview and undo",
@@ -57,6 +60,10 @@ function jsonLd() {
         "Service record PDFs with your business license",
         "Product usage reports with CSV and PDF export",
         "Technician sales with commission tracking",
+        "Customer list import from CSV or Excel, with 7 days to undo",
+        "Full data export in one file: CSV, JSON, record PDFs and photos",
+        "Invoicing, card and bank payments and autopay through your own Stripe account",
+        "Customer portal with passwordless sign-in",
       ],
       offers: [
         ...PLANS.map((p) => ({
@@ -81,52 +88,16 @@ function jsonLd() {
       "@type": "FAQPage",
       mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
     },
+    organization(),
+    website(),
   ];
 }
 
-function Cta({ className = "" }: { className?: string }) {
-  return (
-    <Link
-      href="/sign-in"
-      className={`inline-flex h-12 items-center justify-center gap-2 rounded-control bg-accent px-6 text-md font-semibold whitespace-nowrap text-on-accent transition-transform hover:bg-accent-hover active:scale-[0.98] ${className}`}
-    >
-      Get started <ArrowRight size={18} weight="bold" aria-hidden />
-    </Link>
-  );
-}
-
 export default function LandingPage() {
-  const whiteLabelHref = publicEnv.salesEmail ? `mailto:${publicEnv.salesEmail}?subject=${encodeURIComponent(`White label ${BRAND.name}`)}` : "/sign-in";
   return (
-    <div className="bg-canvas text-fg">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()).replace(/</g, "\\u003c") }} />
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
-        Skip to content
-      </a>
+    <>
+      <JsonLd data={jsonLd()} />
 
-      <header className="sticky top-0 z-20 border-b border-line bg-canvas/85 backdrop-blur">
-        <nav aria-label="Main" className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-4 sm:px-6">
-          <Link href="/" aria-label={`${BRAND.name} home`}>
-            <BrandMark />
-          </Link>
-          <ul className="hidden items-center gap-7 text-md font-medium text-fg-muted md:flex">
-            <li><a href="#how" className="hover:text-fg">How it works</a></li>
-            <li><a href="#pricing" className="hover:text-fg">Pricing</a></li>
-            <li><a href="#white-label" className="hover:text-fg">White label</a></li>
-            <li><a href="#faq" className="hover:text-fg">FAQ</a></li>
-          </ul>
-          <div className="flex items-center gap-4">
-            <Link href="/sign-in" className="text-md font-medium whitespace-nowrap text-fg-muted hover:text-fg">
-              Sign in
-            </Link>
-            <span className="hidden sm:block">
-              <Cta className="h-10 px-4" />
-            </span>
-          </div>
-        </nav>
-      </header>
-
-      <main id="main">
         {/* Hero */}
         <section className="mx-auto grid max-w-7xl items-center gap-12 overflow-x-clip px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:pt-10">
           <div className="grid gap-6">
@@ -137,9 +108,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Cta />
-              <a href="#pricing" className="inline-flex h-12 items-center rounded-control border border-line-strong px-6 text-md font-semibold whitespace-nowrap hover:bg-surface">
-                See pricing
-              </a>
+              <SecondaryCta href={SITE_PAGES.pricing.path}>See pricing</SecondaryCta>
             </div>
           </div>
           <HeroStage />
@@ -240,6 +209,11 @@ export default function LandingPage() {
               <p className="flex items-center gap-2 text-md text-fg-muted">
                 <FilePdf size={20} aria-hidden /> Product usage by date, product, EPA number and tech, as CSV or PDF.
               </p>
+              <p>
+                <Link href={SITE_PAGES.utahRecords.path} className="text-md font-semibold text-accent underline underline-offset-4 hover:text-accent-hover">
+                  Read the plain guide to Utah&apos;s record rule
+                </Link>
+              </p>
             </div>
           </div>
         </section>
@@ -268,7 +242,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
             <div className="grid max-w-[60ch] gap-3 pb-12">
               <h2 id="pricing-title" className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Pest control software pricing, posted.
+                Posted prices. By customers, not seats.
               </h2>
               <p className="text-lg text-fg-muted">Priced by active customers, not seats. Unlimited users. Your logo on every invoice. Month to month, no setup fee.</p>
             </div>
@@ -296,6 +270,12 @@ export default function LandingPage() {
                 );
               })}
             </ol>
+            <p className="pt-10 text-md text-fg-muted">
+              Every plan has every feature.{" "}
+              <Link href={SITE_PAGES.pricing.path} className="font-semibold text-accent underline underline-offset-4 hover:text-accent-hover">
+                Compare plans and see what counts as an active customer
+              </Link>
+            </p>
           </div>
         </section>
 
@@ -317,7 +297,7 @@ export default function LandingPage() {
                 Then your regular monthly plan. After the first year, support is {formatCents(WHITE_LABEL.renewalCents).replace(".00", "")} a year if you want to keep it. We build it so you shouldn&apos;t need much.
               </p>
               <div>
-                <a href={whiteLabelHref} className="inline-flex h-12 items-center rounded-control border border-line-strong px-6 text-md font-semibold whitespace-nowrap hover:bg-surface">
+                <a href={salesHref(`White label ${BRAND.name}`)} className="inline-flex h-12 items-center rounded-control border border-line-strong px-6 text-md font-semibold whitespace-nowrap hover:bg-surface">
                   Ask about white label
                 </a>
               </div>
@@ -330,6 +310,36 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
+
+        {/* Leaving and staying: switching in, and the data that is always theirs */}
+        <section aria-labelledby="yours-title" className="mx-auto max-w-7xl px-4 pb-24 sm:px-6">
+          <h2 id="yours-title" className="pb-8 text-3xl font-semibold tracking-tight md:text-4xl">
+            Easy to move in. Easy to leave.
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="grid content-start gap-3 rounded-panel border border-line bg-surface p-7">
+              <ArrowsLeftRight size={28} className="text-accent" aria-hidden />
+              <h3 className="text-xl font-semibold tracking-tight">Switch with a file, not a favor.</h3>
+              <p className="text-md text-fg-muted">Export your list from the software you use now. Check every row before anything is added, and undo the whole import for 7 days.</p>
+              <Link href={SITE_PAGES.switch.path} className="pt-1 text-md font-semibold text-accent underline underline-offset-4 hover:text-accent-hover">
+                How switching works
+              </Link>
+            </article>
+            <article className="grid content-start gap-3 rounded-panel border border-line bg-surface p-7">
+              <DownloadSimple size={28} className="text-accent" aria-hidden />
+              <h3 className="text-xl font-semibold tracking-tight">Take everything, any day.</h3>
+              <p className="text-md text-fg-muted">One file with every table as CSV and JSON, every spray record as a PDF, and every photo and signature. No fee, no ticket, no waiting on us.</p>
+            </article>
+            <article className="grid content-start gap-3 rounded-panel border border-line bg-surface p-7">
+              <LockKey size={28} className="text-accent" aria-hidden />
+              <h3 className="text-xl font-semibold tracking-tight">Your list stays yours.</h3>
+              <p className="text-md text-fg-muted">Each business is walled off in the database itself. Owners sign in with a second step. Card numbers only ever go into Stripe.</p>
+              <Link href={SITE_PAGES.security.path} className="pt-1 text-md font-semibold text-accent underline underline-offset-4 hover:text-accent-hover">
+                Security and privacy
+              </Link>
+            </article>
           </div>
         </section>
 
@@ -364,27 +374,6 @@ export default function LandingPage() {
             <Cta />
           </div>
         </section>
-      </main>
-
-      <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 py-10 text-md text-fg-muted sm:px-6">
-          <BrandMark />
-          <nav aria-label="Footer">
-            <ul className="flex flex-wrap gap-6">
-              <li><a href="#pricing" className="hover:text-fg">Pricing</a></li>
-              <li><a href="#white-label" className="hover:text-fg">White label</a></li>
-              <li><a href="#faq" className="hover:text-fg">FAQ</a></li>
-              <li><Link href="/sign-in" className="hover:text-fg">Sign in</Link></li>
-              <li><Link href="/terms" className="hover:text-fg">Terms</Link></li>
-              <li><Link href="/privacy" className="hover:text-fg">Privacy</Link></li>
-              <li><Link href="/status" className="hover:text-fg">Status</Link></li>
-            </ul>
-          </nav>
-          <p>
-            &copy; {new Date().getFullYear()} {BRAND.name}. {BRAND.tagline}.
-          </p>
-        </div>
-      </footer>
-    </div>
+    </>
   );
 }

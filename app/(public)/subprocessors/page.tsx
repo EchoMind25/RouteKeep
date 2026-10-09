@@ -3,7 +3,7 @@ import { LegalDoc } from "@/components/legal-doc";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { SUBPROCESSORS } from "@/lib/legal/subprocessors";
 
-export const metadata: Metadata = { title: "Subprocessors", alternates: { canonical: "/subprocessors" } };
+export const metadata: Metadata = { title: "Subprocessors", alternates: { canonical: "/subprocessors" }, robots: { index: true, follow: true } };
 
 // CR-13, NFR-08: everyone who touches customer data, and exactly what they get.
 export default function SubprocessorsPage() {

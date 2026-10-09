@@ -1,6 +1,7 @@
 import { BRAND } from "@/lib/brand";
 import { formatCents } from "@/lib/domain/money";
 import { FAQS, PLANS, WHITE_LABEL } from "@/lib/landing/content";
+import { SITE_PAGES } from "@/lib/landing/pages";
 import { publicEnv } from "@/lib/public-env";
 
 // /llms.txt: a plain summary for AI assistants and answer engines, written from
@@ -22,7 +23,7 @@ export function GET() {
     ...FAQS.flatMap((f) => [`### ${f.q}`, f.a, ""]),
     "## Links",
     `- [Home](${url}/)`,
-    `- [Pricing](${url}/#pricing)`,
+    ...Object.values(SITE_PAGES).map((p) => `- [${p.title}](${url}${p.path}): ${p.description}`),
     `- [White label](${url}/#white-label)`,
     `- [Sign in or get started](${url}/sign-in)`,
     "",

@@ -159,3 +159,10 @@ was opened.
   online payments pending over 24 hours, the D-11 plan limits) are our own, as
   is the choice to run it as a database role with no table privileges so it can
   only see counts. No competitor admin or operator screen was looked at.
+- Public guides (FR-WEB-01), 2026-10-09: /pricing, /switch, /utah-pesticide-records
+  and /security, with a shared marketing header (a no-script small-screen menu)
+  and footer. Copy is our own and describes only what this app does, checked
+  against the code. Competitor products are named only as sources a customer
+  exports from; their pages, copy and screens were not used. The Utah guide
+  summarizes the rule text itself (Utah Admin. Code R68-7-11, -16, -17 as
+  published by Cornell LII and Justia, checked 2026-10-09) and links it.

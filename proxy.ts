@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { authMode } from "@/lib/auth-mode";
+import { NO_SESSION, STATIC_PUBLIC } from "@/lib/proxy-paths";
 import { publicEnv } from "@/lib/public-env";
 
 // Three jobs, in order: send app./login. hosts into the app, tag the request
@@ -10,8 +11,8 @@ import { publicEnv } from "@/lib/public-env";
 // cookies) always see a valid one. Authorization itself happens next to the
 // data (lib/auth/session.ts, RLS).
 
-// Public and machine routes never read the session, so they skip the refresh.
-const NO_SESSION = /^\/(api\/(webhooks|cron|csp-report)(\/|$)|p\/|u\/|terms$|privacy$|dpa$|subprocessors$|status$|robots\.txt$|sitemap\.xml$|llms\.txt$|opengraph-image)/;
+// Which routes skip the session refresh and which carry no nonce policy:
+// lib/proxy-paths.ts.
 
 function origin(url: string): string {
   try {
@@ -22,8 +23,8 @@ function origin(url: string): string {
 }
 
 // Report-only while it is tuned against real traffic; flip the header name to
-// Content-Security-Policy to enforce. Static pages carry no nonce yet, so they
-// report their inline scripts until they render per request.
+// Content-Security-Policy to enforce. Prerendered public pages carry no nonce,
+// so they get no policy here (STATIC_PUBLIC); they need a hash-based one first.
 function policy(nonce: string): string {
   const dev = !publicEnv.production; // React needs eval for debug stacks outside production
   const supabase = origin(publicEnv.supabaseUrl);
@@ -58,7 +59,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const requestId = request.headers.get("x-nf-request-id") ?? crypto.randomUUID();
-  const html = !path.startsWith("/api/");
+  const html = !path.startsWith("/api/") && !STATIC_PUBLIC.test(path);
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = policy(nonce);
   const next = () => {

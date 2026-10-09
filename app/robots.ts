@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 import { publicEnv } from "@/lib/public-env";
 
-// Only the landing page is for search engines and AI crawlers; the app behind
-// sign-in is private and says so.
+// The public pages (landing, guides, legal) are for search engines and AI
+// crawlers; the app behind sign-in is private and says so.
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
