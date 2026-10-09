@@ -55,7 +55,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Does it keep pesticide application records for Utah?",
-    a: "It asks for every field Utah's rule lists (customer, address, area treated, target pests, product, EPA number, mix rate, total applied, applicator license and more) and won't let a tech close the stop with one missing. Restricted use products prompt for the customer's written statement. Check your own state's rule with your department of agriculture.",
+    a: "It asks for every field Utah's rule lists (customer, address, area treated, target pests, product, EPA number, mix rate, total applied, applicator license and more) and won't let a tech close the stop with one missing. For restricted use products the tech confirms the customer got the written statement Utah requires before the application. Check your own state's rule with your department of agriculture.",
   },
   {
     q: "How much does pest control software cost?",

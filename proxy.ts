@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { authMode } from "@/lib/auth-mode";
+import { SITE_PAGES } from "@/lib/landing/pages";
 import { publicEnv } from "@/lib/public-env";
 
 // Three jobs, in order: send app./login. hosts into the app, tag the request
@@ -11,7 +12,10 @@ import { publicEnv } from "@/lib/public-env";
 // data (lib/auth/session.ts, RLS).
 
 // Public and machine routes never read the session, so they skip the refresh.
-const NO_SESSION = /^\/(api\/(webhooks|cron|csp-report)(\/|$)|p\/|u\/|terms$|privacy$|dpa$|subprocessors$|status$|robots\.txt$|sitemap\.xml$|llms\.txt$|opengraph-image)/;
+// That includes the landing page and its guides, the busiest pages for
+// visitors who are not signed in.
+const MARKETING = Object.values(SITE_PAGES).map((p) => p.path.slice(1)).join("|");
+const NO_SESSION = new RegExp(`^/($|(${MARKETING})$|api/(webhooks|cron|csp-report)(/|$)|p/|u/|terms$|privacy$|dpa$|subprocessors$|status$|robots\\.txt$|sitemap\\.xml$|llms\\.txt$|opengraph-image)`);
 
 function origin(url: string): string {
   try {

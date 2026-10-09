@@ -72,8 +72,10 @@ export function HeroStage() {
               alt={`The ${BRAND.name} dispatch board: each technician's route listed beside a map, stops numbered the same in both`}
               width={1600}
               height={1000}
-              priority
-              sizes="(min-width: 1024px) 55vw, 100vw"
+              preload
+              fetchPriority="high"
+              loading="eager"
+              sizes="(min-width: 1024px) 55vw, 92vw"
               className="block h-auto w-full"
             />
           </picture>

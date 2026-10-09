@@ -273,6 +273,7 @@ Added 2026-10-07 by owner decision; scope corrected the same day.
 ### 8.10.2 Public site `[MVP]`
 Added 2026-10-07 by owner decision.
 - FR-WEB-01 A public landing page at `/`: what the product does, posted pricing (D-11), the white label offer (D-14), and a FAQ. Indexable, with structured data (SoftwareApplication, FAQPage), a sitemap, robots rules that keep the app private, a social card and `/llms.txt` for AI assistants. Every claim matches what is built; nothing invented (no reviews, no customer logos until real).
+- FR-WEB-04 Guides beside the landing page, added 2026-10-09: a pricing page, a switching page, a plain guide to Utah's application record rule, and a security and privacy page, each indexable with its own social card and structured data and listed in the sitemap and `/llms.txt` (registry: `lib/landing/pages.ts`). The same rule as FR-WEB-01 applies: every claim matches what is built. The legal pages are indexable too.
 - FR-WEB-03 Public Terms, Privacy Policy, Data Processing Addendum, subprocessor list (CR-13) and a status page (NFR-04), linked from the landing page footer. Added 2026-10-08.
 - FR-WEB-02 Signed-in work starts at `/app`. `app.` and `login.` subdomains of the owner's domain open the app directly; `/login` does the same on any host.
 

@@ -2,12 +2,16 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
+import { publicEnv } from "@/lib/public-env";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: BRAND.name, template: `%s | ${BRAND.name}` },
   description: BRAND.tagline,
   applicationName: BRAND.name,
+  // Absolute URLs for every social card and canonical link, on every page.
+  metadataBase: new URL(publicEnv.siteUrl),
+  // Private by default; public pages opt in (app/(marketing), the legal pages).
   robots: { index: false, follow: false },
 };
 

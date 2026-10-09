@@ -4,7 +4,7 @@ import { LegalDoc } from "@/components/legal-doc";
 import { BRAND } from "@/lib/brand";
 import { publicEnv } from "@/lib/public-env";
 
-export const metadata: Metadata = { title: "Terms of Service", alternates: { canonical: "/terms" } };
+export const metadata: Metadata = { title: "Terms of Service", alternates: { canonical: "/terms" }, robots: { index: true, follow: true } };
 
 const us = () => publicEnv.legalName || BRAND.name;
 
