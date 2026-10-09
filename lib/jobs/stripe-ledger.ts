@@ -1,7 +1,7 @@
 import "server-only";
 import { sql } from "kysely";
 import type { Tx } from "@/lib/db/rls";
-import { canMove, declineText, needsNewMethod, nextAutopayAttempt, type PaymentStatus } from "@/lib/domain/payments";
+import { canMove, declineText, needsNewMethod, nextAutopayAttempt, takenButNotOurs, type PaymentStatus } from "@/lib/domain/payments";
 import type { Stripe } from "@/lib/providers/payments";
 import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { settleInvoice } from "@/lib/server/billing-run";
@@ -20,7 +20,7 @@ export async function tenantForAccount(tx: Tx, accountId: string | null | undefi
   return (await tx.selectFrom("tenants").select("id").where("stripe_account_id", "=", accountId).executeTakeFirst())?.id ?? null;
 }
 
-interface PaymentRow {
+export interface PaymentRow {
   id: string;
   customer_id: string;
   invoice_id: string | null;
@@ -31,7 +31,7 @@ interface PaymentRow {
   stripe_payment_intent_id: string | null;
 }
 
-async function lockPayment(tx: Tx, tenantId: string, by: { intentId?: string | null; paymentId?: string | null; sessionId?: string | null }): Promise<PaymentRow | null> {
+export async function lockPayment(tx: Tx, tenantId: string, by: { intentId?: string | null; paymentId?: string | null; sessionId?: string | null }): Promise<PaymentRow | null> {
   const base = () =>
     tx
       .selectFrom("payments")
@@ -77,6 +77,13 @@ export interface Move {
 export async function movePayment(tx: Tx, tenantId: string, payment: PaymentRow, move: Move): Promise<boolean> {
   if (move.intentId && !payment.stripe_payment_intent_id) {
     await tx.updateTable("payments").set({ stripe_payment_intent_id: move.intentId }).where("tenant_id", "=", tenantId).where("id", "=", payment.id).execute();
+  }
+  if (takenButNotOurs(payment.status, move.to)) {
+    // FR-BIL-07: Stripe took the money but our row says otherwise. Not posted to
+    // the ledger on a guess; the office decides.
+    const intentId = move.intentId ?? payment.stripe_payment_intent_id ?? payment.id;
+    await flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: intentId, paymentId: payment.id, details: `Stripe took this payment (${intentId}) but RouteKeep has it as ${payment.status}. Nothing was posted to the ledger; check it and record the payment by hand if it is right.` });
+    return false;
   }
   if (!canMove(payment.status, move.to)) return false;
 
