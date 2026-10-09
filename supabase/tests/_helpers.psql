@@ -119,11 +119,11 @@ language plpgsql
 as $$
 declare
   v_tenant uuid;
-  v_owner uuid := pg_temp.new_user(p_label || '-owner@test.routekeep.dev');
-  v_admin uuid := pg_temp.new_user(p_label || '-admin@test.routekeep.dev');
-  v_office uuid := pg_temp.new_user(p_label || '-office@test.routekeep.dev');
-  v_dispatch uuid := pg_temp.new_user(p_label || '-dispatch@test.routekeep.dev');
-  v_tech_user uuid := pg_temp.new_user(p_label || '-tech@test.routekeep.dev');
+  v_owner uuid := pg_temp.new_user(p_label || '-owner@test.routeverde.dev');
+  v_admin uuid := pg_temp.new_user(p_label || '-admin@test.routeverde.dev');
+  v_office uuid := pg_temp.new_user(p_label || '-office@test.routeverde.dev');
+  v_dispatch uuid := pg_temp.new_user(p_label || '-dispatch@test.routeverde.dev');
+  v_tech_user uuid := pg_temp.new_user(p_label || '-tech@test.routeverde.dev');
   v_tech uuid;
   v_type uuid;
   v_plan uuid;
@@ -147,11 +147,11 @@ begin
   values (v_tenant, 'Main office', '100 N University Ave', 'Provo', 'UT', '84601', true);
 
   insert into public.memberships (tenant_id, user_id, role, email) values
-    (v_tenant, v_owner, 'owner', p_label || '-owner@test.routekeep.dev'),
-    (v_tenant, v_admin, 'admin', p_label || '-admin@test.routekeep.dev'),
-    (v_tenant, v_office, 'office', p_label || '-office@test.routekeep.dev'),
-    (v_tenant, v_dispatch, 'dispatcher', p_label || '-dispatch@test.routekeep.dev'),
-    (v_tenant, v_tech_user, 'technician', p_label || '-tech@test.routekeep.dev');
+    (v_tenant, v_owner, 'owner', p_label || '-owner@test.routeverde.dev'),
+    (v_tenant, v_admin, 'admin', p_label || '-admin@test.routeverde.dev'),
+    (v_tenant, v_office, 'office', p_label || '-office@test.routeverde.dev'),
+    (v_tenant, v_dispatch, 'dispatcher', p_label || '-dispatch@test.routeverde.dev'),
+    (v_tenant, v_tech_user, 'technician', p_label || '-tech@test.routeverde.dev');
 
   insert into public.technicians (tenant_id, user_id, display_name, applicator_license_no, license_expiry)
   values (v_tenant, v_tech_user, 'Tech ' || p_label, 'UT-' || p_label || '-0042', date '2027-12-31')

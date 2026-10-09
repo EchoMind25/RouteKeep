@@ -1,7 +1,7 @@
 # Recon map: field service for pest and lawn operators (web + installable PWA)
 
 Scope: the PRD `[MVP]` slice. Customers and properties, recurring plans, scheduling and dispatch, route optimization, offline technician app, pesticide application records, billing with autopay, reminders, customer portal, migration in and out.
-For: RouteKeep (working name, see `docs/PRD.md` OQ-04), sold to pest and lawn operators with 1 to 10 trucks, Utah first.
+For: RouteVerde (working name, see `docs/PRD.md` OQ-04), sold to pest and lawn operators with 1 to 10 trucks, Utah first.
 Date: 2026-10-06
 
 ## Clean-room statement

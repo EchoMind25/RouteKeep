@@ -184,7 +184,7 @@ test("M4 stage 2: connect, pay online, autopay with retries, refund, revoke, rec
     [day.tenantId, day.customerIds[0], inv3.id, `lost-${randomUUID()}`],
   );
   stripe.addIntent(acct, { amount: 6900, amount_received: 6900, status: "succeeded", payment_method_types: ["us_bank_account"], metadata: { payment_id: pending!.id, invoice_id: inv3.id, source: "portal" } });
-  // And one Stripe took that RouteKeep never wrote down.
+  // And one Stripe took that RouteVerde never wrote down.
   stripe.addIntent(acct, { amount: 4200, amount_received: 4200, status: "succeeded", metadata: { payment_id: randomUUID(), source: "portal" } });
   const cron = await fetch(`${base}/api/cron?job=reconcile`, { method: "POST", headers: { authorization: "Bearer e2e-cron-secret-not-real-1234" } });
   expect(cron.status).toBe(200);

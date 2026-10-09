@@ -19,7 +19,7 @@ import { generateVisits } from "@/lib/server/generation";
 // reconcile compares the file's totals with what landed (FR-MIG-13).
 // Everything runs as the signed-in owner or admin, under RLS.
 
-export type ImportSource = "csv" | "routekeep" | "fieldroutes";
+export type ImportSource = "csv" | "routeverde" | "fieldroutes";
 export const COMMIT_BATCH = 50;
 const ROLLBACK_DAYS = 7;
 
@@ -51,7 +51,7 @@ export interface Reconcile {
 }
 
 // Our own export's customers.csv, recognised so it re-imports without mapping (FR-EXP-03).
-const ROUTEKEEP_MAP: ColumnMap = {
+const ROUTEVERDE_MAP: ColumnMap = {
   external_ref: "id",
   first_name: "first_name",
   last_name: "last_name",
@@ -95,9 +95,9 @@ export async function startImport(m: MemberSession, file: { name: string; bytes:
           .where(sql<boolean>`header_signature = ${signature}::text[]`)
           .orderBy("is_preset", "desc")
           .executeTakeFirst();
-    const source: ImportSource = isOurs ? "routekeep" : ((preset?.source as ImportSource | undefined) ?? "csv");
-    const columnMap = isOurs ? ROUTEKEEP_MAP : ((preset?.column_map as ColumnMap | undefined) ?? autoMap(sheet.headers, sheet.rows.slice(0, 25)));
-    const stats: JobStats = { headers: sheet.headers, sample: sheet.rows.slice(0, 5), columnMap, rows: sheet.rows.length, presetName: isOurs ? `${"RouteKeep"} export` : (preset?.name ?? null) };
+    const source: ImportSource = isOurs ? "routeverde" : ((preset?.source as ImportSource | undefined) ?? "csv");
+    const columnMap = isOurs ? ROUTEVERDE_MAP : ((preset?.column_map as ColumnMap | undefined) ?? autoMap(sheet.headers, sheet.rows.slice(0, 25)));
+    const stats: JobStats = { headers: sheet.headers, sample: sheet.rows.slice(0, 5), columnMap, rows: sheet.rows.length, presetName: isOurs ? `${"RouteVerde"} export` : (preset?.name ?? null) };
     const job = await tx
       .insertInto("import_jobs")
       .values({ source, files: JSON.stringify([{ name: file.name.slice(0, 200), rows: sheet.rows.length }]), stats: JSON.stringify(stats) })

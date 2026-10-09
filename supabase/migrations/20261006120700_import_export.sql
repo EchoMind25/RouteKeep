@@ -8,7 +8,7 @@ create table public.import_mappings (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid default app.current_tenant_id() references public.tenants (id) on delete cascade,
   name text not null check (length(btrim(name)) between 1 and 120),
-  source text not null check (source in ('fieldroutes', 'pestpac', 'gorilladesk', 'jobber', 'quickbooks', 'csv', 'routekeep')),
+  source text not null check (source in ('fieldroutes', 'pestpac', 'gorilladesk', 'jobber', 'quickbooks', 'csv', 'routeverde')),
   entity text not null check (entity in (
     'customers', 'properties', 'service_plans', 'subscriptions', 'appointments', 'technicians',
     'products', 'applications', 'invoices', 'balances', 'notes', 'documents')),
@@ -45,7 +45,7 @@ call app.add_version_trigger('public.import_mappings');
 create table public.import_jobs (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null default app.current_tenant_id() references public.tenants (id) on delete cascade,
-  source text not null check (source in ('fieldroutes', 'pestpac', 'gorilladesk', 'jobber', 'quickbooks', 'csv', 'routekeep')),
+  source text not null check (source in ('fieldroutes', 'pestpac', 'gorilladesk', 'jobber', 'quickbooks', 'csv', 'routeverde')),
   status text not null default 'uploaded' check (status in (
     'uploaded', 'mapped', 'validating', 'validated', 'committing', 'committed',
     'reconciled', 'rolling_back', 'rolled_back', 'failed')),

@@ -1,4 +1,4 @@
-# RouteKeep PRD
+# RouteVerde PRD
 
 Path in repo: `docs/PRD.md`
 Status: v1.0, normative
@@ -19,7 +19,7 @@ Last updated: 2026-10-07 (v1.2: white label offer, branded documents, public sit
 
 ## 1. Summary
 
-RouteKeep is a multi-tenant SaaS for pest control and lawn care operators with 1 to 10 trucks. It covers customers, recurring service plans, scheduling, route optimization, an offline technician app, pesticide application records, billing with autopay, reminders, a customer portal, and self-serve migration in and out.
+RouteVerde is a multi-tenant SaaS for pest control and lawn care operators with 1 to 10 trucks. It covers customers, recurring service plans, scheduling, route optimization, an offline technician app, pesticide application records, billing with autopay, reminders, a customer portal, and self-serve migration in and out.
 
 Positioning: published month-to-month pricing, no setup fee, works offline, your data leaves whenever you want.
 
@@ -62,7 +62,7 @@ Door-to-door sales app (canvassing, territories, door contracts; technician sale
 | D-09 | Payments: Stripe Connect, Standard-style connected accounts, direct charges, Stripe-hosted card and bank fields. Stripe sets processing price; tenant pays it | No platform fees, lowest liability and PCI scope | Need to earn a payment margin |
 | D-10 | Messaging: email (Resend free tier) from day 1. SMS (Twilio) only after the tenant's 10DLC brand and campaign are approved. Registration and usage costs pass through to the tenant | Compliance cannot be skipped; cost belongs to the tenant's brand | Never |
 | D-11 | Pricing: Starter $79/month (up to 300 active customers), Pro $179 (up to 1,500), Growth $349 (up to 5,000). Unlimited users. Month to month. No setup fee | Keeps the per-customer-count model users like (R-PRICE-07) | After 5 customers |
-| D-12 | Billing for RouteKeep's own subscription uses Stripe Billing on the platform account | Standard | Never |
+| D-12 | Billing for RouteVerde's own subscription uses Stripe Billing on the platform account | Standard | Never |
 | D-13 | Deferred spend: trademark filing, attorney review, SOC 2, QuickBooks sync, Apple and Google developer accounts | Not required to sign customer 1 | First revenue |
 | D-14 | White label as a done-for-you service: $5,000 one time per business, then their regular monthly plan. Includes their logo, colors and name on the office app, technician app, portal and every document, with the product credit removed (FR-BRD-03; invoices are branded on every plan, FR-BRD-01); personalized setup (their services, plans, forms and reports shaped around how they work); setup support start to finish, including customer list import from their own export; advice on technician hardware (phones, tablets, accessories) and what is worth maintaining; their own domain once they own one; one year of support (defects and help, not new features). After the first year, support renews at $500 a year, optional. The goal is a product that needs little support. Owner decisions 2026-10-07 ($2,000 first, raised to $5,000 the same day) | Covers 20 to 40 hours of personalized setup and a support year with margin; the $500 renewal prices support at a level that rewards building it right | After 3 white label sales, or if setup regularly runs past 40 hours |
 
@@ -286,7 +286,7 @@ Goal: an owner with no technical help moves a full book of business in one sitti
 
 ### 9.1 Sources
 - FR-MIG-01 Guided presets for FieldRoutes, PestPac, GorillaDesk, Jobber, and QuickBooks customer lists. Each preset is a saved column mapping plus value transforms, stored as data in `import_mappings`, not code.
-- FR-MIG-02 Generic CSV and XLSX for spreadsheets, and RouteKeep's own export format.
+- FR-MIG-02 Generic CSV and XLSX for spreadsheets, and RouteVerde's own export format.
 - FR-MIG-03 Presets are built only from files real customers export. The first preset for each source is created during a concierge migration and saved for reuse. No competitor credentials or APIs are used.
 
 ### 9.2 What can be imported
@@ -422,9 +422,9 @@ Time from import to first optimized route under 1 day. Zero duplicate charges. B
 ## 17. Open questions (owner to answer)
 
 - OQ-01 Answered 2026-10-07: new Netlify account, so the 300-credit plan (BUD-04 applies).
-- OQ-02 Open. Recommendation (not legal advice): one legal entity owns RouteKeep, signs customer and white label contracts, and owns the Stripe platform account. Cheapest path that keeps liability separate: a Utah LLC for RouteKeep (or, if Echo Mind Automation is already an LLC, RouteKeep as its registered DBA until revenue justifies its own LLC), an EIN in the entity's name, a business bank account, and the Stripe platform account opened by that entity. Confirm current Utah filing fees and have an attorney review the white label agreement before the first $5,000 sale (D-13).
+- OQ-02 Open. Recommendation (not legal advice): one legal entity owns RouteVerde, signs customer and white label contracts, and owns the Stripe platform account. Cheapest path that keeps liability separate: a Utah LLC for RouteVerde (or, if Echo Mind Automation is already an LLC, RouteVerde as its registered DBA until revenue justifies its own LLC), an EIN in the entity's name, a business bank account, and the Stripe platform account opened by that entity. Confirm current Utah filing fees and have an attorney review the white label agreement before the first $5,000 sale (D-13).
 - OQ-03 Partly answered by research 2026-10-07 (CR-04, CR-16). Owner to confirm with UDAF Pesticide Program (UDAF-Pesticide@utah.gov, 801-538-7100): current R68-7 citation and retention, the complete field list and any template for the "uniform format", whether software-only records satisfy inspection, how fast records must be produced, and whether non-RUP applications require a customer copy or posting.
-- OQ-04 Answered 2026-10-07: the name is RouteKeep. A USPTO search and domain check are still to be done by the owner before public launch (RISK-07).
+- OQ-04 Answered 2026-10-07: the name is RouteVerde. A USPTO search and domain check are still to be done by the owner before public launch (RISK-07).
 - OQ-05 Answered 2026-10-07: no pilot yet. Target: a small pest control owner leaving the ServiceTitan family (FieldRoutes). The first preset is built from that customer's own FieldRoutes export during a concierge migration (FR-MIG-03); until then the generic CSV path is the import.
 
 ## 18. Environment variables

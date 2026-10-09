@@ -1,4 +1,4 @@
-# RouteKeep
+# RouteVerde
 
 Scheduling, routes, compliant application records and billing for pest control
 and lawn care operators with 1 to 10 trucks. Utah first. Published month-to-month
@@ -8,7 +8,7 @@ pricing, works offline, and your data leaves whenever you want.
 - How it is built: [`replica/architecture.md`](replica/architecture.md). Clean-room record: [`docs/DESIGN_LOG.md`](docs/DESIGN_LOG.md).
 - Going live: [`docs/DEPLOY.md`](docs/DEPLOY.md). Subprocessors: [`docs/VENDORS.md`](docs/VENDORS.md).
 
-"RouteKeep" is the working name (PRD OQ-04); it lives in `lib/brand.ts` only.
+"RouteVerde" is the working name (PRD OQ-04); it lives in `lib/brand.ts` only.
 
 ## Status
 
@@ -30,7 +30,7 @@ No Supabase project or Docker required.
 npm ci
 cp .env.example .env.local     # then set AUTH_MODE=local, DATABASE_URL and LOCAL_AUTH_SECRET:
 #   AUTH_MODE=local
-#   DATABASE_URL=postgresql://postgres@127.0.0.1:54329/routekeep
+#   DATABASE_URL=postgresql://postgres@127.0.0.1:54329/routeverde
 #   LOCAL_AUTH_SECRET=$(openssl rand -hex 32)
 npm run db:reset               # local Postgres on :54329, migrations, demo business, 60 days of visits
 npm run dev                    # http://localhost:3000, sign in with the Owner / Office / Technician buttons

@@ -57,7 +57,7 @@ async function drag(page: Page, from: Locator, to: () => Promise<Locator>) {
 }
 
 async function sql<T extends pg.QueryResultRow>(text: string, values: unknown[]): Promise<T[]> {
-  const client = new pg.Client({ connectionString: process.env.E2E_ADMIN_DATABASE_URL ?? `postgresql://postgres@127.0.0.1:${process.env.RK_PGPORT ?? 54329}/routekeep` });
+  const client = new pg.Client({ connectionString: process.env.E2E_ADMIN_DATABASE_URL ?? `postgresql://postgres@127.0.0.1:${process.env.RK_PGPORT ?? 54329}/routeverde` });
   await client.connect();
   try {
     return (await client.query<T>(text, values)).rows;

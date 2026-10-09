@@ -5,8 +5,8 @@
 -- real label. Applied by `supabase db reset` and scripts/db/local.sh reset;
 -- never by `supabase db push`, so it cannot reach production.
 --
--- Sign in locally (AUTH_MODE=local) as owner@demo.routekeep.test,
--- office@demo.routekeep.test or tech.dez@demo.routekeep.test.
+-- Sign in locally (AUTH_MODE=local) as owner@demo.routeverde.test,
+-- office@demo.routeverde.test or tech.dez@demo.routeverde.test.
 
 select setseed(0.42);
 
@@ -18,13 +18,13 @@ select '00000000-0000-0000-0000-000000000000', u.id, 'authenticated', 'authentic
        extensions.crypt('demo-only-password', extensions.gen_salt('bf')), now(), '', '', '', '',
        '{"provider":"email","providers":["email"]}', '{}', now(), now()
 from (values
-  ('d0000000-0000-4000-8000-000000000001'::uuid, 'owner@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000002'::uuid, 'office@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000003'::uuid, 'dispatch@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000011'::uuid, 'tech.dez@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000012'::uuid, 'tech.anika@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000013'::uuid, 'tech.ruben@demo.routekeep.test'),
-  ('d0000000-0000-4000-8000-000000000014'::uuid, 'tech.hollis@demo.routekeep.test')
+  ('d0000000-0000-4000-8000-000000000001'::uuid, 'owner@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000002'::uuid, 'office@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000003'::uuid, 'dispatch@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000011'::uuid, 'tech.dez@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000012'::uuid, 'tech.anika@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000013'::uuid, 'tech.ruben@demo.routeverde.test'),
+  ('d0000000-0000-4000-8000-000000000014'::uuid, 'tech.hollis@demo.routeverde.test')
 ) as u(id, email);
 
 insert into public.tenants (id, name, timezone, state, business_license_no, plan, created_by)
@@ -37,13 +37,13 @@ values ('7e000000-0000-4000-8000-000000000001', 'Timpanogos Pest & Lawn (demo)',
         extensions.st_setsrid(extensions.st_makepoint(-111.7120, 40.3260), 4326)::extensions.geography);
 
 insert into public.memberships (tenant_id, user_id, role, email, display_name) values
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'owner', 'owner@demo.routekeep.test', 'Marisol Quintero'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002', 'office', 'office@demo.routekeep.test', 'Teodoro Vance'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000003', 'dispatcher', 'dispatch@demo.routekeep.test', 'Priya Halvorsen'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000011', 'technician', 'tech.dez@demo.routekeep.test', 'Dez Whitlock'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000012', 'technician', 'tech.anika@demo.routekeep.test', 'Anika Sorensen'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000013', 'technician', 'tech.ruben@demo.routekeep.test', 'Ruben Okafor'),
-  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000014', 'technician', 'tech.hollis@demo.routekeep.test', 'Hollis Baptiste');
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000001', 'owner', 'owner@demo.routeverde.test', 'Marisol Quintero'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002', 'office', 'office@demo.routeverde.test', 'Teodoro Vance'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000003', 'dispatcher', 'dispatch@demo.routeverde.test', 'Priya Halvorsen'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000011', 'technician', 'tech.dez@demo.routeverde.test', 'Dez Whitlock'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000012', 'technician', 'tech.anika@demo.routeverde.test', 'Anika Sorensen'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000013', 'technician', 'tech.ruben@demo.routeverde.test', 'Ruben Okafor'),
+  ('7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000014', 'technician', 'tech.hollis@demo.routeverde.test', 'Hollis Baptiste');
 
 insert into public.technicians (id, tenant_id, user_id, display_name, phone, applicator_license_no, license_expiry, categories, color_index) values
   ('7ec00000-0000-4000-8000-000000000001', '7e000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000011', 'Dez Whitlock', '+18015550111', 'DEMO-APP-1031', current_date + 420, '{structural,ornamental}', 0),

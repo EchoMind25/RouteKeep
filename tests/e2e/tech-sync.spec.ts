@@ -241,9 +241,9 @@ test("FR-TEC-09, FR-REC-02, CR-03: files upload once; the office sees the record
     expect(text).toContain(expected);
   }
   // FR-BRD-03: a small product credit, gone once the business has white label (D-14).
-  expect(text).toContain("Powered by RouteKeep");
+  expect(text).toContain("Powered by RouteVerde");
   await adminQuery("update public.tenants set white_label_at = now() where id = $1", [day.tenantId]);
-  expect(pdfText(await (await office.request.get(`/api/records/${visit}`)).body())).not.toContain("RouteKeep");
+  expect(pdfText(await (await office.request.get(`/api/records/${visit}`)).body())).not.toContain("RouteVerde");
   const image = await office.request.get(`/api/attachments/${(await adminQuery<{ id: string }>("select id from public.attachments where client_key = $1", [photoKey]))[0]!.id}`);
   expect(image.status()).toBe(200);
   expect(image.headers()["content-type"]).toBe("image/png");

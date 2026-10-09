@@ -36,7 +36,7 @@ export async function reconcileTenant(tenantId: string, now: Date = new Date()):
   await s.paymentIntents.list({ created: { gte: since }, limit: 100 }, opts).autoPagingEach(async (pi: Stripe.PaymentIntent) => {
     if (++result.intents > MAX_OBJECTS) return false;
     seen.add(pi.id);
-    if (!pi.metadata?.payment_id) return; // The business's own payments outside RouteKeep.
+    if (!pi.metadata?.payment_id) return; // The business's own payments outside RouteVerde.
     const applied = await withServiceRole((tx) => applyIntent(tx, tenantId, pi, now));
     if (applied?.changed) result.fixed += 1;
   });
@@ -56,7 +56,7 @@ export async function reconcileTenant(tenantId: string, now: Date = new Date()):
     if (seen.has(p.stripe_payment_intent_id!)) continue;
     const pi = await s.paymentIntents.retrieve(p.stripe_payment_intent_id!, {}, opts).catch(() => null);
     if (!pi || pi.status !== "succeeded") {
-      await withServiceRole((tx) => flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: p.stripe_payment_intent_id!, paymentId: p.id, details: `RouteKeep shows this payment as received; Stripe shows it as ${pi ? pi.status.replaceAll("_", " ") : "not found"}.` }));
+      await withServiceRole((tx) => flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: p.stripe_payment_intent_id!, paymentId: p.id, details: `RouteVerde shows this payment as received; Stripe shows it as ${pi ? pi.status.replaceAll("_", " ") : "not found"}.` }));
     }
   }
 
@@ -77,7 +77,7 @@ export async function reconcileTenant(tenantId: string, now: Date = new Date()):
       .where("created_at", "<", new Date(now.getTime() - 23 * 3_600_000))
       .execute();
     for (const p of stale) {
-      await tx.updateTable("payments").set({ status: "canceled", failure_message: "No answer from Stripe; not charged by RouteKeep" }).where("tenant_id", "=", tenantId).where("id", "=", p.id).execute();
+      await tx.updateTable("payments").set({ status: "canceled", failure_message: "No answer from Stripe; not charged by RouteVerde" }).where("tenant_id", "=", tenantId).where("id", "=", p.id).execute();
       await flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: p.id, paymentId: p.id, details: "An autopay charge got no answer from Stripe for a day and was canceled. Check Stripe for a charge with this payment id before charging again." });
     }
     await tx.updateTable("tenants").set({ stripe_reconciled_at: now }).where("id", "=", tenantId).execute();

@@ -5,7 +5,7 @@ import { expect, expectAccessible, signInAs, test } from "./fixtures";
 const OFFICE_SCREENS = ["/schedule", "/customers", "/customers?q=orem", "/customers/new", "/setup", "/settings", "/settings/team", "/settings/technicians", "/settings/plans", "/settings/products", "/settings/changes", "/reports", "/reports/products"];
 
 test("office screens render and are accessible @mobile", async ({ page }) => {
-  await signInAs(page, "owner@demo.routekeep.test");
+  await signInAs(page, "owner@demo.routeverde.test");
   for (const path of OFFICE_SCREENS) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -18,7 +18,7 @@ test("office screens render and are accessible @mobile", async ({ page }) => {
 });
 
 test("technicians land on their own day @mobile", async ({ page }) => {
-  await signInAs(page, "tech.dez@demo.routekeep.test");
+  await signInAs(page, "tech.dez@demo.routeverde.test");
   await expect(page).toHaveURL(/\/tech$/);
   await expect(page.getByText(/Dez Whitlock, \d+ stops?/)).toBeVisible();
   await expectAccessible(page);

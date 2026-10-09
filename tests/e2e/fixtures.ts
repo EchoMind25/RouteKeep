@@ -39,7 +39,7 @@ export async function expectAccessible(page: Page) {
 }
 
 export function uniqueEmail(prefix: string) {
-  return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@e2e.routekeep.test`;
+  return `${prefix}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@e2e.routeverde.test`;
 }
 
 /** A fresh business with one technician, one quarterly plan and one customer on it. */

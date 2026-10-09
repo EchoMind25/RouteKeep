@@ -36,7 +36,7 @@ test("M6: service complete email, portal sign-in, records, request service, unsu
   const done = await mailTo(email, /^Service complete/, started);
   expect(done.text).toContain("Hi Marisol,");
   expect(done.text).toContain("Dispatch Test Pest, pesticide business license UT-BUS-0001");
-  expect(done.text).toContain("Sent with RouteKeep");
+  expect(done.text).toContain("Sent with RouteVerde");
 
   // The record link asks her to sign in first; she asks for a link by email.
   await page.goto(linkIn(done.text, /https?:\/\/\S+\/visits\/\S+/));

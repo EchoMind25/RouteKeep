@@ -20,7 +20,7 @@ from fx;
 -- A second technician, with a sale of their own.
 alter table ids add column other_tech uuid, add column other_customer uuid;
 insert into public.technicians (tenant_id, user_id, display_name, applicator_license_no, license_expiry)
-values ((select tenant from ids), pg_temp.new_user('other-tech@test.routekeep.dev'), 'Other Tech', 'UT-OTHER-1', date '2027-12-31');
+values ((select tenant from ids), pg_temp.new_user('other-tech@test.routeverde.dev'), 'Other Tech', 'UT-OTHER-1', date '2027-12-31');
 update ids set other_tech = (select id from public.technicians where display_name = 'Other Tech');
 insert into public.customers (tenant_id, display_name, sold_by_technician_id) values ((select tenant from ids), 'Other Sale', (select other_tech from ids));
 update ids set other_customer = (select id from public.customers where display_name = 'Other Sale');

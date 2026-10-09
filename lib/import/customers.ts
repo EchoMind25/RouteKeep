@@ -38,7 +38,7 @@ const norm = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 // Header names seen in exports from common field service software and in
 // hand-made spreadsheets, normalised (lowercase, letters and digits only).
 const SYNONYMS: Record<FieldKey, string[]> = {
-  external_ref: ["customerid", "cust", "acct", "acctno", "accountid", "customerno", "customernumber", "custid", "accountnumber", "accountno", "account", "id", "clientid", "customer", "routekeepid", "externalref"],
+  external_ref: ["customerid", "cust", "acct", "acctno", "accountid", "customerno", "customernumber", "custid", "accountnumber", "accountno", "account", "id", "clientid", "customer", "routeverdeid", "externalref"],
   full_name: ["name", "fullname", "customername", "clientname", "displayname", "billingname"],
   first_name: ["firstname", "first", "fname", "givenname"],
   last_name: ["lastname", "last", "lname", "surname", "familyname"],

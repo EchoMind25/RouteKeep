@@ -32,7 +32,7 @@ TypeScript is pinned at 6.0.3, not the latest 7.0.2: TS 7 ships only the native 
 - Column-level grants close the gaps RLS cannot: members cannot change a tenant's plan or Stripe status, cannot mark a card payment as paid, cannot edit invoice totals.
 - The Supabase Data API is not used by the app (it talks to Postgres directly), so it can be switched off for the `public` schema in the dashboard. RLS and grants are written so that leaving it on is still safe.
 - Request code reaches the database only through `withRls`. `withServiceRole` (bypasses RLS) is restricted by ESLint to jobs, webhooks and the local-auth bootstrap.
-- Recommended production connection: a `routekeep_app` login role that is a member of `authenticated` and `service_role` but owns nothing, so a query that forgets to switch roles fails closed (see `docs/DEPLOY.md`).
+- Recommended production connection: a `routeverde_app` login role that is a member of `authenticated` and `service_role` but owns nothing, so a query that forgets to switch roles fails closed (see `docs/DEPLOY.md`).
 
 ## 3. Schema
 

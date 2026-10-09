@@ -62,7 +62,7 @@ call app.secure_table('public.messages',
   p_select => '{*}', p_insert => '{}', p_update => '{}', p_delete => '{}');
 
 -- Inbound webhooks (ENG-03, DB-03). tenant_id is null for platform-level events
--- (RouteKeep's own Stripe Billing, D-12); those are visible to no tenant.
+-- (RouteVerde's own Stripe Billing, D-12); those are visible to no tenant.
 create table public.webhook_events (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid references public.tenants (id) on delete cascade,

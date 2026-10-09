@@ -14,7 +14,7 @@ pg.types.setTypeParser(pg.types.builtins.INT8, (value) => {
   return n;
 });
 
-const holder = globalThis as unknown as { __routekeepDb?: Kysely<DB> };
+const holder = globalThis as unknown as { __routeverdeDb?: Kysely<DB> };
 
 /**
  * The shared connection pool. Do not query it directly from request code:
@@ -22,16 +22,16 @@ const holder = globalThis as unknown as { __routekeepDb?: Kysely<DB> };
  * withServiceRole (lib/db/service.ts) in jobs and webhooks.
  */
 export function pool(): Kysely<DB> {
-  holder.__routekeepDb ??= new Kysely<DB>({
+  holder.__routeverdeDb ??= new Kysely<DB>({
     dialect: new PostgresDialect({
       pool: new pg.Pool({
         connectionString: env().DATABASE_URL,
         max: 5,
         idleTimeoutMillis: 10_000,
         connectionTimeoutMillis: 5_000,
-        application_name: "routekeep",
+        application_name: "routeverde",
       }),
     }),
   });
-  return holder.__routekeepDb;
+  return holder.__routeverdeDb;
 }

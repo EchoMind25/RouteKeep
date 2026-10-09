@@ -4,7 +4,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DB="${RK_TEST_DB:-routekeep_test}"
+DB="${RK_TEST_DB:-routeverde_test}"
 PORT="${RK_PGPORT:-54329}"
 
 "$REPO_ROOT/scripts/db/local.sh" fresh "$DB"

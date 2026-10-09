@@ -1,4 +1,4 @@
-// RouteKeep service worker (FR-TEC-01, FR-TEC-02, NFR-01).
+// RouteVerde service worker (FR-TEC-01, FR-TEC-02, NFR-01).
 //
 // Scope is /tech: office pages are never controlled. The technician app is one
 // page that reads only from the device, so this keeps exactly two things:

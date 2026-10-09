@@ -7,13 +7,13 @@
 #   scripts/db/local.sh start            init (first run) and start the cluster
 #   scripts/db/local.sh stop
 #   scripts/db/local.sh status
-#   scripts/db/local.sh reset [db]       drop, recreate, migrate, seed (default db: routekeep)
+#   scripts/db/local.sh reset [db]       drop, recreate, migrate, seed (default db: routeverde)
 #   scripts/db/local.sh migrate [db]     apply pending migrations
 #   scripts/db/local.sh fresh <db>       drop, recreate, migrate, no seed (used by tests)
 #   scripts/db/local.sh psql [db]
 #
 # Environment: RK_PGPORT (default 54329), RK_PGDATA (default .local/pg in the repo,
-# or /var/lib/postgresql/routekeep-dev when run as root).
+# or /var/lib/postgresql/routeverde-dev when run as root).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -40,7 +40,7 @@ fi
 
 if [[ $EUID -eq 0 ]]; then
   # initdb refuses to run as root; run the server as the postgres OS user.
-  DATA_DIR="${RK_PGDATA:-/var/lib/postgresql/routekeep-dev}"
+  DATA_DIR="${RK_PGDATA:-/var/lib/postgresql/routeverde-dev}"
   as_pg() { runuser -u postgres -- "$@"; }
 else
   DATA_DIR="${RK_PGDATA:-$REPO_ROOT/.local/pg}"
@@ -105,7 +105,7 @@ apply_migrations() {
 }
 
 cmd_reset() {
-  local db="${1:-routekeep}"
+  local db="${1:-routeverde}"
   cmd_start >/dev/null
   recreate_db "$db"
   apply_migrations "$db"
@@ -128,7 +128,7 @@ case "${1:-}" in
   status) cmd_status ;;
   reset) cmd_reset "${2:-}" ;;
   fresh) cmd_fresh "${2:-}" ;;
-  migrate) cmd_start >/dev/null; apply_migrations "${2:-routekeep}" ;;
-  psql) cmd_start >/dev/null; exec psql -X -h "$HOST" -p "$PORT" -U postgres -d "${2:-routekeep}" ;;
+  migrate) cmd_start >/dev/null; apply_migrations "${2:-routeverde}" ;;
+  psql) cmd_start >/dev/null; exec psql -X -h "$HOST" -p "$PORT" -U postgres -d "${2:-routeverde}" ;;
   *) sed -n '2,15p' "$0"; exit 1 ;;
 esac

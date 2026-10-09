@@ -13,7 +13,7 @@ export const IMPORT_STATUS: Record<string, { label: string; tone: "neutral" | "s
 
 export const SOURCE_LABEL: Record<string, string> = {
   csv: "Spreadsheet",
-  routekeep: "Our own export",
+  routeverde: "Our own export",
   fieldroutes: "FieldRoutes export",
   pestpac: "PestPac export",
   gorilladesk: "GorillaDesk export",

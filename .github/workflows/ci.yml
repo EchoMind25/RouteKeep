@@ -54,7 +54,7 @@ jobs:
     env:
       AUTH_MODE: local
       APP_URL: http://127.0.0.1:3100
-      DATABASE_URL: postgresql://postgres@127.0.0.1:54329/routekeep
+      DATABASE_URL: postgresql://postgres@127.0.0.1:54329/routeverde
       # CI-only secret for the throwaway local database; never used elsewhere.
       LOCAL_AUTH_SECRET: ci-only-local-auth-secret-${{ github.run_id }}-0000000000
     steps:

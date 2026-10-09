@@ -196,7 +196,7 @@ Free tier limits for Inngest, Sentry, Resend, Better Stack; exact current librar
 
 ### 7.5 Name
 
-- R-NAME-01 `[U]` "Routewright" showed no identical software trademark in web search, but USPTO and WHOIS were not checked. An unrelated Florida LLC and some hobby GitHub projects use the name. Backup: Routekeep.
+- R-NAME-01 `[U]` "Routewright" showed no identical software trademark in web search, but USPTO and WHOIS were not checked. An unrelated Florida LLC and some hobby GitHub projects use the name. Backup: Routeverde.
 
 ## 8. Market
 
