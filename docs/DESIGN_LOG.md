@@ -153,3 +153,9 @@ was opened.
   (15/30/45/60), email wording, and the "newest notice per technician and day"
   board badge are our own. No competitor screen, copy or documentation was
   looked at.
+- Developer console (OPS-01, OPS-02), 2026-10-09: built from the owner's request
+  and the tables this app already keeps. The checks and their thresholds (an
+  email waiting over 15 and 60 minutes, webhooks unprocessed over 5 minutes,
+  online payments pending over 24 hours, the D-11 plan limits) are our own, as
+  is the choice to run it as a database role with no table privileges so it can
+  only see counts. No competitor admin or operator screen was looked at.
