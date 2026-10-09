@@ -10,6 +10,9 @@ import { parseLocalDate, parseLocalTime, todayIn } from "@/lib/domain/time";
 // nightly job. Inserts are idempotent on (tenant_id, subscription_id,
 // occurrence_date), so overlapping runs cannot double-book.
 
+/** FR-SUB-02: rows per insert statement. */
+const INSERT_CHUNK = 2000;
+
 export interface GenerationResult {
   subscriptions: number;
   created: number;
@@ -95,13 +98,14 @@ export async function generateVisits(
   }
 
   let created = 0;
-  if (rows.length > 0) {
+  // FR-SUB-02: chunked, so one statement never carries tens of thousands of rows.
+  for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
     const result = await tx
       .insertInto("appointments")
-      .values(rows)
+      .values(rows.slice(i, i + INSERT_CHUNK))
       .onConflict((oc) => oc.constraint("appointments_occurrence").doNothing())
       .executeTakeFirst();
-    created = Number(result.numInsertedOrUpdatedRows ?? 0);
+    created += Number(result.numInsertedOrUpdatedRows ?? 0);
   }
   if (advanced.length > 0) {
     await sql`

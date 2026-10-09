@@ -13,7 +13,11 @@ const JOBS: Record<string, () => Promise<unknown>> = {
   generation: () => generateEveryone(),
   outbox: () => processOutbox({ limit: 200 }),
   reminders: () => remindAll(),
-  billing: async () => (await billEveryone()).length,
+  // D-04: complete=false means a tenant stopped for time; call again.
+  billing: async () => {
+    const results = await billEveryone();
+    return { tenants: results.length, complete: results.every((r) => !("complete" in r) || r.complete) };
+  },
   autopay: () => autopayEveryone(),
   reconcile: () => reconcileEveryone(),
 };
