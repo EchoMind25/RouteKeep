@@ -3,13 +3,14 @@ import { createHash } from "node:crypto";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls } from "@/lib/db/rls";
 import { storage } from "@/lib/providers/storage";
+import { MAX_ATTACHMENT_BYTES } from "@/lib/sync/protocol";
 
 // Photos and signatures from the field (FR-TEC-09). The bytes go to storage,
 // the row to `attachments` with the device's client key, so an upload that is
 // retried after a lost answer lands once (ENG-01).
 
 export const ATTACHMENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export { MAX_ATTACHMENT_BYTES };
 
 export class AttachmentError extends Error {
   override name = "AttachmentError";

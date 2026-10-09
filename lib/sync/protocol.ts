@@ -96,6 +96,9 @@ export interface Snapshot {
 // Up ----------------------------------------------------------------------------------
 
 const instant = z.iso.datetime({ offset: true });
+/** FR-TEC-09: hosted functions refuse bodies over about 6 MB, so a photo stays under 5 MB (device and server agree). */
+export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
 export const clientKey = z.string().min(8).max(128).regex(/^[A-Za-z0-9_-]+$/, "client keys are letters, digits, _ and -");
 const label = z.string().trim().min(1).max(80);
 

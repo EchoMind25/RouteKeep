@@ -222,15 +222,13 @@ export async function exportStep(m: MemberSession, exportId: string): Promise<Ex
   }
 }
 
-/** FR-EXP-02: the file, while the link is valid. */
-export async function exportFile(m: MemberSession, exportId: string): Promise<{ body: Uint8Array; name: string } | null> {
+/** FR-EXP-02: where the file is, while the link is valid. The route signs or streams it. */
+export async function exportFile(m: MemberSession, exportId: string): Promise<{ path: string; name: string } | null> {
   const row = await withRls(m.claims, (tx) =>
     tx.selectFrom("exports").select(["status", "path", "expires_at", "created_at"]).where("id", "=", exportId).executeTakeFirst(),
   );
   if (!row || row.status !== "ready" || !row.path || !row.expires_at || row.expires_at < new Date()) return null;
-  const file = await storage().get(row.path);
-  if (!file) return null;
-  return { body: file.body, name: `${BRAND.name.toLowerCase()}-export-${row.created_at.toISOString().slice(0, 10)}.zip` };
+  return { path: row.path, name: `${BRAND.name.toLowerCase()}-export-${row.created_at.toISOString().slice(0, 10)}.zip` };
 }
 
 function readme(business: string, day: string): string {

@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { BlobEntry, Draft } from "@/lib/sync/client-store";
 import type { SnapshotStop } from "@/lib/sync/protocol";
+import { MAX_ATTACHMENT_BYTES } from "@/lib/sync/protocol";
 import { key } from "@/lib/sync/stop-draft";
 import { useTech } from "./context";
 import { useObjectUrl } from "./object-url";
@@ -14,8 +15,15 @@ import { useObjectUrl } from "./object-url";
 // and a route's worth would crowd the phone and the upload.
 
 const MAX_EDGE = 1600;
+// Quality steps tried in turn until the photo fits what the server accepts.
+const QUALITIES = [0.82, 0.7, 0.55, 0.4];
+const SERVER_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const TOO_LARGE = "This photo is too large to upload. Retake it or choose a smaller one.";
 
-async function shrink(file: File): Promise<Blob> {
+const encode = (canvas: HTMLCanvasElement, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+
+/** A blob the server will accept (FR-TEC-09), or null: never queue what it would refuse. */
+async function shrink(file: File): Promise<Blob | null> {
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
@@ -24,9 +32,14 @@ async function shrink(file: File): Promise<Blob> {
     canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
-    return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", 0.82));
+    for (const quality of QUALITIES) {
+      const blob = await encode(canvas, quality);
+      if (blob && blob.size > 0 && blob.size <= MAX_ATTACHMENT_BYTES) return blob;
+    }
+    return null;
   } catch {
-    return file;
+    // Could not be decoded here: send the original only if the server would take it.
+    return SERVER_TYPES.includes(file.type) && file.size > 0 && file.size <= MAX_ATTACHMENT_BYTES ? file : null;
   }
 }
 
@@ -34,13 +47,19 @@ export function PhotoStep({ stop, draft, blobs, onChange }: { stop: SnapshotStop
   const { store } = useTech();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
   async function add(files: FileList | null) {
     if (!files?.length) return;
     setBusy(true);
+    setProblem(null);
     const keys: string[] = [];
     for (const file of Array.from(files)) {
       const blob = await shrink(file);
+      if (!blob) {
+        setProblem(TOO_LARGE);
+        continue;
+      }
       const k = key("photo");
       await store.putBlob({ key: k, appointmentId: stop.id, kind: "photo", blob, contentType: blob.type || "image/jpeg", capturedAt: new Date().toISOString(), ready: false, uploadedAt: null });
       keys.push(k);
@@ -67,6 +86,11 @@ export function PhotoStep({ stop, draft, blobs, onChange }: { stop: SnapshotStop
           <Camera size={20} aria-hidden /> {busy ? "Saving" : "Take a photo"}
         </label>
       </Button>
+      {problem ? (
+        <p role="alert" className="text-sm text-danger">
+          {problem}
+        </p>
+      ) : null}
       {draft.photos.length ? (
         <ul className="grid grid-cols-3 gap-2" aria-label="Photos taken">
           {draft.photos.map((k, i) => (

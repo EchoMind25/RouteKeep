@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ADMIN_ROLES, requireMember } from "@/lib/auth/session";
 import { ExportError, exportStep, requestExport, type ExportStep } from "@/lib/server/exports";
+import { errorText, log } from "@/lib/observability/log";
 
 // FR-EXP-01: owner and admin take everything, any time. Built in short steps.
 
@@ -22,7 +23,7 @@ export async function exportStepAction(input: unknown): Promise<{ ok: true; step
     return { ok: true, step };
   } catch (error) {
     if (error instanceof ExportError) return { ok: false, message: error.message };
-    console.error(JSON.stringify({ msg: "export step failed", error: error instanceof Error ? error.message : String(error) }));
+    log.error("export step failed", { error: errorText(error) });
     return { ok: false, message: "The export stopped. Start a new one; if it stops again, tell us." };
   }
 }

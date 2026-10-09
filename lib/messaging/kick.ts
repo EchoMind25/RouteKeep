@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { processOutbox } from "@/lib/jobs/outbox";
+import { errorText, log } from "@/lib/observability/log";
 
 /**
  * ENG-04: after the response is sent (so after the transaction committed),
@@ -10,7 +11,7 @@ import { processOutbox } from "@/lib/jobs/outbox";
 export function kickOutbox(tenantId: string) {
   after(async () => {
     await processOutbox({ tenantId, limit: 20 }).catch((error) =>
-      console.error(JSON.stringify({ msg: "outbox kick failed", tenantId, error: error instanceof Error ? error.message : String(error) })),
+      log.error("outbox kick failed", { tenantId, error: errorText(error) }),
     );
   });
 }

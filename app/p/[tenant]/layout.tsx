@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { BrandTheme } from "@/components/brand-theme";
 import { BRAND } from "@/lib/brand";
@@ -20,9 +21,10 @@ export default async function PortalLayout({ children, params }: { children: Rea
   if (!isEnabled("portal") || !UUID.test(tenant)) notFound();
   const business = await publicBusiness(tenant);
   if (!business) notFound();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <div className="min-h-dvh bg-canvas text-fg">
-      {business.whiteLabel ? <BrandTheme accent={business.accent} /> : null}
+      {business.whiteLabel ? <BrandTheme accent={business.accent} nonce={nonce} /> : null}
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           {business.logoPath ? (

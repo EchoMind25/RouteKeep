@@ -4,6 +4,7 @@ import type { Tx } from "@/lib/db/rls";
 import { idempotency, methodLabel } from "@/lib/domain/payments";
 import { requireStripe, type Stripe } from "@/lib/providers/payments";
 import { enqueueEmail } from "@/lib/messaging/enqueue";
+import { errorText, log } from "@/lib/observability/log";
 
 // M4 stage 2: connected accounts, Stripe customers and saved payment methods.
 // Service role only; callers have already decided who may ask.
@@ -64,7 +65,7 @@ export async function detachQuietly(accountId: string, paymentMethodId: string):
   try {
     await requireStripe().paymentMethods.detach(paymentMethodId, {}, { stripeAccount: accountId });
   } catch (error) {
-    console.error(JSON.stringify({ msg: "detach failed", paymentMethodId, error: error instanceof Error ? error.message : String(error) }));
+    log.error("detach failed", { paymentMethodId, error: errorText(error) });
   }
 }
 

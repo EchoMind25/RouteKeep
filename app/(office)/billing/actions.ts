@@ -10,6 +10,7 @@ import { kickAutopay } from "@/lib/jobs/autopay";
 import { kickOutbox } from "@/lib/messaging/kick";
 import { addCredit, BillingRefusedError, recordPayment, runBillingNow, voidInvoice } from "@/lib/server/billing";
 import { refundPayment, turnOffAutopayForCustomer } from "@/lib/server/payments";
+import { errorText, log } from "@/lib/observability/log";
 
 // FR-BIL-01, FR-BIL-06: the office's billing actions. Owner, admin and office;
 // dispatchers schedule, they do not take money.
@@ -125,7 +126,7 @@ export async function refundPaymentAction(_prev: FormState, data: FormData): Pro
     outcome = await refundPayment(member, { paymentId: v.paymentId, key: v.key, amountCents: v.amount, reason: v.reason, credit: v.credit === "on" });
   } catch (error) {
     if (error instanceof BillingRefusedError) return failure(values, error.message, { amount: error.message });
-    console.error(JSON.stringify({ msg: "refund failed", error: error instanceof Error ? error.message : String(error) }));
+    log.error("refund failed", { error: errorText(error) });
     return failure(values, "Stripe didn't accept the refund. Nothing was changed. Try again, or refund it from your Stripe dashboard.");
   }
   revalidatePath("/billing", "layout");
