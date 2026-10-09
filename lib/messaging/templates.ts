@@ -8,7 +8,7 @@ import { BRAND } from "@/lib/brand";
 // text first; the HTML is the same words with light formatting, colours from
 // the design tokens. No tracking pixels, no remote images.
 
-export type Topic = "appointment.reminder" | "appointment.on_the_way" | "appointment.completed" | "invoice.issued" | "payment.received" | "portal.sign_in" | "customer.switch_notice" | "payment.failed" | "autopay.enabled";
+export type Topic = "appointment.reminder" | "appointment.on_the_way" | "appointment.completed" | "invoice.issued" | "payment.received" | "portal.sign_in" | "customer.switch_notice" | "payment.failed" | "autopay.enabled" | "visit.running_late";
 
 export interface EmailBusiness {
   name: string;
@@ -29,6 +29,7 @@ export interface EmailInput {
 export type TopicData =
   | { topic: "appointment.reminder"; serviceType: string; dateText: string; windowText: string | null }
   | { topic: "appointment.on_the_way"; serviceType: string; technicianName: string | null }
+  | { topic: "visit.running_late"; serviceType: string; technicianName: string | null; delayMin: number; windowText: string | null }
   | { topic: "payment.received"; amountText: string; methodText: string; invoiceNumber: number | null; balanceText: string; receiptUrl: string }
   | { topic: "customer.switch_notice"; message: string | null }
   | { topic: "payment.failed"; amountText: string; invoiceNumber: number | null; reasonText: string; retryText: string | null; newMethod: boolean; payUrl: string }
@@ -76,6 +77,16 @@ function body(data: TopicData, input: EmailInput): Body {
           `Hi ${input.greeting},`,
           `${data.technicianName ?? "Your technician"} from ${b} is heading to you now for your ${data.serviceType.toLowerCase()}.`,
           "If you can, unlock gates and keep pets inside. No need to be home unless we asked.",
+        ],
+      };
+    case "visit.running_late":
+      return {
+        subject: `${b} is running about ${data.delayMin} minutes late`,
+        lines: [
+          `Hi ${input.greeting},`,
+          `${data.technicianName ?? "Your technician"} from ${b} is running about ${data.delayMin} minutes behind today, so your ${data.serviceType.toLowerCase()} will start later than planned.`,
+          data.windowText ? `Your new estimated arrival is between ${data.windowText}.` : `We'll be there about ${data.delayMin} minutes later than we first said.`,
+          "Sorry for the wait. If the new time doesn't work, call or reply and we'll move your visit.",
         ],
       };
     case "payment.received":

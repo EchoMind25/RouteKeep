@@ -144,6 +144,8 @@ export const mutation = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("skip"), ...base, reason: z.string().trim().min(1).max(500) }),
   // FR-MSG-01: tell the customer the technician is heading over.
   z.object({ kind: z.literal("on_the_way"), ...base }),
+  // FR-TEC-02: behind for the rest of the day. About the day, not one visit, so no appointmentId.
+  z.object({ kind: z.literal("running_late"), key: clientKey, date: localDate, at: instant, delayMin: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60)]) }),
 ]);
 export type Mutation = z.infer<typeof mutation>;
 

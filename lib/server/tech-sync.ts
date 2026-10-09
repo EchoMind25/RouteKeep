@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
+import { isEnabled } from "@/lib/flags";
 import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { businessHeader } from "@/lib/server/business";
 import { isCurrentVersion } from "@/lib/server/records";
@@ -391,6 +392,34 @@ async function onTheWay(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   return { key: mutation.key, status: "applied" };
 }
 
+/**
+ * FR-TEC-02, FR-MSG-01: "running late". Recorded once per client key (ENG-01) for the
+ * office board, then one email per remaining scheduled stop today. Whether each
+ * customer is actually emailed is decided when it is sent (opted out, business not
+ * live, no email address: held back and logged, like reminders).
+ */
+async function runningLate(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "running_late" }>): Promise<MutationResult> {
+  if (!isEnabled("runningLate")) return { key: mutation.key, status: "rejected", message: "Running late is not available yet." };
+  if (mutation.date !== todayIn(m.timezone)) return { key: mutation.key, status: "rejected", message: "Running late only applies to today's route." };
+  const notice = await tx
+    .insertInto("tech_day_notices")
+    .values({ technician_id: techId, local_date: mutation.date, kind: "running_late", delay_min: mutation.delayMin, client_key: mutation.key })
+    .onConflict((oc) => oc.constraint("tech_day_notices_client_key").doNothing())
+    .returning("id")
+    .executeTakeFirst();
+  if (!notice) return { key: mutation.key, status: "duplicate" };
+  const remaining = await tx.selectFrom("appointments").select("id").where("technician_id", "=", techId).where("local_date", "=", mutation.date).where("status", "=", "scheduled").execute();
+  for (const v of remaining) {
+    await enqueueEmail(tx, {
+      tenantId: m.tenantId,
+      topic: "visit.running_late",
+      key: `${mutation.key}:${v.id}`,
+      payload: { appointmentId: v.id, date: mutation.date, technicianId: techId, delayMin: mutation.delayMin },
+    });
+  }
+  return { key: mutation.key, status: "applied" };
+}
+
 async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: "skip" }>): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
@@ -422,7 +451,9 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
               ? complete(tx, m, techId, mutation)
               : mutation.kind === "on_the_way"
                 ? onTheWay(tx, m, techId, mutation)
-                : skip(tx, techId, mutation),
+                : mutation.kind === "running_late"
+                  ? runningLate(tx, m, techId, mutation)
+                  : skip(tx, techId, mutation),
         ),
       );
     } catch (error) {

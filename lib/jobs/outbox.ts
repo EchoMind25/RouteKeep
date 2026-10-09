@@ -4,6 +4,7 @@ import { withServiceRole } from "@/lib/db/service";
 import type { Tx } from "@/lib/db/rls";
 import { formatAddress, formatPhone } from "@/lib/domain/contact";
 import { formatCents } from "@/lib/domain/money";
+import { shiftWindow } from "@/lib/domain/running-late";
 import { todayIn } from "@/lib/domain/time";
 import { appSecret, env } from "@/lib/env";
 import { sign } from "@/lib/messaging/signed";
@@ -95,6 +96,26 @@ async function topicData(tx: Tx, e: Event, portal: string): Promise<{ data: Topi
     if (!a) return { suppress: "The visit no longer exists" };
     if (a.local_date !== p.date || (a.status !== "scheduled" && a.status !== "in_progress")) return { suppress: "The visit moved or was cancelled" };
     return { data: { topic: "appointment.on_the_way", serviceType: a.service, technicianName: a.tech }, customerId: a.customer_id, appointmentId: a.id };
+  }
+  if (e.topic === "visit.running_late") {
+    // FR-TEC-02: same guards as the others, plus the stop must still be this technician's and not started.
+    const a = await tx
+      .selectFrom("appointments as a")
+      .innerJoin("service_types as t", (j) => j.onRef("t.id", "=", "a.service_type_id").onRef("t.tenant_id", "=", "a.tenant_id"))
+      .leftJoin("technicians as tech", (j) => j.onRef("tech.id", "=", "a.technician_id").onRef("tech.tenant_id", "=", "a.tenant_id"))
+      .select(["a.id", "a.customer_id", "a.status", "a.local_date", "a.technician_id", "a.window_start", "a.window_end", "t.name as service", "tech.display_name as tech"])
+      .where("a.tenant_id", "=", e.tenant_id)
+      .where("a.id", "=", String(p.appointmentId))
+      .executeTakeFirst();
+    if (!a) return { suppress: "The visit no longer exists" };
+    if (a.local_date !== p.date || a.status !== "scheduled" || a.technician_id !== p.technicianId) return { suppress: "The visit moved, started or was cancelled after the delay was reported" };
+    const delayMin = Number(p.delayMin);
+    const w = shiftWindow(a.window_start?.slice(0, 5) ?? null, a.window_end?.slice(0, 5) ?? null, delayMin);
+    return {
+      data: { topic: "visit.running_late", serviceType: a.service, technicianName: a.tech, delayMin, windowText: w.start || w.end ? formatWindow(w.start, w.end).replace(" - ", " and ") : null },
+      customerId: a.customer_id,
+      appointmentId: a.id,
+    };
   }
   if (e.topic === "payment.received") {
     const pay = await tx

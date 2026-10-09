@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-09",
+    title: "Route health and running late",
+    items: [
+      "Each technician's lane on the schedule board can show a summary strip: stops, driving and service minutes, estimated finish, stops at risk of missing their window, and long legs.",
+      "Technicians can tap Running late on their day, pick 15, 30, 45 or 60 minutes, and the customers on their remaining stops get an email with a later arrival time. It works offline and sends when the phone has signal.",
+      "The board shows a Running late badge on that technician's lane. Customers who unsubscribed, have no email, or are not live yet are held back and listed in Settings, Messages.",
+    ],
+  },
+  {
+    date: "2026-10-09",
     title: "Card payments and autopay",
     items: [
       "Connect your own Stripe account in Settings, Payments. Money goes straight to your bank; Stripe sets the fee and RouteKeep adds nothing.",
