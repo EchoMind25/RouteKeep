@@ -16,7 +16,7 @@ export default async function MfaVerifyPage() {
     <div className="grid gap-6">
       <div className="grid gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Enter your code</h1>
-        <p className="max-w-[52ch] text-fg-muted">Open your authenticator app and enter the 6-digit code for RouteKeep. If you lose your phone, contact support.</p>
+        <p className="max-w-[52ch] text-fg-muted">Open your authenticator app and enter the 6-digit code for RouteVerde. If you lose your phone, contact support.</p>
       </div>
       <CodeForm action={verifyMfa} submitLabel="Continue" />
       <form action={signOut}>

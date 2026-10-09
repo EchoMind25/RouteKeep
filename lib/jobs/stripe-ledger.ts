@@ -82,7 +82,7 @@ export async function movePayment(tx: Tx, tenantId: string, payment: PaymentRow,
     // FR-BIL-07: Stripe took the money but our row says otherwise. Not posted to
     // the ledger on a guess; the office decides.
     const intentId = move.intentId ?? payment.stripe_payment_intent_id ?? payment.id;
-    await flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: intentId, paymentId: payment.id, details: `Stripe took this payment (${intentId}) but RouteKeep has it as ${payment.status}. Nothing was posted to the ledger; check it and record the payment by hand if it is right.` });
+    await flagIssue(tx, tenantId, { kind: "status_mismatch", objectId: intentId, paymentId: payment.id, details: `Stripe took this payment (${intentId}) but RouteVerde has it as ${payment.status}. Nothing was posted to the ledger; check it and record the payment by hand if it is right.` });
     return false;
   }
   if (!canMove(payment.status, move.to)) return false;
