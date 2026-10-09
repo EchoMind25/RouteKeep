@@ -4,8 +4,8 @@ import { withServiceRole } from "@/lib/db/service";
 
 // FR-MIG-14: undo an import within 7 days. A customer the import created is
 // removed with everything the import made for it, unless the business has
-// since worked with it (a visit started or finished, a record, an invoice or a
-// payment); those stay and are listed. Contact details an import updated on
+// since worked with it (a visit started or finished, a record, an invoice, a
+// payment, a saved payment method, a service request or a commission); those stay and are listed. Contact details an import updated on
 // existing customers are not reverted (they were real updates from the file).
 // Runs with the service role because deletes of append-only rows (opening
 // balances) are allowed only to the rollback, for this import's own rows.
@@ -55,9 +55,20 @@ export async function rollbackImport(tenantId: string, jobId: string, now = new 
         .execute(),
       "money was recorded for it",
     );
+    mark(await tx.selectFrom("payment_methods").select("customer_id").where("tenant_id", "=", tenantId).where("customer_id", "in", ids).execute(), "it has a saved payment method");
+    mark(await tx.selectFrom("service_requests").select("customer_id").where("tenant_id", "=", tenantId).where("customer_id", "in", ids).execute(), "it has a service request");
+    mark(await tx.selectFrom("commissions").select("customer_id").where("tenant_id", "=", tenantId).where("customer_id", "in", ids).execute(), "it has a commission");
     const remove = ids.filter((id) => !touched.has(id));
 
     if (remove.length) {
+      // Messages are history (FR-MSG-05): keep them, detached from what is going away.
+      await tx
+        .updateTable("messages")
+        .set({ appointment_id: null })
+        .where("tenant_id", "=", tenantId)
+        .where("appointment_id", "in", tx.selectFrom("appointments").select("id").where("tenant_id", "=", tenantId).where("customer_id", "in", remove))
+        .execute();
+      await tx.updateTable("messages").set({ customer_id: null }).where("tenant_id", "=", tenantId).where("customer_id", "in", remove).execute();
       await tx.deleteFrom("appointments").where("tenant_id", "=", tenantId).where("customer_id", "in", remove).execute();
       await tx.deleteFrom("subscriptions").where("tenant_id", "=", tenantId).where("customer_id", "in", remove).execute();
       await sql`select app.rollback_import_ledger(${tenantId}::uuid, ${jobId}::uuid, ${remove}::uuid[])`.execute(tx);

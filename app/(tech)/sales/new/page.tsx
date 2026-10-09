@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { Alert, PageHeader } from "@/components/ui/layout";
 import { requireMember } from "@/lib/auth/session";
@@ -33,6 +34,7 @@ export default async function TechNewCustomerPage() {
     <>
       <PageHeader title="New customer" description="Credited to you. The office schedules the visits and approves your commission." />
       <CustomerForm
+        clientKey={randomUUID()}
         mode="technician"
         action={createTechSaleAction}
         commission={{ flatCents: settings.flatCents, pct: settings.pct }}

@@ -204,6 +204,10 @@ export interface Customers {
   billing_city: string | null;
   billing_postal_code: string | null;
   billing_region: string | null;
+  /**
+   * ENG-01: per-form-render key; a retry returns the existing customer.
+   */
+  client_key: string | null;
   company_name: string | null;
   created_at: Generated<Timestamp>;
   display_name: string;

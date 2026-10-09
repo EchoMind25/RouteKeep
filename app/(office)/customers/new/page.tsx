@@ -1,4 +1,5 @@
 import { ArrowLeft } from "@phosphor-icons/react/ssr";
+import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/layout";
@@ -30,6 +31,7 @@ export default async function NewCustomerPage() {
         }
       />
       <CustomerForm
+        clientKey={randomUUID()}
         plans={plans.map((p) => ({
           id: p.id,
           name: p.name,
