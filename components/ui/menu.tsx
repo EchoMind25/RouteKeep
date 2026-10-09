@@ -8,7 +8,13 @@ import { cn } from "@/lib/cn";
 // come with it. Used where a drag has to have a single-pointer alternative
 // (WCAG 2.5.7).
 
-export const Menu = M.Root;
+// NFR-05: not modal. A modal Radix menu sets aria-hidden on the rest of the
+// page while it is open, which hides focusable controls (axe aria-hidden-focus).
+// A menu button is not a dialog (WAI-ARIA APG); Escape and arrow keys still work
+// and focus still returns to the trigger when it closes.
+export function Menu(props: Omit<ComponentProps<typeof M.Root>, "modal">) {
+  return <M.Root modal={false} {...props} />;
+}
 export const MenuTrigger = M.Trigger;
 export const MenuSeparator = () => <M.Separator className="my-1 h-px bg-line" />;
 

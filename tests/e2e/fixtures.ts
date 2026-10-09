@@ -25,6 +25,9 @@ export const test = base.extend<{ problems: string[] }>({
 
 export { expect };
 
+/** Every built office screen, scanned in light (screens.spec.ts) and dark (a11y.spec.ts). Needs the demo seed. */
+export const OFFICE_SCREENS = ["/schedule", "/customers", "/customers?q=orem", "/customers/new", "/setup", "/settings", "/settings/team", "/settings/technicians", "/settings/plans", "/settings/products", "/settings/changes", "/reports", "/reports/products"];
+
 export async function signInAs(page: Page, email: string) {
   await page.goto("/sign-in");
   await page.getByLabel("Work email").fill(email);
@@ -32,10 +35,16 @@ export async function signInAs(page: Page, email: string) {
   await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
 }
 
-export async function expectAccessible(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
-  const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-  expect(serious.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
+// NFR-05: moderate, serious and critical violations all fail. Only "minor"
+// (best-practice nits such as redundant alt text) is reported but tolerated.
+const FAILING_IMPACTS = new Set(["moderate", "serious", "critical"]);
+
+export async function expectAccessible(page: Page, opts: { include?: string } = {}) {
+  let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]);
+  if (opts.include) builder = builder.include(opts.include);
+  const results = await builder.analyze();
+  const failing = results.violations.filter((v) => v.impact && FAILING_IMPACTS.has(v.impact));
+  expect(failing.map((v) => `${v.impact} ${v.id}: ${v.help} (${v.nodes.length}) at ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(", ")}`), `axe on ${page.url()}`).toEqual([]);
 }
 
 export function uniqueEmail(prefix: string) {
