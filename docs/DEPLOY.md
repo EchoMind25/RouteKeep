@@ -6,8 +6,11 @@ secret only the owner can create. Budget references are PRD section 5.
 
 ## 1. Supabase project (Free while there is only demo data, BUD-02)
 
-1. Create a project (US West is closest to Utah). Save the project ref, URL,
-   anon key and service-role key in a password manager.
+1. Create a project in the same AWS region as the Netlify functions (Netlify
+   default: us-east-2, so East US (Ohio)). Each page makes 5 to 15 sequential
+   database round trips, so this matters more than distance to users (NFR-03,
+   D-03). Save the project ref, URL, anon key and service-role key in a
+   password manager.
 2. Apply the schema from this repository:
    ```bash
    npx supabase link --project-ref <ref>
@@ -45,6 +48,8 @@ secret only the owner can create. Budget references are PRD section 5.
    but there is no reason to expose it.
 9. Before the first real customer record: upgrade to Pro ($25/month) and run a
    test restore (CR-09, BUD-02). Then delete `.github/workflows/supabase-keepalive.yml`.
+10. Settings, JWT Keys: use asymmetric signing keys, so `getClaims()` verifies
+    locally instead of calling Auth on every request (NFR-03).
 
 ## 2. Netlify (Free, D-03)
 
@@ -57,6 +62,9 @@ secret only the owner can create. Budget references are PRD section 5.
    `NEXT_PUBLIC_MAP_STYLE_URL` for a street map (section 5). Never set `AUTH_MODE=local`
    or `LOCAL_AUTH_SECRET` on Netlify; the app refuses to start that way anyway.
 4. Set a usage alert at 80% of credits (RISK-02).
+5. Confirm the functions region matches the Supabase region from section 1
+   (Site configuration, Functions; default us-east-2). If your plan cannot
+   choose a region, create Supabase in East US (Ohio) instead (NFR-03, D-03).
 
 ## 3. GitHub
 
