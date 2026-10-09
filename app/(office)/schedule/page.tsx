@@ -211,6 +211,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             stops={board.stops}
             queue={board.queue}
             routes={board.routes}
+            late={board.late}
             start={board.start}
             mapStyleUrl={publicEnv.mapStyleUrl}
             notice={done === "pin" ? "Pin confirmed. Drive times now use it." : undefined}

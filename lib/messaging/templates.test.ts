@@ -35,6 +35,8 @@ describe("renderEmail (FR-MSG-01, CR-03, FR-MSG-04, FR-BRD-03)", () => {
       { topic: "appointment.on_the_way" as const, serviceType: "General pest", technicianName: "Rowan" },
       { topic: "payment.received" as const, amountText: "$69.00", methodText: "cash", invoiceNumber: 12, balanceText: "$0.00", receiptUrl: "https://app.example/p" },
       { topic: "customer.switch_notice" as const, message: null },
+      { topic: "visit.running_late" as const, serviceType: "General pest", technicianName: "Rowan", delayMin: 30, windowText: "8:30 AM and 12:30 PM" },
+      { topic: "visit.running_late" as const, serviceType: "General pest", technicianName: null, delayMin: 15, windowText: null },
     ]) {
       const e = renderEmail(data, input);
       expect(e.text + e.subject + e.html).not.toContain("—");
@@ -48,5 +50,16 @@ describe("renderEmail (FR-MSG-01, CR-03, FR-MSG-04, FR-BRD-03)", () => {
     const n = renderEmail({ topic: "customer.switch_notice", message: "We moved to a new system." }, input);
     expect(n.text).toContain("We moved to a new system.");
     expect(n.text).toContain("Open your account: https://app.example/p/t1");
+  });
+
+  it("tells the customer the business, the delay and the new window (FR-MSG-01, FR-TEC-02)", () => {
+    const e = renderEmail({ topic: "visit.running_late", serviceType: "General pest", technicianName: "Rowan", delayMin: 30, windowText: "8:30 AM and 12:30 PM" }, input);
+    expect(e.subject).toBe("Timpanogos Pest & Lawn is running about 30 minutes late");
+    expect(e.text).toContain("Rowan from Timpanogos Pest & Lawn is running about 30 minutes behind today");
+    expect(e.text).toContain("Your new estimated arrival is between 8:30 AM and 12:30 PM.");
+    expect(e.text).toContain("Stop these emails: https://app.example/u/abc.def");
+    const open = renderEmail({ topic: "visit.running_late", serviceType: "Lawn", technicianName: null, delayMin: 45, windowText: null }, input);
+    expect(open.text).toContain("Your technician from Timpanogos Pest & Lawn");
+    expect(open.text).toContain("about 45 minutes later than we first said");
   });
 });

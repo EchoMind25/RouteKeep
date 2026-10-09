@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowCounterClockwise, CheckCircle, DotsSixVertical, DotsThree, MapPinSimpleArea, Path, Sparkle, Warning, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CheckCircle, ClockCountdown, DotsSixVertical, DotsThree, MapPinSimpleArea, Path, Sparkle, Warning, WarningCircle, X } from "@phosphor-icons/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,10 +40,14 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Alert } from "@/components/ui/layout";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/cn";
+import { isEnabled } from "@/lib/flags";
+import { lateLabel } from "@/lib/domain/running-late";
+import { routeHealth, type RouteHealth as Health } from "@/lib/domain/route-health";
 import { flaggedStops, legsFor, timings, totals, type RouteStop } from "@/lib/domain/routing";
 import type { BoardRoute, BoardStop, OptimizePreview, QueueStop } from "@/lib/server/dispatch";
 import { APPOINTMENT_STATUS, formatLocalDate, formatTime, formatWindow } from "@/lib/ui/format";
 import { prefersReducedMotion } from "@/components/ui/motion";
+import { RouteHealth } from "./route-health";
 import type { MapRoute, MapStop } from "./route-map";
 
 const RouteMap = dynamic(() => import("./route-map").then((m) => m.RouteMap), {
@@ -85,6 +89,7 @@ interface LaneAnalysis {
   driveSeconds: number;
   siteMinutes: number;
   pinned: number;
+  health: Health;
 }
 
 function initials(name: string) {
@@ -131,6 +136,8 @@ export function DispatchBoard(props: {
   notice?: string;
   /** D-07 (revised): the AI route planner is configured on this server. */
   aiPlanner?: boolean;
+  /** FR-TEC-02: technicians who told the office they are running late today, and by how much. */
+  late?: { technicianId: string; delayMin: number }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -197,12 +204,14 @@ export function DispatchBoard(props: {
         .map((s) => ({ id: s.id, lat: s.lat!, lng: s.lng!, durationMin: s.durationMin, windowStart: s.windowStart, windowEnd: s.windowEnd }));
       const legs = legsFor(routeStops, lane === UNASSIGNED ? null : props.start);
       const t = timings(routeStops, legs, DAY_START);
+      const flagged = lane === UNASSIGNED ? new Set<string>() : flaggedStops(legs);
       out.set(lane, {
-        flagged: lane === UNASSIGNED ? new Set() : flaggedStops(legs),
+        flagged,
         eta: new Map(t.map((x) => [x.id, { arrival: x.arrival, late: x.late }])),
         driveSeconds: totals(legs).seconds,
         siteMinutes: stops.reduce((sum, s) => sum + s.durationMin, 0),
         pinned: routeStops.length,
+        health: routeHealth({ stops: ids.length, driveSeconds: totals(legs).seconds, serviceMin: stops.reduce((sum, s) => sum + s.durationMin, 0), timings: t, longLegs: flagged.size }),
       });
     }
     return out;
@@ -534,6 +543,7 @@ export function DispatchBoard(props: {
               const a = analysis.get(lane);
               const route = routeOf.get(lane);
               const ids = lanes[lane] ?? [];
+              const late = props.late?.find((n) => n.technicianId === lane);
               return (
                 <Lane
                   key={lane}
@@ -579,6 +589,14 @@ export function DispatchBoard(props: {
                       </>
                     ) : null
                   }
+                  badge={
+                    late && isEnabled("runningLate") ? (
+                      <Badge tone="warning">
+                        <ClockCountdown size={12} aria-hidden /> {lateLabel(late.delayMin)}
+                      </Badge>
+                    ) : null
+                  }
+                  strip={isEnabled("routeHealth") && tech && a && ids.length ? <RouteHealth health={a.health} laneName={tech.display_name} /> : null}
                   note={route?.changedSincePublish && !route.published ? "Changed since it was published. The technician has the older order until you republish." : undefined}
                 >
                   <SortableContext id={lane} items={ids} strategy={verticalListSortingStrategy}>
@@ -751,6 +769,10 @@ function Lane(props: {
   onSelect: () => void;
   actions: ReactNode;
   note?: string;
+  /** FR-TEC-02: shown beside the name, e.g. "Running late +30 min". */
+  badge?: ReactNode;
+  /** FR-DSP-05: the route health strip, under the header. */
+  strip?: ReactNode;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: props.id });
@@ -771,10 +793,12 @@ function Lane(props: {
               </button>
             </h2>
             <p className="text-sm text-fg-muted tabular">{props.summary}</p>
+            {props.badge ? <div className="mt-1">{props.badge}</div> : null}
           </div>
         </div>
         {props.actions ? <div className="flex flex-wrap items-center gap-1.5">{props.actions}</div> : null}
       </header>
+      {props.strip}
       {props.note ? <p className="border-b border-line bg-warning-soft px-4 py-2 text-sm text-warning">{props.note}</p> : null}
       {props.children}
     </section>

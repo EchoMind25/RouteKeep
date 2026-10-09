@@ -14,6 +14,10 @@ export const FLAGS = {
   migration: true,
   /** M6: customer portal and email (FR-POR, FR-MSG). On since 2026-10-08; texts wait for an SMS provider. */
   portal: true,
+  /** Per-lane route health strip on the dispatch board (FR-DSP-05, FR-DSP-06). Off until reviewed. */
+  routeHealth: false,
+  /** One-tap "Running late" in the technician app, with customer emails and a board badge (FR-TEC-02, FR-MSG-01). Off until reviewed. */
+  runningLate: false,
 } as const;
 
 export type Flag = keyof typeof FLAGS;

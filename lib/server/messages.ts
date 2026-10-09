@@ -110,6 +110,7 @@ export async function switchNoticeAudience(m: MemberSession): Promise<number> {
 export const TEMPLATE_LABEL: Record<string, string> = {
   appointment_reminder: "Visit reminder",
   appointment_on_the_way: "On the way",
+  visit_running_late: "Running late",
   payment_received: "Receipt",
   customer_switch_notice: "New account notice",
   appointment_completed: "Service complete",

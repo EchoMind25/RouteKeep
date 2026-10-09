@@ -60,7 +60,8 @@ export interface Draft {
 export interface OutboxEntry {
   seq?: number;
   key: string;
-  appointmentId: string;
+  /** Null for a mutation about the whole day (running late). */
+  appointmentId: string | null;
   mutation: Mutation;
   createdAt: string;
   attempts: number;
@@ -69,7 +70,7 @@ export interface OutboxEntry {
 
 export interface Notice {
   key: string;
-  appointmentId: string;
+  appointmentId: string | null;
   status: "conflict" | "rejected";
   message: string;
   at: string;
@@ -260,7 +261,7 @@ export class TechStore {
    */
   async record(draft: Draft, mutation: Mutation, readyBlobs: readonly string[] = []): Promise<void> {
     const next = { ...draft, updatedAt: new Date().toISOString() };
-    const entry: OutboxEntry = { key: mutation.key, appointmentId: mutation.appointmentId, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
+    const entry: OutboxEntry = { key: mutation.key, appointmentId: "appointmentId" in mutation ? mutation.appointmentId : null, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
     const ready = readyBlobs.flatMap((k) => (this.state.blobs.has(k) ? [{ ...this.state.blobs.get(k)!, ready: true }] : []));
     const db = await this.conn();
     const write = (async () => {
@@ -318,7 +319,7 @@ export class TechStore {
   }
 
   async enqueue(mutation: Mutation): Promise<void> {
-    const entry: OutboxEntry = { key: mutation.key, appointmentId: mutation.appointmentId, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
+    const entry: OutboxEntry = { key: mutation.key, appointmentId: "appointmentId" in mutation ? mutation.appointmentId : null, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
     const db = await this.conn();
     const seq = await this.track(db.add("outbox", entry));
     this.set({ outbox: [...this.state.outbox, { ...entry, seq }] });
@@ -349,7 +350,7 @@ export class TechStore {
         await tx.objectStore("notices").put(notice);
       }
       // A refused completion reopens the stop so the technician can fix it.
-      if (r.status === "rejected" && entry.mutation.kind === "complete") {
+      if (r.status === "rejected" && entry.mutation.kind === "complete" && entry.appointmentId) {
         const draft = drafts.get(entry.appointmentId);
         if (draft) {
           const reopened = { ...draft, completedAt: null, step: "review" as const, rejection: r.message ?? "The office could not accept this stop.", updatedAt: new Date().toISOString() };

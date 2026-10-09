@@ -143,3 +143,13 @@ was opened.
   handlers are covered, not only pages. Screens, copy and the support-only
   recovery for a lost single factor are our own. No competitor sign-in or
   security screen was looked at.
+- Route health strip and running late, 2026-10-09: the strip's figures (stops,
+  drive vs service minutes, estimated finish, stops at risk, long legs) are
+  the numbers the board already computes from lib/domain/routing.ts
+  (FR-DSP-05, FR-DSP-06), laid out as labelled icon and text items so nothing
+  depends on colour. Running late is derived from FR-TEC-02 (offline-safe
+  actions with client keys, ENG-01) and FR-MSG-01 (the same hold-back rules as
+  reminders: opted out, business not live, no email). The delay choices
+  (15/30/45/60), email wording, and the "newest notice per technician and day"
+  board badge are our own. No competitor screen, copy or documentation was
+  looked at.
