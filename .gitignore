@@ -1,5 +1,5 @@
 # dependencies
-node_modules/
+/node_modules
 
 # next.js / build output
 .next/
@@ -29,3 +29,6 @@ supabase/.branches/
 # Copied from node_modules before dev and build (scripts/vendor/copy-assets.mjs)
 /public/vendor/
 .shots/
+
+# Python bytecode from scripts/design
+__pycache__/

@@ -2,6 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
+import { isEnabled } from "@/lib/flags";
 import { enqueueEmail } from "@/lib/messaging/enqueue";
 import { businessHeader } from "@/lib/server/business";
 import { isCurrentVersion } from "@/lib/server/records";
@@ -9,6 +10,7 @@ import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records";
 import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
 import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
+import { errorText, log } from "@/lib/observability/log";
 import {
   SYNC_PROTOCOL,
   type Mutation,
@@ -391,6 +393,34 @@ async function onTheWay(tx: Tx, m: MemberSession, techId: string, mutation: Extr
   return { key: mutation.key, status: "applied" };
 }
 
+/**
+ * FR-TEC-02, FR-MSG-01: "running late". Recorded once per client key (ENG-01) for the
+ * office board, then one email per remaining scheduled stop today. Whether each
+ * customer is actually emailed is decided when it is sent (opted out, business not
+ * live, no email address: held back and logged, like reminders).
+ */
+async function runningLate(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "running_late" }>): Promise<MutationResult> {
+  if (!isEnabled("runningLate")) return { key: mutation.key, status: "rejected", message: "Running late is not available yet." };
+  if (mutation.date !== todayIn(m.timezone)) return { key: mutation.key, status: "rejected", message: "Running late only applies to today's route." };
+  const notice = await tx
+    .insertInto("tech_day_notices")
+    .values({ technician_id: techId, local_date: mutation.date, kind: "running_late", delay_min: mutation.delayMin, client_key: mutation.key })
+    .onConflict((oc) => oc.constraint("tech_day_notices_client_key").doNothing())
+    .returning("id")
+    .executeTakeFirst();
+  if (!notice) return { key: mutation.key, status: "duplicate" };
+  const remaining = await tx.selectFrom("appointments").select("id").where("technician_id", "=", techId).where("local_date", "=", mutation.date).where("status", "=", "scheduled").execute();
+  for (const v of remaining) {
+    await enqueueEmail(tx, {
+      tenantId: m.tenantId,
+      topic: "visit.running_late",
+      key: `${mutation.key}:${v.id}`,
+      payload: { appointmentId: v.id, date: mutation.date, technicianId: techId, delayMin: mutation.delayMin },
+    });
+  }
+  return { key: mutation.key, status: "applied" };
+}
+
 async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: "skip" }>): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
@@ -408,11 +438,19 @@ async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: 
  * Applies a batch in order, each mutation in its own transaction, so one
  * refusal or failure never blocks the rest (FR-BIL-03's rule, applied here too).
  */
+/** NFR-01, D-04: leaves room under the 20 s function limit for the item in flight. */
+export const UPLOAD_BUDGET_MS = 10_000;
+
 export async function applyMutations(m: MemberSession, mutations: Mutation[]): Promise<MutationResult[]> {
   const techId = await withRls(m.claims, async (tx) => (await technicianFor(tx, m.userId))?.id);
   if (!techId) throw new NotATechnicianError();
   const results: MutationResult[] = [];
+  // NFR-01, D-04: stop starting new work at the budget. Items cut here get no
+  // result, so they stay queued on the device for the next upload. At least
+  // one is always applied, so a slow server still makes progress.
+  const deadline = Date.now() + UPLOAD_BUDGET_MS;
   for (const mutation of mutations) {
+    if (results.length > 0 && Date.now() > deadline) break;
     try {
       results.push(
         await withRls(m.claims, (tx) =>
@@ -422,12 +460,14 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
               ? complete(tx, m, techId, mutation)
               : mutation.kind === "on_the_way"
                 ? onTheWay(tx, m, techId, mutation)
-                : skip(tx, techId, mutation),
+                : mutation.kind === "running_late"
+                  ? runningLate(tx, m, techId, mutation)
+                  : skip(tx, techId, mutation),
         ),
       );
     } catch (error) {
       // Not the device's fault: keep it queued and try again later.
-      console.error("tech upload failed", { tenant: m.tenantId, key: mutation.key, kind: mutation.kind, error });
+      log.error("tech upload failed", { tenant: m.tenantId, key: mutation.key, kind: mutation.kind, error: errorText(error) });
       results.push({ key: mutation.key, status: "retry", message: "The server could not save this just now. It will try again." });
     }
   }

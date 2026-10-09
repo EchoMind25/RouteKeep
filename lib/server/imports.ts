@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "kysely";
 import type { MemberSession } from "@/lib/auth/session";
 import { toCsv } from "@/lib/csv";
-import { withRls, type Tx } from "@/lib/db/rls";
+import { pgErrorCode, withRls, type Tx } from "@/lib/db/rls";
 import { parseRule } from "@/lib/domain/recurrence";
 import { todayIn } from "@/lib/domain/time";
 import { autoMap, checkRow, FIELDS, headerSignature, type ColumnMap, type NormalizedRow, type PlanRef } from "@/lib/import/customers";
@@ -47,6 +47,8 @@ export interface DryRun {
 
 export interface Reconcile {
   rows: { label: string; file: number; imported: number; money?: boolean }[];
+  /** FR-MIG-12: rows that could not be imported (absent on older reports). */
+  errors?: number;
   matches: boolean;
 }
 
@@ -285,7 +287,17 @@ export async function problemRowsCsv(m: MemberSession, id: string): Promise<stri
 export interface CommitProgress {
   done: number;
   left: number;
+  /** FR-MIG-12: rows that could not be imported; each has its reason on the row. */
+  errors: number;
   finished: boolean;
+}
+
+/** A reason a person can act on, never a database message. */
+function rowErrorReason(error: unknown): string {
+  const code = pgErrorCode(error);
+  if (code === "23505") return "This customer or address clashes with one already in RouteVerde. Check the ID column.";
+  if (code === "23514" || code === "22001" || code === "22P02") return "A value in this row is not allowed. Check the row against the file.";
+  return "This row could not be imported. The rest of the file was.";
 }
 
 /** FR-MIG-12: one short step of the commit. Call until `finished`. */
@@ -329,92 +341,103 @@ export async function commitStep(m: MemberSession, id: string): Promise<CommitPr
       .execute();
     for (const r of rows) {
       const row = r.mapped as unknown as NormalizedRow;
-      let targetId: string;
-      if (r.action === "update") {
-        const c = await tx
-          .updateTable("customers")
-          .set({ email: row.email, phone: row.phone, alt_phone: row.altPhone, notes: row.notes, display_name: row.displayName, first_name: row.firstName, last_name: row.lastName, company_name: row.companyName })
-          .where("source", "=", job.source)
-          .where("external_ref", "=", row.externalRef)
-          .returning("id")
-          .executeTakeFirstOrThrow();
-        targetId = c.id;
-      } else {
-        const g = geo.get(r.id) ?? null;
-        const customer = await tx
-          .insertInto("customers")
-          .values({
-            kind: row.kind,
-            first_name: row.firstName,
-            last_name: row.lastName,
-            company_name: row.companyName,
-            display_name: row.displayName,
-            email: row.email,
-            phone: row.phone,
-            alt_phone: row.altPhone,
-            notes: row.notes,
-            status: row.active ? "active" : "inactive",
-            source: job.source,
-            external_ref: row.externalRef,
-            import_job_id: id,
-          })
-          .returning("id")
-          .executeTakeFirstOrThrow();
-        targetId = customer.id;
-        const property = await tx
-          .insertInto("properties")
-          .values({
-            customer_id: customer.id,
-            address_line1: row.line1,
-            address_line2: row.line2,
-            city: row.city,
-            region: row.region,
-            postal_code: row.postalCode,
-            access_notes: row.accessNotes,
-            location: g ? sql`extensions.st_setsrid(extensions.st_makepoint(${g.lng}, ${g.lat}), 4326)::extensions.geography` : null,
-            geocode_confidence: g ? String(g.confidence) : null,
-            geocode_source: g?.source ?? null,
-            geocoded_at: g ? now : null,
-            source: job.source,
-            external_ref: row.externalRef,
-            import_job_id: id,
-          })
-          .returning("id")
-          .executeTakeFirstOrThrow();
-        const plan = row.planId ? planById.get(row.planId) : undefined;
-        if (plan) {
-          const start = row.nextService && row.nextService >= today ? row.nextService : today;
-          const sub = await tx
-            .insertInto("subscriptions")
+      // FR-MIG-12: one bad row is marked and skipped; it must not stop the file.
+      await sql`savepoint import_row`.execute(tx);
+      try {
+        let targetId: string;
+        const rowSubscriptionIds: string[] = [];
+        if (r.action === "update") {
+          const c = await tx
+            .updateTable("customers")
+            .set({ email: row.email, phone: row.phone, alt_phone: row.altPhone, notes: row.notes, display_name: row.displayName, first_name: row.firstName, last_name: row.lastName, company_name: row.companyName })
+            .where("source", "=", job.source)
+            .where("external_ref", "=", row.externalRef)
+            .returning("id")
+            .executeTakeFirstOrThrow();
+          targetId = c.id;
+        } else {
+          const g = geo.get(r.id) ?? null;
+          const customer = await tx
+            .insertInto("customers")
             .values({
-              customer_id: customer.id,
-              property_id: property.id,
-              plan_id: plan.id,
-              service_type_id: plan.serviceTypeId,
-              start_date: start,
-              rrule: plan.rrule,
-              price_cents: row.priceCents ?? plan.priceCents,
-              // An existing customer has had their first service already.
-              initial_price_cents: null,
-              billing_mode: plan.billingMode,
-              duration_min: plan.duration ?? 30,
+              kind: row.kind,
+              first_name: row.firstName,
+              last_name: row.lastName,
+              company_name: row.companyName,
+              display_name: row.displayName,
+              email: row.email,
+              phone: row.phone,
+              alt_phone: row.altPhone,
+              notes: row.notes,
+              status: row.active ? "active" : "inactive",
               source: job.source,
               external_ref: row.externalRef,
               import_job_id: id,
             })
             .returning("id")
             .executeTakeFirstOrThrow();
-          subscriptionIds.push(sub.id);
+          targetId = customer.id;
+          const property = await tx
+            .insertInto("properties")
+            .values({
+              customer_id: customer.id,
+              address_line1: row.line1,
+              address_line2: row.line2,
+              city: row.city,
+              region: row.region,
+              postal_code: row.postalCode,
+              access_notes: row.accessNotes,
+              location: g ? sql`extensions.st_setsrid(extensions.st_makepoint(${g.lng}, ${g.lat}), 4326)::extensions.geography` : null,
+              geocode_confidence: g ? String(g.confidence) : null,
+              geocode_source: g?.source ?? null,
+              geocoded_at: g ? now : null,
+              source: job.source,
+              external_ref: row.externalRef,
+              import_job_id: id,
+            })
+            .returning("id")
+            .executeTakeFirstOrThrow();
+          const plan = row.planId ? planById.get(row.planId) : undefined;
+          if (plan) {
+            const start = row.nextService && row.nextService >= today ? row.nextService : today;
+            const sub = await tx
+              .insertInto("subscriptions")
+              .values({
+                customer_id: customer.id,
+                property_id: property.id,
+                plan_id: plan.id,
+                service_type_id: plan.serviceTypeId,
+                start_date: start,
+                rrule: plan.rrule,
+                price_cents: row.priceCents ?? plan.priceCents,
+                // An existing customer has had their first service already.
+                initial_price_cents: null,
+                billing_mode: plan.billingMode,
+                duration_min: plan.duration ?? 30,
+                source: job.source,
+                external_ref: row.externalRef,
+                import_job_id: id,
+              })
+              .returning("id")
+              .executeTakeFirstOrThrow();
+            rowSubscriptionIds.push(sub.id);
+          }
+          // FR-MIG-06: what they owe today, as one opening entry.
+          if (row.balanceCents !== 0) {
+            await tx
+              .insertInto("ledger_entries")
+              .values({ customer_id: customer.id, type: "opening_balance", amount_cents: row.balanceCents, entry_key: `opening:${id}:${row.externalRef}`.slice(0, 200), occurred_at: now, source: job.source, import_job_id: id })
+              .execute();
+          }
         }
-        // FR-MIG-06: what they owe today, as one opening entry.
-        if (row.balanceCents !== 0) {
-          await tx
-            .insertInto("ledger_entries")
-            .values({ customer_id: customer.id, type: "opening_balance", amount_cents: row.balanceCents, entry_key: `opening:${id}:${row.externalRef}`.slice(0, 200), occurred_at: now, source: job.source, import_job_id: id })
-            .execute();
-        }
+        await tx.updateTable("import_rows").set({ status: "committed", target_id: targetId }).where("id", "=", r.id).execute();
+        await sql`release savepoint import_row`.execute(tx);
+        subscriptionIds.push(...rowSubscriptionIds);
+      } catch (error) {
+        await sql`rollback to savepoint import_row`.execute(tx);
+        await sql`release savepoint import_row`.execute(tx);
+        await tx.updateTable("import_rows").set({ status: "error", reasons: [rowErrorReason(error)] }).where("id", "=", r.id).execute();
       }
-      await tx.updateTable("import_rows").set({ status: "committed", target_id: targetId }).where("id", "=", r.id).execute();
     }
     if (subscriptionIds.length) await generateVisits(tx, tenant.id, { subscriptionIds });
 
@@ -426,6 +449,7 @@ export async function commitStep(m: MemberSession, id: string): Promise<CommitPr
       .where("action", "in", ["create", "update"])
       .executeTakeFirstOrThrow();
     const done = await tx.selectFrom("import_rows").select(sql<number>`count(*)::int`.as("n")).where("job_id", "=", id).where("status", "=", "committed").executeTakeFirstOrThrow();
+    const failed = await tx.selectFrom("import_rows").select(sql<number>`count(*)::int`.as("n")).where("job_id", "=", id).where("status", "=", "error").executeTakeFirstOrThrow();
     if (left.n === 0) {
       await tx
         .updateTable("import_jobs")
@@ -434,7 +458,7 @@ export async function commitStep(m: MemberSession, id: string): Promise<CommitPr
         .execute();
       await reconcile(tx, id);
     }
-    return { done: done.n, left: left.n, finished: left.n === 0 };
+    return { done: done.n, left: left.n, errors: failed.n, finished: left.n === 0 };
   });
 }
 
@@ -459,7 +483,8 @@ async function reconcile(tx: Tx, id: string): Promise<Reconcile> {
     { label: "Active plans", file: planned.subscriptions, imported: await count("subscriptions") },
     { label: "Opening balances", file: planned.balance, imported: balance, money: true },
   ];
-  const report = { rows, matches: rows.every((r) => r.file === r.imported) };
+  const errors = (await tx.selectFrom("import_rows").select(sql<number>`count(*)::int`.as("n")).where("job_id", "=", id).where("status", "=", "error").executeTakeFirstOrThrow()).n;
+  const report = { rows, errors, matches: errors === 0 && rows.every((r) => r.file === r.imported) };
   await tx.updateTable("import_jobs").set({ status: "reconciled", reconcile_report: JSON.stringify(report) }).where("id", "=", id).execute();
   return report;
 }

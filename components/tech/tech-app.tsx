@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowsClockwise, CaretRight, CheckCircle, CloudCheck, CloudSlash, CurrencyDollar, Gear, SignOut, Sun, UserPlus, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowsClockwise, CaretRight, CheckCircle, CloudCheck, ClockCountdown, CloudSlash, CurrencyDollar, Gear, SignOut, Sun, UserPlus, WarningCircle, X } from "@phosphor-icons/react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { BrandTheme } from "@/components/brand-theme";
@@ -12,7 +12,9 @@ import { Alert, EmptyState } from "@/components/ui/layout";
 import { cn } from "@/lib/cn";
 import { httpSync } from "@/lib/providers/sync";
 import { publicEnv } from "@/lib/public-env";
-import { TechStore, type TechState } from "@/lib/sync/client-store";
+import { isEnabled } from "@/lib/flags";
+import { LATE_DELAYS, lateLabel } from "@/lib/domain/running-late";
+import { newKey, TechStore, type TechState } from "@/lib/sync/client-store";
 import { SyncEngine, type SyncState } from "@/lib/sync/engine";
 import { recordDue } from "@/lib/sync/stop-draft";
 import { formatDeadline, formatLocalDate, formatWindow } from "@/lib/ui/format";
@@ -150,6 +152,52 @@ export function SyncChip({ state, sync }: { state: TechState; sync: SyncState })
   );
 }
 
+/** FR-TEC-02: one tap tells the office and every customer still to come today; queued like any other action, so it works with no signal. */
+function RunningLate({ state, today }: { state: TechState; today: string }) {
+  const { store, engine } = useTech();
+  const [open, setOpen] = useState(false);
+  const sent = state.outbox.flatMap((o) => (o.mutation.kind === "running_late" && o.mutation.date === today ? [o.mutation.delayMin] : []));
+  const [told, setTold] = useState<number | null>(null);
+  const waiting = state.stops.filter((s) => s.date === today && !localStatus(s, state).done).length;
+
+  async function choose(delayMin: (typeof LATE_DELAYS)[number]) {
+    await store.enqueue({ kind: "running_late", key: newKey("late"), date: today, at: new Date().toISOString(), delayMin });
+    engine.request();
+    setTold(delayMin);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <Button variant="secondary" size="lg" onClick={() => setOpen(true)} disabled={waiting === 0}>
+        <ClockCountdown size={20} aria-hidden /> Running late
+      </Button>
+      {told !== null || sent.length ? (
+        <Alert tone="success">
+          {lateLabel(told ?? sent[sent.length - 1]!)}.{" "}
+          {sent.length ? "Saved on this phone. The office and your remaining customers are told as soon as it uploads." : "The office and your remaining customers have been told."}
+        </Alert>
+      ) : null}
+      <Dialog open={open} onOpenChange={setOpen}>
+        {open ? (
+          <DialogContent title="How late are you running?">
+            <p className="text-fg-muted">
+              Customers on your {waiting} remaining {waiting === 1 ? "stop" : "stops"} today get an email with a later arrival time.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {LATE_DELAYS.map((d) => (
+                <Button key={d} variant="secondary" size="lg" onClick={() => void choose(d)}>
+                  {d} min
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        ) : null}
+      </Dialog>
+    </>
+  );
+}
+
 function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; day: "today" | "tomorrow" }) {
   const { store } = useTech();
   const [settings, setSettings] = useState(false);
@@ -200,7 +248,7 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
         <div key={n.key} role={n.status === "rejected" ? "alert" : "status"} className={cn("flex items-start gap-3 rounded-control border px-3 py-2", n.status === "rejected" ? "border-danger/30 bg-danger-soft text-danger" : "border-warning/30 bg-warning-soft text-warning")}>
           <WarningCircle size={18} aria-hidden className="mt-0.5 shrink-0" />
           <p className="text-sm">
-            {state.stops.find((s) => s.id === n.appointmentId)?.customerName ?? "A stop"}: {n.message}
+            {state.stops.find((s) => s.id === n.appointmentId)?.customerName ?? (n.appointmentId ? "A stop" : "Running late")}: {n.message}
           </p>
           <button type="button" className="-my-1 -mr-1 ml-auto grid size-11 shrink-0 place-items-center rounded-control" aria-label="Dismiss" onClick={() => void store.dismissNotice(n.key)}>
             <X size={16} aria-hidden />
@@ -239,6 +287,8 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
               </button>
             ))}
           </div>
+
+          {isEnabled("runningLate") && day === "today" && stops.length ? <RunningLate state={state} today={date!} /> : null}
 
           {earlier.length ? (
             // Opened from here even when today is empty: their records still have to be finished (CR-02).

@@ -31,6 +31,8 @@ export default defineConfig({
       ANTHROPIC_API_KEY: "e2e-not-a-real-key",
       ANTHROPIC_BASE_URL: "http://127.0.0.1:3199",
       CRON_SECRET: "e2e-cron-secret-not-real-1234",
+      // OPS-01: the developer console's allowlist (tests/e2e/developer.spec.ts).
+      DEVELOPER_EMAILS: "developer@e2e.routeverde.test",
       STRIPE_SECRET_KEY: "sk_test_e2e_not_a_real_key",
       STRIPE_WEBHOOK_SECRET: "whsec_e2e_not_a_real_secret",
       STRIPE_API_BASE: "http://127.0.0.1:3198",

@@ -1,8 +1,7 @@
-import { expect, expectAccessible, signInAs, test } from "./fixtures";
+import { expect, expectAccessible, OFFICE_SCREENS, signInAs, test } from "./fixtures";
 
 // Every built screen renders for the demo business without errors and passes
 // an axe WCAG 2.2 AA scan (NFR-05). Needs `npm run db:reset` (demo seed).
-const OFFICE_SCREENS = ["/schedule", "/customers", "/customers?q=orem", "/customers/new", "/setup", "/settings", "/settings/team", "/settings/technicians", "/settings/plans", "/settings/products", "/settings/changes", "/reports", "/reports/products"];
 
 test("office screens render and are accessible @mobile", async ({ page }) => {
   await signInAs(page, "owner@demo.routeverde.test");

@@ -5,6 +5,7 @@ import { AUTOPAY_MAX_ATTEMPTS, idempotency } from "@/lib/domain/payments";
 import { declineOf, requireStripe, stripe } from "@/lib/providers/payments";
 import { processOutbox } from "./outbox";
 import { applyIntent, movePayment } from "./stripe-ledger";
+import { errorText, log } from "@/lib/observability/log";
 
 // FR-BIL-02, FR-BIL-04: autopay. An invoice for a customer with an active
 // saved method is due for a charge when it is issued (autopay_next_at); a
@@ -24,10 +25,12 @@ export interface AutopayResult {
   processing: number;
   failed: number;
   skipped: number;
+  /** D-04, FR-BIL-02: false when more is due; the runner calls again. */
+  complete: boolean;
 }
 
 export async function chargeDueAutopay(tenantId: string, now: Date = new Date(), budgetMs = 15_000): Promise<AutopayResult> {
-  const result: AutopayResult = { charged: 0, processing: 0, failed: 0, skipped: 0 };
+  const result: AutopayResult = { charged: 0, processing: 0, failed: 0, skipped: 0, complete: true };
   if (!stripe()) return result;
   const started = Date.now();
   const tenant = await withServiceRole((tx) => tx.selectFrom("tenants").select(["stripe_account_id", "stripe_charges_enabled"]).where("id", "=", tenantId).executeTakeFirst());
@@ -47,7 +50,7 @@ export async function chargeDueAutopay(tenantId: string, now: Date = new Date(),
       .execute(),
   );
   for (const s of stuck) {
-    if (Date.now() - started > budgetMs) return result;
+    if (Date.now() - started > budgetMs) return { ...result, complete: false };
     if (now.getTime() - s.created_at.getTime() > KEY_LIFETIME_MS) continue;
     tally(result, await charge(tenantId, account, s.id, now));
   }
@@ -63,8 +66,12 @@ export async function chargeDueAutopay(tenantId: string, now: Date = new Date(),
       .limit(100)
       .execute(),
   );
+  let outOfBudget = false;
   for (const { id } of due) {
-    if (Date.now() - started > budgetMs) break;
+    if (Date.now() - started > budgetMs) {
+      outOfBudget = true;
+      break;
+    }
     const paymentId = await withServiceRole(async (tx) => {
       const inv = await tx
         .selectFrom("invoices as i")
@@ -121,6 +128,8 @@ export async function chargeDueAutopay(tenantId: string, now: Date = new Date(),
     }
     tally(result, await charge(tenantId, account, paymentId, now));
   }
+  // A full page of due invoices or stuck payments means there may be more.
+  result.complete = due.length < 100 && stuck.length < 20 && !outOfBudget;
   return result;
 }
 
@@ -172,7 +181,7 @@ async function charge(tenantId: string, account: string, paymentId: string, now:
     const { code, declined } = declineOf(error);
     if (!declined) {
       // Network or Stripe trouble: leave it pending; the next run repeats the same call.
-      console.error(JSON.stringify({ msg: "autopay charge error", tenantId, paymentId, error: error instanceof Error ? error.message : String(error) }));
+      log.error("autopay charge error", { tenantId, paymentId, error: errorText(error) });
       return "pending";
     }
     const intentId = (error as { payment_intent?: { id?: string } }).payment_intent?.id ?? null;
@@ -192,7 +201,7 @@ export function kickAutopay(tenantId: string) {
       // Receipts and the new invoices' emails, in that order.
       await processOutbox({ tenantId, limit: 40 });
     } catch (error) {
-      console.error(JSON.stringify({ msg: "autopay kick failed", tenantId, error: error instanceof Error ? error.message : String(error) }));
+      log.error("autopay kick failed", { tenantId, error: errorText(error) });
     }
   });
 }

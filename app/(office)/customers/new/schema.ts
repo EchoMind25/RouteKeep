@@ -44,6 +44,7 @@ export const newCustomerSchema = z
     windowStart: z.string().trim(),
     windowEnd: z.string().trim(),
     autopay: checkbox,
+    clientKey: z.string().trim().min(8).max(100),
     soldBy: z.union([z.literal(""), z.uuid()]).optional(),
   })
   .superRefine((v, ctx) => {
@@ -71,6 +72,7 @@ export type NewCustomerValues = z.infer<typeof newCustomerSchema>;
 
 export function toNewCustomerInput(v: NewCustomerValues, soldByTechnicianId: string | null): NewCustomerInput {
   return {
+    clientKey: v.clientKey,
     kind: v.kind,
     firstName: v.firstName,
     lastName: v.lastName,

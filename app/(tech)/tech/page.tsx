@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { TechApp, THEME_SCRIPT } from "@/components/tech/tech-app";
 import { requireMember } from "@/lib/auth/session";
 import { isEnabled } from "@/lib/flags";
@@ -14,9 +15,11 @@ export const metadata: Metadata = { title: "My route" };
 export default async function TechPage() {
   const member = await requireMember();
   if (!isEnabled("offlineTechApp")) return <InterimDay member={member} />;
+  // The inline theme script runs under the CSP nonce proxy.ts sets per request.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <>
-      <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       <form id="tech-sign-out" action={signOut} hidden />
       <TechApp userId={member.userId} appVersion={publicEnv.appVersion} />
     </>

@@ -2,18 +2,20 @@
 
 import { useActionState, useState } from "react";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { SubmitButton } from "@/components/ui/form-status";
+import { SubmitButton, useFocusFirstInvalid } from "@/components/ui/form-status";
 import { Alert } from "@/components/ui/layout";
 import { initialFormState } from "@/lib/forms";
 import { requestLinkAction, requestServiceAction } from "./actions";
 
 export function SignInForm({ tenant }: { tenant: string }) {
   const [state, action] = useActionState(requestLinkAction, initialFormState);
+  const formRef = useFocusFirstInvalid(state);
   return (
-    <form action={action} className="grid max-w-md gap-4">
+    <form ref={formRef} action={action} className="grid max-w-md gap-4">
       <input type="hidden" name="tenant" value={tenant} />
       {state.message ? <Alert tone={state.ok ? "success" : "danger"}>{state.message}</Alert> : null}
-      <Field label="Email">
+      {/* NFR-05, WCAG 3.3.1: the error is tied to the field it is about. */}
+      <Field label="Email" error={state.errors?.email}>
         <Input type="email" name="email" autoComplete="email" required defaultValue={state.values?.email} />
       </Field>
       <div>
@@ -26,9 +28,10 @@ export function SignInForm({ tenant }: { tenant: string }) {
 export function RequestServiceForm({ tenant, properties }: { tenant: string; properties: { id: string; address: string }[] }) {
   const [state, action] = useActionState(requestServiceAction, initialFormState);
   const [key] = useState(() => `req-${crypto.randomUUID()}`);
+  const formRef = useFocusFirstInvalid(state);
   if (state.ok) return <Alert tone="success">{state.message}</Alert>;
   return (
-    <form action={action} className="grid gap-4">
+    <form ref={formRef} action={action} className="grid gap-4">
       <input type="hidden" name="tenant" value={tenant} />
       <input type="hidden" name="key" value={key} />
       {state.message ? <Alert tone="danger">{state.message}</Alert> : null}
@@ -45,7 +48,7 @@ export function RequestServiceForm({ tenant, properties }: { tenant: string; pro
       ) : (
         <input type="hidden" name="propertyId" value={properties[0]?.id ?? ""} />
       )}
-      <Field label="What do you need?">
+      <Field label="What do you need?" error={state.errors?.message}>
         <Textarea name="message" rows={3} required defaultValue={state.values?.message} placeholder="Ants in the kitchen again, wasps by the back door..." />
       </Field>
       <Field label="Good days or times" optional>

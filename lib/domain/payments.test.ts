@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AUTOPAY_MAX_ATTEMPTS, autopayConsent, canMove, declineText, methodLabel, needsNewMethod, nextAutopayAttempt } from "./payments";
+import { AUTOPAY_MAX_ATTEMPTS, autopayConsent, canMove, declineText, intentGivenUp, methodLabel, needsNewMethod, nextAutopayAttempt, sessionVerdict, stuckKind, takenButNotOurs } from "./payments";
 
 describe("FR-BIL-04 autopay retry schedule", () => {
   const t = new Date("2026-10-09T08:00:00Z");
@@ -47,5 +47,47 @@ describe("CR-06 labels and consent", () => {
     expect(text).toContain("Wasatch Pest");
     expect(text).toMatch(/turn autopay off at any time/);
     expect(text).not.toMatch(/—/);
+  });
+});
+
+describe("FR-BIL-07 stuck payment sweeper decisions", () => {
+  const now = new Date("2026-10-09T12:00:00Z");
+  const ago = (ms: number) => new Date(now.getTime() - ms);
+  const base = { status: "pending" as const, sessionId: null, intentId: null };
+  it("picks portal payments after an hour, by whether a session exists", () => {
+    expect(stuckKind({ ...base, source: "portal", createdAt: ago(61 * 60_000), sessionId: "cs_1" }, now)).toBe("portal-session");
+    expect(stuckKind({ ...base, source: "portal", createdAt: ago(61 * 60_000) }, now)).toBe("portal-no-session");
+    expect(stuckKind({ ...base, source: "portal", createdAt: ago(59 * 60_000), sessionId: "cs_1" }, now)).toBeNull();
+  });
+  it("picks autopay payments with an intent after a day, never without one", () => {
+    expect(stuckKind({ ...base, source: "autopay", createdAt: ago(25 * 3_600_000), intentId: "pi_1" }, now)).toBe("autopay-intent");
+    expect(stuckKind({ ...base, source: "autopay", createdAt: ago(23 * 3_600_000), intentId: "pi_1" }, now)).toBeNull();
+    expect(stuckKind({ ...base, source: "autopay", createdAt: ago(48 * 3_600_000) }, now)).toBeNull();
+  });
+  it("leaves anything not pending alone", () => {
+    expect(stuckKind({ ...base, status: "processing", source: "portal", createdAt: ago(9e9) }, now)).toBeNull();
+  });
+  it("reads a Checkout session: complete, expired, or open past its expiry", () => {
+    const at = Math.floor(now.getTime() / 1000);
+    expect(sessionVerdict({ status: "complete", expires_at: at - 10 }, now)).toBe("complete");
+    expect(sessionVerdict({ status: "expired", expires_at: at + 10 }, now)).toBe("canceled");
+    expect(sessionVerdict({ status: "open", expires_at: at - 10 }, now)).toBe("canceled");
+    expect(sessionVerdict({ status: "open", expires_at: at + 10 }, now)).toBe("wait");
+  });
+  it("gives up on intents still waiting on the customer", () => {
+    expect(intentGivenUp("requires_action")).toBe(true);
+    expect(intentGivenUp("requires_payment_method")).toBe(true);
+    expect(intentGivenUp("processing")).toBe(false);
+    expect(intentGivenUp("succeeded")).toBe(false);
+  });
+});
+
+describe("FR-BIL-07 money taken for a payment we closed", () => {
+  it("flags a success against a canceled or failed payment, nothing else", () => {
+    expect(takenButNotOurs("canceled", "succeeded")).toBe(true);
+    expect(takenButNotOurs("failed", "succeeded")).toBe(true);
+    expect(takenButNotOurs("pending", "succeeded")).toBe(false);
+    expect(takenButNotOurs("processing", "succeeded")).toBe(false);
+    expect(takenButNotOurs("canceled", "failed")).toBe(false);
   });
 });

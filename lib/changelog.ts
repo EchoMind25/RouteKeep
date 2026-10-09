@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-09",
+    title: "Two-step sign-in for owners and admins",
+    items: [
+      "Owners and admins now enter a 6-digit code from an authenticator app after the emailed code. You set it up the first time you sign in.",
+      "Add a second phone or remove one at Settings, Team, Two-step sign-in. If you lose your only phone, contact support.",
+      "Office staff and technicians sign in as before.",
+    ],
+  },
+  {
+    date: "2026-10-09",
     title: "Card payments and autopay",
     items: [
       "Connect your own Stripe account in Settings, Payments. Money goes straight to your bank; Stripe sets the fee and RouteVerde adds nothing.",

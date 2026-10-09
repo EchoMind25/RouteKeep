@@ -137,3 +137,25 @@ was opened.
   findings are our own. The test stand-in models Stripe's answers for the
   calls we make; it copies nothing of Stripe's. No competitor billing screen,
   flow or help page was looked at.
+- Two-step sign-in (CR-15), 2026-10-09: built from the PRD line (MFA for owner
+  and admin) and Supabase Auth's public TOTP API and type definitions. Enforced
+  where sessions are read (lib/auth/session.ts) so server actions and route
+  handlers are covered, not only pages. Screens, copy and the support-only
+  recovery for a lost single factor are our own. No competitor sign-in or
+  security screen was looked at.
+- Route health strip and running late, 2026-10-09: the strip's figures (stops,
+  drive vs service minutes, estimated finish, stops at risk, long legs) are
+  the numbers the board already computes from lib/domain/routing.ts
+  (FR-DSP-05, FR-DSP-06), laid out as labelled icon and text items so nothing
+  depends on colour. Running late is derived from FR-TEC-02 (offline-safe
+  actions with client keys, ENG-01) and FR-MSG-01 (the same hold-back rules as
+  reminders: opted out, business not live, no email). The delay choices
+  (15/30/45/60), email wording, and the "newest notice per technician and day"
+  board badge are our own. No competitor screen, copy or documentation was
+  looked at.
+- Developer console (OPS-01, OPS-02), 2026-10-09: built from the owner's request
+  and the tables this app already keeps. The checks and their thresholds (an
+  email waiting over 15 and 60 minutes, webhooks unprocessed over 5 minutes,
+  online payments pending over 24 hours, the D-11 plan limits) are our own, as
+  is the choice to run it as a database role with no table privileges so it can
+  only see counts. No competitor admin or operator screen was looked at.

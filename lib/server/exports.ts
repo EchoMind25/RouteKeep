@@ -11,7 +11,7 @@ import { renderUsageReport } from "@/lib/reports/product-usage-pdf";
 import { productUsage } from "@/lib/server/reports";
 
 // FR-EXP-01..03: the owner can take everything, any time. One ZIP:
-//   tables/<table>.csv and .json  every row the business owns, every column
+//   tables/<table>.csv and .json  every row the business owns, every column (big tables continue in <table>.part-NNN.csv/.json)
 //   customers-import.csv          customers in the shape our import reads (FR-EXP-03)
 //   records/<YYYY-MM>[-partNN-of-MM].pdf  every application record, by month, 200 per PDF
 //   attachments/...               photos, signatures and documents as stored
@@ -31,6 +31,7 @@ interface Progress {
   parts: string[];
   done: number;
   skipped?: { table: string; reason: string }[];
+  pages?: Record<string, number>;
 }
 
 const partPath = (tenantId: string, id: string, k: number) => `${tenantId}/exports/${id}/part-${k}.zip`;
@@ -68,7 +69,7 @@ export async function requestExport(m: MemberSession): Promise<string> {
       .execute();
     const files = (await tx.selectFrom("attachments").select(sql<number>`count(*)::int`.as("n")).executeTakeFirstOrThrow()).n;
     const parts = [
-      "tables",
+      ...(await tenantTables(tx)).map((t) => `tables:${t.table}:`),
       "customers",
       // A records PDF takes longer than linear in its rows (200 rows about 4 s,
       // 600 about 19 s), so a month is split into parts of RECORDS_PER_PDF.
@@ -84,34 +85,47 @@ export async function requestExport(m: MemberSession): Promise<string> {
   });
 }
 
-function csvAndJson(name: string, rows: Record<string, unknown>[], out: Zippable) {
+const TABLE_PAGE_ROWS = 20_000;
+
+function pageCsv(rows: Record<string, unknown>[]): Uint8Array {
   const columns = rows.length ? Object.keys(rows[0]!) : [];
   const cell = (v: unknown): Cell => (v === null || v === undefined ? null : typeof v === "number" ? v : v instanceof Date ? v.toISOString() : typeof v === "object" ? JSON.stringify(v) : String(v));
-  out[`tables/${name}.csv`] = strToU8(toCsv([columns, ...rows.map((r) => columns.map((c) => cell(r[c])))]));
-  out[`tables/${name}.json`] = strToU8(JSON.stringify(rows, null, 1));
+  return strToU8(toCsv([columns, ...rows.map((r) => columns.map((c) => cell(r[c])))]));
 }
+
+const pgCode = (error: unknown) => (error as { code?: string } | null)?.code;
 
 async function buildPart(m: MemberSession, exportId: string, part: string, progress: Progress): Promise<Zippable> {
   const out: Zippable = {};
-  if (part === "tables") {
-    const tables = await withRls(m.claims, tenantTables);
-    for (const { table, geo } of tables) {
-      // One transaction per table: a table this role cannot read is noted, not fatal.
-      try {
-        const rows = await withRls(m.claims, async (tx) => {
-          // Map points become plain _lat and _lng columns.
-          const points = geo.length
-            ? sql`|| jsonb_build_object(${sql.join(
-                geo.flatMap((g) => [sql.lit(`${g}_lat`), sql`extensions.st_y(${sql.ref(`t.${g}`)}::extensions.geometry)`, sql.lit(`${g}_lng`), sql`extensions.st_x(${sql.ref(`t.${g}`)}::extensions.geometry)`]),
-              )})`
-            : sql``;
-          const select = sql`select (to_jsonb(t) - ${geo}::text[]) ${points} as row from public.${sql.table(table)} t`;
-          return (await sql<{ row: Record<string, unknown> }>`${select}`.execute(tx)).rows.map((r) => r.row);
-        });
-        csvAndJson(table, rows, out);
-      } catch (error) {
-        (progress.skipped ??= []).push({ table, reason: error instanceof Error ? error.message.slice(0, 160) : "unreadable" });
-      }
+  if (part.startsWith("tables:")) {
+    // FR-EXP-01, NFR-03: one keyset page of one table per part (tables:<table>:<afterId>),
+    // CSV and JSON. A full page schedules the next part right after this one.
+    const [, table = "", after = ""] = part.split(":");
+    const info = (await withRls(m.claims, tenantTables)).find((t) => t.table === table);
+    if (!info) throw new ExportError(`Unknown table ${table}`);
+    try {
+      const rows = await withRls(m.claims, async (tx) => {
+        // Map points become plain _lat and _lng columns.
+        const points = info.geo.length
+          ? sql`|| jsonb_build_object(${sql.join(
+              info.geo.flatMap((g) => [sql.lit(`${g}_lat`), sql`extensions.st_y(${sql.ref(`t.${g}`)}::extensions.geometry)`, sql.lit(`${g}_lng`), sql`extensions.st_x(${sql.ref(`t.${g}`)}::extensions.geometry)`]),
+            )})`
+          : sql``;
+        const where = after ? sql`where t.id > ${after}::uuid` : sql``;
+        const select = sql`select (to_jsonb(t) - ${info.geo}::text[]) ${points} as row from public.${sql.table(table)} t ${where} order by t.id limit ${sql.lit(TABLE_PAGE_ROWS)}`;
+        return (await sql<{ row: Record<string, unknown> }>`${select}`.execute(tx)).rows.map((r) => r.row);
+      });
+      const page = ((progress.pages ??= {})[table] ?? 0) + 1;
+      progress.pages[table] = page;
+      // Format v1 promises a CSV and a JSON file per table; JSON keeps nulls and nested values.
+      const base = page === 1 ? `tables/${table}` : `tables/${table}.part-${String(page).padStart(3, "0")}`;
+      out[`${base}.csv`] = pageCsv(rows);
+      out[`${base}.json`] = strToU8(JSON.stringify(rows, null, 1));
+      if (rows.length === TABLE_PAGE_ROWS) progress.parts.splice(progress.done + 1, 0, `tables:${table}:${String(rows[rows.length - 1]!.id)}`);
+    } catch (error) {
+      // 57014 (statement timeout) must retry, never skip; only a permission error skips (FR-EXP-01).
+      if (pgCode(error) !== "42501") throw error;
+      (progress.skipped ??= []).push({ table, reason: error instanceof Error ? error.message.slice(0, 160) : "unreadable" });
     }
     return out;
   }
@@ -215,6 +229,8 @@ export async function exportStep(m: MemberSession, exportId: string): Promise<Ex
     );
     return { status: "ready", done: progress.parts.length, total: progress.parts.length };
   } catch (error) {
+    // A statement timeout leaves the export running so the same step can be tried again (FR-EXP-01).
+    if (pgCode(error) === "57014") throw error;
     await withRls(m.claims, (tx) =>
       tx.updateTable("exports").set({ status: "failed", error: error instanceof Error ? error.message.slice(0, 500) : "Export failed" }).where("id", "=", exportId).execute(),
     );
@@ -222,15 +238,13 @@ export async function exportStep(m: MemberSession, exportId: string): Promise<Ex
   }
 }
 
-/** FR-EXP-02: the file, while the link is valid. */
-export async function exportFile(m: MemberSession, exportId: string): Promise<{ body: Uint8Array; name: string } | null> {
+/** FR-EXP-02: where the file is, while the link is valid. The route signs or streams it. */
+export async function exportFile(m: MemberSession, exportId: string): Promise<{ path: string; name: string } | null> {
   const row = await withRls(m.claims, (tx) =>
     tx.selectFrom("exports").select(["status", "path", "expires_at", "created_at"]).where("id", "=", exportId).executeTakeFirst(),
   );
   if (!row || row.status !== "ready" || !row.path || !row.expires_at || row.expires_at < new Date()) return null;
-  const file = await storage().get(row.path);
-  if (!file) return null;
-  return { body: file.body, name: `${BRAND.name.toLowerCase()}-export-${row.created_at.toISOString().slice(0, 10)}.zip` };
+  return { path: row.path, name: `${BRAND.name.toLowerCase()}-export-${row.created_at.toISOString().slice(0, 10)}.zip` };
 }
 
 function readme(business: string, day: string): string {
@@ -238,6 +252,7 @@ function readme(business: string, day: string): string {
     `${business}: complete data export, ${day}`,
     "",
     "tables/              Every table your business has in the app, as CSV (opens in Excel or Google Sheets) and JSON.",
+    "                     A table over 20,000 rows continues in tables/<table>.part-002.csv and so on.",
     "                     Money is in cents (12900 is $129.00). Times are UTC; local dates and times are as scheduled.",
     "                     Map points are split into _lat and _lng columns.",
     "customers-import.csv Your customers with their service address, plan, next service and balance, in a shape",

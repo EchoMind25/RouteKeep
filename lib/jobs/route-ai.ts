@@ -5,6 +5,7 @@ import { withServiceRole } from "@/lib/db/service";
 import { env } from "@/lib/env";
 import { estimateOptimizer } from "@/lib/providers/route-optimizer";
 import { advance, solverResult, startState, type CreateMessage, type PlannerProblem, type PlannerResult, type PlannerState } from "@/lib/routing/ai-planner";
+import { errorText, log } from "@/lib/observability/log";
 
 // D-07 (revised), D-04: one step of an AI route plan. A step claims the run
 // for a short lease (so two browser tabs never drive it at once), runs model
@@ -46,7 +47,7 @@ export async function stepAiRun(tenantId: string, runId: string, create: CreateM
   try {
     planner = await advance(stored.problem, planner, { create, model: e.ROUTE_AI_MODEL, effort: e.ROUTE_AI_EFFORT }, e.ROUTE_AI_STEP_MS);
   } catch (error) {
-    console.error(JSON.stringify({ msg: "route ai step failed", runId, error: error instanceof Error ? error.message : String(error) }));
+    log.error("route ai step failed", { runId, error: errorText(error) });
     note =
       error instanceof Anthropic.AuthenticationError
         ? "The AI planner's key was refused, so the built-in solver's order is shown. Check ANTHROPIC_API_KEY."

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const parsed = fields.safeParse(form ? Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string")) : null);
   if (!parsed.success || !(file instanceof File)) return json({ error: "That upload could not be read." }, 400);
   if (!(file.type in ATTACHMENT_TYPES)) return json({ error: "Photos must be JPEG, PNG or WebP." }, 415);
-  if (file.size === 0 || file.size > MAX_ATTACHMENT_BYTES) return json({ error: "Photos must be under 10 MB." }, 413);
+  if (file.size === 0 || file.size > MAX_ATTACHMENT_BYTES) return json({ error: "Photos must be under 5 MB." }, 413);
   try {
     const status = await saveVisitAttachment(member, {
       ...parsed.data,

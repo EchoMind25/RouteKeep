@@ -1,5 +1,6 @@
 import "server-only";
 import { sql } from "kysely";
+import { isEnabled } from "@/lib/flags";
 import type { MemberSession } from "@/lib/auth/session";
 import { withRls, type Tx } from "@/lib/db/rls";
 import type { RouteStop } from "@/lib/domain/routing";
@@ -191,7 +192,14 @@ export async function getBoard(m: MemberSession, date: LocalDate) {
       };
     });
 
-    return { technicians, stops, queue, routes, start: await officeStart(tx) };
+    // FR-TEC-02: the newest "running late" each technician sent for this day.
+    const late = isEnabled("runningLate")
+      ? (await tx.selectFrom("tech_day_notices").select(["technician_id", "delay_min", "created_at"]).where("local_date", "=", date).where("kind", "=", "running_late").orderBy("created_at", "desc").execute())
+          .filter((n, i, all) => all.findIndex((x) => x.technician_id === n.technician_id) === i)
+          .map((n) => ({ technicianId: n.technician_id, delayMin: n.delay_min }))
+      : [];
+
+    return { technicians, stops, queue, routes, late, start: await officeStart(tx) };
   });
 }
 

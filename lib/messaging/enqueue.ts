@@ -5,7 +5,9 @@ import type { Tx } from "@/lib/db/rls";
 import type { Topic } from "./templates";
 
 // ENG-04: a message is written to the outbox in the same transaction as the
-// thing it is about, and sent only after that commits. The event id is derived
+// thing it is about, and sent only after that commits. The priority lane
+// (0 for on-the-way, completed, sign-in and payment.* topics, FR-MSG-01) is set
+// by the outbox_events_priority trigger, so every insert path agrees. The event id is derived
 // from what the message is about, so a retried request queues it once.
 
 export function eventId(...parts: string[]): string {

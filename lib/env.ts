@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { parseDeveloperEmails } from "@/lib/auth/developer";
 import { localAuthBlockReason } from "@/lib/auth/local-guard";
 
 // The only module that reads server configuration (PRD section 18). Parsed on
@@ -13,6 +14,21 @@ const schema = z
     NEXT_PUBLIC_SUPABASE_URL: z.url().optional(),
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+    // CR-15: owners and admins need a second factor. Default on with Supabase, off in local mode.
+    MFA_REQUIRED: z.stringbool().optional(),
+    // OPS-01: who may open the developer console, as a comma-separated list of
+    // emails. Empty or unset means nobody. They still sign in with a code sent to
+    // that address, and with Supabase they always need a second factor.
+    DEVELOPER_EMAILS: z
+      .string()
+      .optional()
+      .transform((v, ctx) => {
+        const list = parseDeveloperEmails(v);
+        for (const bad of list.filter((e) => !z.email().safeParse(e).success)) {
+          ctx.addIssue({ code: "custom", message: `DEVELOPER_EMAILS: "${bad}" is not an email address` });
+        }
+        return list;
+      }),
     LOCAL_AUTH_SECRET: z.string().min(32, "LOCAL_AUTH_SECRET needs at least 32 characters").optional(),
     GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
     // D-07. Only the built-in estimate exists so far; the Google and VROOM
@@ -113,6 +129,16 @@ export function storageProvider(e: Env = env()): "supabase" | "local" {
 
 export function parseEnvForTest(source: Record<string, string | undefined>) {
   return schema.safeParse(source);
+}
+
+/** CR-15: whether owners and admins must use a second factor: explicit, or on exactly when sign-in is Supabase. */
+export function mfaRequired(e: Env = env()): boolean {
+  return e.MFA_REQUIRED ?? e.AUTH_MODE === "supabase";
+}
+
+/** OPS-01: the developer allowlist, lower-cased; empty means nobody. */
+export function developerEmails(e: Env = env()): readonly string[] {
+  return e.DEVELOPER_EMAILS;
 }
 
 /** M6: the secret for portal sessions and unsubscribe links, or null when none is configured. */

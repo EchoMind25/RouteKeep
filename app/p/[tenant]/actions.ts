@@ -1,23 +1,35 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { FormState } from "@/lib/forms";
+import { fieldErrors, type FormState } from "@/lib/forms";
 import { kickOutbox } from "@/lib/messaging/kick";
-import { requestService, requestSignInLink } from "@/lib/portal/data";
+import { requestService, requestSignInLink, withinRateLimit } from "@/lib/portal/data";
 import { payInvoice, PortalPaymentError, setUpAutopay, turnOffAutopay } from "@/lib/portal/payments";
 import { endPortalSession, portalSession } from "@/lib/portal/session";
+import { errorText, log } from "@/lib/observability/log";
 
 const tenantId = z.uuid();
 
-// FR-POR-01: the same answer whether or not the address is on file.
+/** First hop only. Netlify's own header wins; the value must look like an address. */
+function clientIp(h: Pick<Headers, "get">): string {
+  const raw = h.get("x-nf-client-connection-ip") ?? h.get("x-forwarded-for")?.split(",")[0] ?? "";
+  const ip = raw.trim().slice(0, 64);
+  return /^[0-9a-fA-F:.]+$/.test(ip) ? ip : "unknown";
+}
+
+// FR-POR-01: the same answer whether or not the address is on file, and the
+// same answer when a limit is hit (10 per 10 minutes per IP and business, 100
+// an hour per business): no email is sent and there is nothing to learn.
 export async function requestLinkAction(_prev: FormState, data: FormData): Promise<FormState> {
   const tenant = tenantId.safeParse(data.get("tenant"));
   const email = z.email().safeParse(String(data.get("email") ?? "").trim().toLowerCase());
   if (!tenant.success) return { ok: false, message: "This page address is not right. Use the link from your email." };
-  if (!email.success) return { ok: false, message: "Enter the email address you gave us.", values: { email: String(data.get("email") ?? "") } };
-  await requestSignInLink(tenant.data, email.data);
-  kickOutbox(tenant.data);
+  if (!email.success) return { ok: false, message: "Enter the email address you gave us.", errors: { email: "Enter an email address like name@example.com" }, values: { email: String(data.get("email") ?? "") } };
+  const ip = clientIp(await headers());
+  const allowed = (await withinRateLimit(`portal-link:ip:${tenant.data}:${ip}`, 600, 10)) && (await withinRateLimit(`portal-link:tenant:${tenant.data}`, 3600, 100));
+  if (allowed && (await requestSignInLink(tenant.data, email.data))) kickOutbox(tenant.data);
   return { ok: true, message: `If ${email.data} is on file, a sign-in link is on its way. It works once, for 20 minutes.` };
 }
 
@@ -40,7 +52,7 @@ export async function requestServiceAction(_prev: FormState, data: FormData): Pr
       propertyId: z.uuid().optional().or(z.literal("")),
     })
     .safeParse(Object.fromEntries(data.entries()));
-  if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Check the form.", values: { message: String(data.get("message") ?? "") } };
+  if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Check the form.", errors: fieldErrors(v.error), values: { message: String(data.get("message") ?? "") } };
   await requestService(claims, { key: v.data.key, message: v.data.message, preferred: v.data.preferred || null, propertyId: v.data.propertyId || null });
   return { ok: true, message: "Sent. The office will call or email you to set a time." };
 }
@@ -63,7 +75,7 @@ async function toStripe(tenant: string, open: () => Promise<string>): Promise<ne
   try {
     url = await open();
   } catch (error) {
-    if (!(error instanceof PortalPaymentError)) console.error(JSON.stringify({ msg: "portal payment failed", error: error instanceof Error ? error.message : String(error) }));
+    if (!(error instanceof PortalPaymentError)) log.error("portal payment failed", { error: errorText(error) });
     redirect(`/p/${tenant}?pay=${error instanceof PortalPaymentError ? error.code : "stripe"}`);
   }
   redirect(url);

@@ -30,6 +30,8 @@ export interface BillingRunResult {
   paymentsPosted: number;
   invoicesPaid: number;
   failures: { item: string; message: string }[];
+  /** D-04, FR-BIL-03: false when it stopped for time or more visits wait; call again. */
+  complete: boolean;
 }
 
 interface VisitRow {
@@ -113,7 +115,9 @@ export async function settleInvoice(tx: Tx, invoiceId: string, now: Date): Promi
   return true;
 }
 
-export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new Date()): Promise<BillingRunResult> {
+export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new Date(), budgetMs = 12_000): Promise<BillingRunResult> {
+  const started = Date.now();
+  let outOfBudget = false;
   const failures: BillingRunResult["failures"] = [];
   let invoicesCreated = 0;
   let paymentsPosted = 0;
@@ -159,6 +163,10 @@ export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new
   items.push(...periods.values());
 
   for (const item of items) {
+    if (Date.now() - started > budgetMs) {
+      outOfBudget = true;
+      break;
+    }
     const label = item.kind === "visit" ? `visit ${item.visit.id}` : `plan ${item.subscriptionId} ${item.periodKey}`;
     try {
       const id = await runTx((tx) =>
@@ -243,5 +251,8 @@ export async function runBilling(runTx: RunTx, tenantId: string, now: Date = new
       .where("id", "=", runId)
       .execute(),
   );
-  return { runId, invoicesCreated, paymentsPosted, invoicesPaid, failures };
+  // Resumable: invoiced visits drop out of the anti-join. A full page that made
+  // progress means more may wait.
+  const complete = !outOfBudget && !(visits.length >= 2000 && invoicesCreated > 0);
+  return { runId, invoicesCreated, paymentsPosted, invoicesPaid, failures, complete };
 }

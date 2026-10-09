@@ -31,3 +31,11 @@ export async function readSupabaseSession(): Promise<UserSession | null> {
   if (claims.role !== "authenticated" || typeof claims.sub !== "string") return null;
   return { userId: claims.sub, email: claims.email ?? null, claims: claims as DbClaims };
 }
+
+/** CR-15: whether the signed-in user has a verified TOTP factor. */
+export async function hasVerifiedFactor(): Promise<boolean> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.mfa.listFactors();
+  // Fail closed to "no factor": the user is sent to enrol, never past the check.
+  return !error && data.totp.length > 0;
+}

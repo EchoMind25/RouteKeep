@@ -123,7 +123,11 @@ export default async function ImportJobPage({ params }: { params: Promise<{ id: 
         <Panel title="Check the totals" description="What your file said, beside what is now in the app.">
           <div className="grid gap-4 px-5 py-4">
             <Alert tone={job.reconcile.matches ? "success" : "warning"}>
-              {job.reconcile.matches ? "Everything in the file is here." : "Some totals differ. The rows below show where."}
+              {job.reconcile.matches
+                ? "Everything in the file is here."
+                : job.reconcile.errors
+                  ? `${pluralize(job.reconcile.errors, "row")} could not be imported. Everything else is here.`
+                  : "Some totals differ. The rows below show where."}
             </Alert>
             <Table label="Totals">
               <THead>

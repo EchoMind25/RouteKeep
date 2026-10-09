@@ -86,3 +86,35 @@ export const idempotency = {
   refund: (paymentId: string, key: string) => `rk-refund-${paymentId}-${key}`,
   account: (tenantId: string) => `rk-account-${tenantId}`,
 };
+
+/** FR-BIL-07: a payment that has sat pending too long to be waiting on a person or a bank. */
+export const PORTAL_STUCK_MINUTES = 60;
+export const AUTOPAY_STUCK_HOURS = 24;
+
+export type StuckKind = "portal-session" | "portal-no-session" | "autopay-intent";
+
+/** Which kind of stuck payment this is, or null when it is still within its time. */
+export function stuckKind(p: { source: string; status: PaymentStatus; createdAt: Date; sessionId: string | null; intentId: string | null }, now: Date): StuckKind | null {
+  if (p.status !== "pending") return null;
+  const ageMs = now.getTime() - p.createdAt.getTime();
+  if (p.source === "portal" && ageMs > PORTAL_STUCK_MINUTES * 60_000) return p.sessionId ? "portal-session" : "portal-no-session";
+  if (p.source === "autopay" && p.intentId && ageMs > AUTOPAY_STUCK_HOURS * 3_600_000) return "autopay-intent";
+  return null;
+}
+
+/** What a Checkout session's state means for its payment: paid, dead, or the customer may still be on the page. */
+export function sessionVerdict(session: { status: string | null; expires_at: number }, now: Date): "complete" | "canceled" | "wait" {
+  if (session.status === "complete") return "complete";
+  if (session.status === "expired") return "canceled";
+  return session.expires_at * 1000 < now.getTime() ? "canceled" : "wait";
+}
+
+/** An autopay intent still waiting on the customer after a day will not resolve by itself. */
+export function intentGivenUp(status: string): boolean {
+  return status === "requires_action" || status === "requires_payment_method";
+}
+
+/** Stripe took the money for a payment we have as canceled or failed: flagged for the office, never posted. */
+export function takenButNotOurs(from: PaymentStatus, to: PaymentStatus): boolean {
+  return to === "succeeded" && (from === "canceled" || from === "failed");
+}

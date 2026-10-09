@@ -204,6 +204,10 @@ export interface Customers {
   billing_city: string | null;
   billing_postal_code: string | null;
   billing_region: string | null;
+  /**
+   * ENG-01: per-form-render key; a retry returns the existing customer.
+   */
+  client_key: string | null;
   company_name: string | null;
   created_at: Generated<Timestamp>;
   display_name: string;
@@ -430,7 +434,9 @@ export interface OutboxEvents {
   event_id: string;
   id: Generated<string>;
   last_error: string | null;
+  locked_until: Timestamp | null;
   payload: Generated<Json>;
+  priority: Generated<number>;
   sent_at: Timestamp | null;
   tenant_id: Generated<string>;
   topic: string;
@@ -690,6 +696,18 @@ export interface SyncConflicts {
   updated_at: Generated<Timestamp>;
 }
 
+export interface TechDayNotices {
+  client_key: string;
+  created_at: Generated<Timestamp>;
+  delay_min: number;
+  id: Generated<string>;
+  kind: string;
+  local_date: string;
+  technician_id: string;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Technicians {
   active: Generated<boolean>;
   applicator_license_no: string;
@@ -791,6 +809,7 @@ export interface DB {
   service_types: ServiceTypes;
   subscriptions: Subscriptions;
   sync_conflicts: SyncConflicts;
+  tech_day_notices: TechDayNotices;
   technicians: Technicians;
   tenants: Tenants;
   webhook_events: WebhookEvents;
