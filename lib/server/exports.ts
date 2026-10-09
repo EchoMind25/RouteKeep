@@ -11,7 +11,7 @@ import { renderUsageReport } from "@/lib/reports/product-usage-pdf";
 import { productUsage } from "@/lib/server/reports";
 
 // FR-EXP-01..03: the owner can take everything, any time. One ZIP:
-//   tables/<table>.csv            every row (big tables continue in <table>.part-NNN.csv) the business owns, every column
+//   tables/<table>.csv and .json  every row the business owns, every column (big tables continue in <table>.part-NNN.csv/.json)
 //   customers-import.csv          customers in the shape our import reads (FR-EXP-03)
 //   records/<YYYY-MM>[-partNN-of-MM].pdf  every application record, by month, 200 per PDF
 //   attachments/...               photos, signatures and documents as stored
@@ -99,7 +99,7 @@ async function buildPart(m: MemberSession, exportId: string, part: string, progr
   const out: Zippable = {};
   if (part.startsWith("tables:")) {
     // FR-EXP-01, NFR-03: one keyset page of one table per part (tables:<table>:<afterId>),
-    // CSV only. A full page schedules the next part right after this one.
+    // CSV and JSON. A full page schedules the next part right after this one.
     const [, table = "", after = ""] = part.split(":");
     const info = (await withRls(m.claims, tenantTables)).find((t) => t.table === table);
     if (!info) throw new ExportError(`Unknown table ${table}`);
@@ -117,7 +117,10 @@ async function buildPart(m: MemberSession, exportId: string, part: string, progr
       });
       const page = ((progress.pages ??= {})[table] ?? 0) + 1;
       progress.pages[table] = page;
-      out[page === 1 ? `tables/${table}.csv` : `tables/${table}.part-${String(page).padStart(3, "0")}.csv`] = pageCsv(rows);
+      // Format v1 promises a CSV and a JSON file per table; JSON keeps nulls and nested values.
+      const base = page === 1 ? `tables/${table}` : `tables/${table}.part-${String(page).padStart(3, "0")}`;
+      out[`${base}.csv`] = pageCsv(rows);
+      out[`${base}.json`] = strToU8(JSON.stringify(rows, null, 1));
       if (rows.length === TABLE_PAGE_ROWS) progress.parts.splice(progress.done + 1, 0, `tables:${table}:${String(rows[rows.length - 1]!.id)}`);
     } catch (error) {
       // 57014 (statement timeout) must retry, never skip; only a permission error skips (FR-EXP-01).
@@ -248,7 +251,7 @@ function readme(business: string, day: string): string {
   return [
     `${business}: complete data export, ${day}`,
     "",
-    "tables/              Every table your business has in the app, as CSV (opens in Excel or Google Sheets).",
+    "tables/              Every table your business has in the app, as CSV (opens in Excel or Google Sheets) and JSON.",
     "                     A table over 20,000 rows continues in tables/<table>.part-002.csv and so on.",
     "                     Money is in cents (12900 is $129.00). Times are UTC; local dates and times are as scheduled.",
     "                     Map points are split into _lat and _lng columns.",
