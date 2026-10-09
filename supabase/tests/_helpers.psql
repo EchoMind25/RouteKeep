@@ -138,6 +138,12 @@ declare
   v_payment uuid;
   v_outbox uuid;
   v_job uuid;
+  v_vendor uuid;
+  v_vendor_product uuid;
+  v_shop uuid;
+  v_truck uuid;
+  v_po uuid;
+  v_po_line uuid;
 begin
   insert into public.tenants (name, timezone, state, business_license_no)
   values ('Tenant ' || p_label, 'America/Denver', 'UT', 'BL-' || p_label)
@@ -278,13 +284,34 @@ begin
   insert into public.tech_day_notices (tenant_id, technician_id, local_date, kind, delay_min, client_key)
   values (v_tenant, v_tech, date '2026-10-05', 'running_late', 30, 'late-' || p_label || '-1');
 
+  -- FR-INV: vendors, a truck, a purchase order and a count.
+  insert into public.vendors (tenant_id, name, email, order_weekdays)
+  values (v_tenant, 'Wasatch Supply ' || p_label, 'orders.' || p_label || '@example.com', '{2}')
+  returning id into v_vendor;
+  insert into public.vendor_products (tenant_id, vendor_id, product_id, package_label, package_qty, package_unit, price_cents, preferred)
+  values (v_tenant, v_vendor, v_product, '1 gal jug', 1, 'gal', 8900, true)
+  returning id into v_vendor_product;
+  insert into public.stock_locations (tenant_id, kind, name) values (v_tenant, 'shop', 'Shop')
+  returning id into v_shop;
+  insert into public.stock_locations (tenant_id, kind, name, technician_id) values (v_tenant, 'truck', 'Truck 1', v_tech)
+  returning id into v_truck;
+  insert into public.purchase_orders (tenant_id, vendor_id) values (v_tenant, v_vendor)
+  returning id into v_po;
+  insert into public.purchase_order_lines (tenant_id, purchase_order_id, vendor_product_id, product_id, package_label, package_qty, package_unit, packages, price_cents)
+  values (v_tenant, v_po, v_vendor_product, v_product, '1 gal jug', 1, 'gal', 2, 8900)
+  returning id into v_po_line;
+  insert into public.stock_movements (tenant_id, location_id, product_id, kind, qty, unit, expected_qty, local_date, occurred_at, client_key)
+  values (v_tenant, v_truck, v_product, 'count', 96, 'fl_oz', 100, date '2026-10-06', timestamptz '2026-10-06 14:00:00+00', 'count-' || p_label || '-1');
+
   return jsonb_build_object(
     'tenant', v_tenant,
     'owner', v_owner, 'admin', v_admin, 'office', v_office, 'dispatcher', v_dispatch, 'tech_user', v_tech_user,
     'technician', v_tech, 'service_type', v_type, 'plan', v_plan, 'product', v_product,
     'customer', v_customer, 'property', v_property, 'subscription', v_sub, 'appointment', v_appt,
     'route', v_route, 'application', v_application, 'invoice', v_invoice, 'payment', v_payment,
-    'import_job', v_job
+    'import_job', v_job,
+    'vendor', v_vendor, 'vendor_product', v_vendor_product, 'shop', v_shop, 'truck', v_truck,
+    'purchase_order', v_po, 'purchase_order_line', v_po_line
   );
 end
 $$;

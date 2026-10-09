@@ -513,8 +513,10 @@ export interface Products {
   kind: Generated<string>;
   name: string;
   restricted_use: Generated<boolean>;
+  safety_days: Generated<number>;
   signal_word: string | null;
   source: Generated<string>;
+  stock_unit: string | null;
   tenant_id: Generated<string>;
   updated_at: Generated<Timestamp>;
 }
@@ -545,6 +547,41 @@ export interface Properties {
   status: Generated<string>;
   tenant_id: Generated<string>;
   updated_at: Generated<Timestamp>;
+  version: Generated<number>;
+}
+
+export interface PurchaseOrderLines {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  package_label: string;
+  package_qty: Numeric;
+  package_unit: string;
+  packages: number;
+  price_cents: number | null;
+  product_id: string;
+  purchase_order_id: string;
+  received_packages: number | null;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  vendor_product_id: string | null;
+}
+
+export interface PurchaseOrders {
+  client_key: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: Generated<string | null>;
+  expected_date: string | null;
+  id: Generated<string>;
+  notes: string | null;
+  number: number | null;
+  order_date: string | null;
+  received_at: Timestamp | null;
+  received_location_id: string | null;
+  sent_at: Timestamp | null;
+  status: Generated<string>;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  vendor_id: string;
   version: Generated<number>;
 }
 
@@ -647,6 +684,38 @@ export interface ServiceTypes {
   updated_at: Generated<Timestamp>;
 }
 
+export interface StockLocations {
+  active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  kind: string;
+  name: string;
+  technician_id: string | null;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface StockMovements {
+  client_key: string;
+  cost_cents: number | null;
+  created_at: Generated<Timestamp>;
+  created_by: Generated<string | null>;
+  expected_qty: Numeric | null;
+  id: Generated<string>;
+  kind: string;
+  local_date: string | null;
+  location_id: string;
+  occurred_at: Generated<Timestamp>;
+  product_id: string;
+  purchase_order_line_id: string | null;
+  qty: Numeric;
+  reason: string | null;
+  tenant_id: Generated<string>;
+  transfer_id: string | null;
+  unit: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Subscriptions {
   autopay: Generated<boolean>;
   billing_mode: string;
@@ -738,6 +807,7 @@ export interface Tenants {
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  inventory_mode: Generated<string>;
   logo_path: string | null;
   /**
    * FR-MIG-19: customer messaging stays suppressed for imported records until the owner clicks Go live.
@@ -745,6 +815,7 @@ export interface Tenants {
   messaging_live_at: Timestamp | null;
   name: string;
   plan: Generated<string>;
+  resupply_weekday: number | null;
   settings: Generated<Json>;
   state: string;
   stripe_account_id: string | null;
@@ -758,6 +829,39 @@ export interface Tenants {
    * D-14: white label purchased; removes the product credit from everything customers see (FR-BRD-03).
    */
   white_label_at: Timestamp | null;
+}
+
+export interface VendorProducts {
+  active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  lead_time_days: Generated<number>;
+  package_label: string;
+  package_qty: Numeric;
+  package_unit: string;
+  preferred: Generated<boolean>;
+  price_cents: number | null;
+  product_id: string;
+  sku: string | null;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  vendor_id: string;
+}
+
+export interface Vendors {
+  account_no: string | null;
+  active: Generated<boolean>;
+  client_key: Generated<string>;
+  created_at: Generated<Timestamp>;
+  email: string | null;
+  id: Generated<string>;
+  min_order_cents: number | null;
+  name: string;
+  notes: string | null;
+  order_weekdays: Generated<number[]>;
+  phone: string | null;
+  tenant_id: Generated<string>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface WebhookEvents {
@@ -801,16 +905,22 @@ export interface DB {
   portal_tokens: PortalTokens;
   products: Products;
   properties: Properties;
+  purchase_order_lines: PurchaseOrderLines;
+  purchase_orders: PurchaseOrders;
   reconciliation_issues: ReconciliationIssues;
   route_ai_runs: RouteAiRuns;
   routes: Routes;
   service_plans: ServicePlans;
   service_requests: ServiceRequests;
   service_types: ServiceTypes;
+  stock_locations: StockLocations;
+  stock_movements: StockMovements;
   subscriptions: Subscriptions;
   sync_conflicts: SyncConflicts;
   tech_day_notices: TechDayNotices;
   technicians: Technicians;
   tenants: Tenants;
+  vendor_products: VendorProducts;
+  vendors: Vendors;
   webhook_events: WebhookEvents;
 }
