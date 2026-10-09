@@ -8,7 +8,7 @@ re-imports into this app (or starts a new account) with no column matching.
 | --- | --- |
 | `manifest.json` | `format`, `formatVersion` ("1"), business name, `createdAt` (UTC), the business time zone, the list of files, and any table that could not be read (`unreadableTables`, normally empty) |
 | `README.txt` | The same layout in plain words |
-| `tables/<table>.csv` and `.json` | Every row of every table the business owns, all columns. One file pair per table |
+| `tables/<table>.csv` | Every row of every table the business owns, all columns. A table over 20,000 rows continues in `tables/<table>.part-002.csv`, `.part-003.csv` and so on, in `id` order, 20,000 rows each (FR-EXP-01) |
 | `customers-import.csv` | One row per customer: `id, display_name, first_name, last_name, company_name, email, phone, alt_phone, service_address_line1, service_address_line2, service_city, service_region, service_postal_code, access_notes, notes, plan_name, plan_price, next_service, balance, status` |
 | `records/<YYYY-MM>.pdf` | Every pesticide application record for the month (current versions; amendments shown as amended), with the business name and license on each page. A month over 200 records is split into `records/<YYYY-MM>-partNN-of-MM.pdf`, 200 records each, in date order; every record is also in `tables/applications.csv` |
 | `attachments/...` | Photos, signatures and documents, by their stored path without the tenant prefix |
