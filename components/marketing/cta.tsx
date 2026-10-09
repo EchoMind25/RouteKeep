@@ -9,6 +9,8 @@ export function Cta({ className, children = "Get started" }: { className?: strin
   return (
     <Link
       href="/sign-in"
+      // Sign-in renders per request; prefetching it from every static page view would wake a function each time.
+      prefetch={false}
       className={cn(
         "inline-flex h-12 items-center justify-center gap-2 rounded-control bg-accent px-6 text-md font-semibold whitespace-nowrap text-on-accent transition-transform hover:bg-accent-hover active:scale-[0.98]",
         className,

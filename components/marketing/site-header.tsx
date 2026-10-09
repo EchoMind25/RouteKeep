@@ -35,7 +35,7 @@ export function SiteHeader() {
           ))}
         </ul>
         <div className="flex items-center gap-4">
-          <Link href="/sign-in" className="text-md font-medium whitespace-nowrap text-fg-muted hover:text-fg">
+          <Link href="/sign-in" prefetch={false} className="text-md font-medium whitespace-nowrap text-fg-muted hover:text-fg">
             Sign in
           </Link>
           <span className="hidden sm:block">

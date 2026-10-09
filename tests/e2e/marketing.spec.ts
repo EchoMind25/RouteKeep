@@ -41,10 +41,14 @@ test("FR-WEB-01: the sitemap and llms.txt list every guide, and the legal pages 
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
 });
 
-test("FR-WEB-01: on a phone the menu opens, reaches every guide, and closes after a tap @mobile", async ({ page }) => {
+test("FR-WEB-01: on a phone the menu opens, closes on Escape, and closes after a tap @mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const main = page.getByRole("navigation", { name: "Main" });
+  await main.locator("summary").click();
+  await page.keyboard.press("Escape");
+  await expect(main.getByRole("link", { name: "Switching" })).toBeHidden();
+  await expect(main.locator("summary")).toBeFocused();
   await main.locator("summary").click();
   await main.getByRole("link", { name: "Pricing" }).click();
   await expect(page).toHaveURL(/\/pricing$/);

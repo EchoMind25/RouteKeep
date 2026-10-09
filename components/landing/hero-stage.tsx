@@ -1,8 +1,9 @@
 "use client";
 
 import { CheckCircle } from "@phosphor-icons/react";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
 import { useEffect, useRef } from "react";
+import { preload } from "react-dom";
 import { BRAND } from "@/lib/brand";
 import s from "./landing.module.css";
 
@@ -21,8 +22,19 @@ const RECORD: [string, string][] = [
   ["Applicator", "A. Sorensen, UT-APP-1000"],
 ];
 
+// The board is the page's largest paint. Light and dark are separate files, so
+// each is preloaded only for its own colour scheme; a plain preload would make
+// dark-mode visitors download both.
+const BOARD_SIZES = "(min-width: 1024px) 55vw, 92vw";
+const BOARD = { alt: `The ${BRAND.name} dispatch board: each technician's route listed beside a map, stops numbered the same in both`, width: 1600, height: 1000, sizes: BOARD_SIZES };
+const boardLight = getImageProps({ ...BOARD, src: "/landing/board-light.webp" }).props;
+const boardDark = getImageProps({ ...BOARD, src: "/landing/board-dark.webp" }).props;
+
 export function HeroStage() {
   const rig = useRef<HTMLDivElement>(null);
+  for (const [props, scheme] of [[boardLight, "light"], [boardDark, "dark"]] as const) {
+    preload(props.src, { as: "image", imageSrcSet: props.srcSet, imageSizes: BOARD_SIZES, media: `(prefers-color-scheme: ${scheme})`, fetchPriority: "high" });
+  }
 
   useEffect(() => {
     const el = rig.current;
@@ -66,18 +78,9 @@ export function HeroStage() {
       <div className={s.float}>
         <div ref={rig} className={s.rig}>
           <picture className={`${s.layer} ${s.board} block`}>
-            <source srcSet="/landing/board-dark.webp" media="(prefers-color-scheme: dark)" />
-            <Image
-              src="/landing/board-light.webp"
-              alt={`The ${BRAND.name} dispatch board: each technician's route listed beside a map, stops numbered the same in both`}
-              width={1600}
-              height={1000}
-              preload
-              fetchPriority="high"
-              loading="eager"
-              sizes="(min-width: 1024px) 55vw, 92vw"
-              className="block h-auto w-full"
-            />
+            <source srcSet={boardDark.srcSet} sizes={BOARD_SIZES} media="(prefers-color-scheme: dark)" />
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- props (alt included) come from getImageProps */}
+            <img {...boardLight} loading="eager" fetchPriority="high" className="block h-auto w-full" />
           </picture>
           <figure className={`${s.layer} ${s.paper} grid gap-2 p-[4%]`} aria-label="A service record, the page the customer gets after each visit">
             <div className="border-b border-line pb-1.5">

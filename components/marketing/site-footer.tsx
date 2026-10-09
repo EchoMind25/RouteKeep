@@ -7,28 +7,20 @@ import { publicEnv } from "@/lib/public-env";
 // The public pages' footer (FR-WEB-01, FR-WEB-03): every marketing page, the
 // legal pages and a way to reach a person.
 
+const pages = Object.values(SITE_PAGES);
+const linksFor = (group: (typeof pages)[number]["group"]) => pages.filter((p) => p.group === group).map((p) => ({ href: p.path, label: p.label }));
+
 const GROUPS = [
   {
     title: "Product",
-    links: [
-      { href: "/#how", label: "How it works" },
-      { href: SITE_PAGES.pricing.path, label: "Pricing" },
-      { href: "/#white-label", label: "White label" },
-      { href: "/#faq", label: "FAQ" },
-    ],
+    links: [{ href: "/#how", label: "How it works" }, ...linksFor("product"), { href: "/#white-label", label: "White label" }, { href: "/#faq", label: "FAQ" }],
   },
-  {
-    title: "Guides",
-    links: [
-      { href: SITE_PAGES.switch.path, label: "Switching software" },
-      { href: SITE_PAGES.utahRecords.path, label: SITE_PAGES.utahRecords.label },
-      { href: SITE_PAGES.security.path, label: "Security" },
-    ],
-  },
+  // A guide added to lib/landing/pages.ts shows up here by itself.
+  { title: "Guides", links: linksFor("guides") },
   {
     title: "Company",
     links: [
-      { href: "/sign-in", label: "Sign in" },
+      { href: "/sign-in", label: "Sign in", prefetch: false },
       { href: "/status", label: "Status" },
       { href: "/terms", label: "Terms" },
       { href: "/privacy", label: "Privacy" },
@@ -58,7 +50,7 @@ export function SiteFooter() {
               <ul className="grid gap-2 text-fg-muted">
                 {g.links.map((l) => (
                   <li key={l.href}>
-                    <Link href={l.href} className="hover:text-fg">
+                    <Link href={l.href} prefetch={"prefetch" in l ? l.prefetch : undefined} className="hover:text-fg">
                       {l.label}
                     </Link>
                   </li>

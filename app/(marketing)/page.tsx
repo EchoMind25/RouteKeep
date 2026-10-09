@@ -13,9 +13,8 @@ import { FAQS, PLANS, WHITE_LABEL } from "@/lib/landing/content";
 import { salesHref, SITE_PAGES } from "@/lib/landing/pages";
 import { publicEnv } from "@/lib/public-env";
 
-// The public landing page. Static, indexable, and the only page search engines
-// are invited to read (app/robots.ts), with its guides beside it in
-// app/(marketing). Signed-in people go to /app.
+// The public landing page. Static and indexable, with its guides beside it in
+// app/(marketing) (lib/landing/pages.ts). Signed-in people go to /app.
 
 const TITLE = `Pest Control Software That Works Offline | ${BRAND.name}`;
 const DESCRIPTION =
@@ -24,7 +23,6 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
-  metadataBase: new URL(publicEnv.siteUrl),
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   openGraph: { type: "website", url: "/", siteName: BRAND.name, title: TITLE, description: DESCRIPTION },
@@ -244,7 +242,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6">
             <div className="grid max-w-[60ch] gap-3 pb-12">
               <h2 id="pricing-title" className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Pest control software pricing, posted.
+                Posted prices. By customers, not seats.
               </h2>
               <p className="text-lg text-fg-muted">Priced by active customers, not seats. Unlimited users. Your logo on every invoice. Month to month, no setup fee.</p>
             </div>
