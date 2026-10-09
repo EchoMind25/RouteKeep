@@ -137,3 +137,9 @@ was opened.
   findings are our own. The test stand-in models Stripe's answers for the
   calls we make; it copies nothing of Stripe's. No competitor billing screen,
   flow or help page was looked at.
+- Two-step sign-in (CR-15), 2026-10-09: built from the PRD line (MFA for owner
+  and admin) and Supabase Auth's public TOTP API and type definitions. Enforced
+  where sessions are read (lib/auth/session.ts) so server actions and route
+  handlers are covered, not only pages. Screens, copy and the support-only
+  recovery for a lost single factor are our own. No competitor sign-in or
+  security screen was looked at.

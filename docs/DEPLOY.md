@@ -126,6 +126,19 @@ values locally (for example `openssl rand -base64 48`); never paste them into ch
 Inngest (section 4) also runs: the outbox sweep every 5 minutes, reminders at
 4:05 PM Denver time, and billing at 2:45 AM Denver time.
 
+### Two-step sign-in (CR-15)
+
+Owners and admins must use an authenticator app (Supabase Auth TOTP, no extra
+vendor). In the Supabase dashboard, Authentication, Multi-Factor, make sure TOTP
+enrolment and verification are enabled. `MFA_REQUIRED` defaults to on with
+`AUTH_MODE=supabase` and off with `AUTH_MODE=local`. Office, dispatcher and
+technician roles are not asked for a second factor.
+
+Lost phone: for now an owner cannot reset their own factor. Support removes it
+(Supabase dashboard, Authentication, Users, the user, Factors, delete), after
+confirming the person's identity out of band; they enrol again at next sign-in.
+An owner with two factors can remove one themselves at `/account/mfa`.
+
 ## 8. Backups and the restore drill (CR-09)
 
 1. Before the first real customer record: upgrade Supabase to Pro (daily
@@ -153,6 +166,7 @@ credit disappears everywhere, and they can adjust the colour in Settings.
 
 - [ ] Supabase on Pro and a restore drill passed (section 8)
 - [ ] Legal entity decided (OQ-02), `NEXT_PUBLIC_LEGAL_NAME` set, Terms, Privacy and DPA reviewed by an attorney
+- [ ] Owner has enrolled an authenticator app (section 7, CR-15)
 - [ ] Email on (section 7) and a test email received
 - [ ] Customer imported and reconciled, technicians invited, first route published
 - [ ] Status page green at `/status`
