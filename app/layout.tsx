@@ -1,6 +1,7 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
+import { CookieBanner } from "@/components/consent/cookie-banner";
 import { BRAND } from "@/lib/brand";
 import { publicEnv } from "@/lib/public-env";
 import "./globals.css";
@@ -28,7 +29,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // The technician app sets data-theme="outdoor" before hydration (FR-TEC-11).
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
-      <body className="min-h-dvh antialiased">{children}</body>
+      <body className="min-h-dvh antialiased">
+        {children}
+        <CookieBanner />
+      </body>
     </html>
   );
 }

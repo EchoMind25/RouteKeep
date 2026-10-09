@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-09",
+    title: "Clearer privacy, and a choice about cookies",
+    items: [
+      "A cookie banner asks once. Only the cookies needed to sign in and work offline are on unless you allow anonymous measurement, and browsers that send Global Privacy Control are never asked.",
+      "New cookie policy and field staff notice. Give the notice to your technicians and office staff: it says what the app records about their work and that it does not track location.",
+      "The privacy policy, terms and data processing addendum now explain the product data setting and how long each kind of record is kept.",
+    ],
+  },
+  {
+    date: "2026-10-09",
     title: "Two-step sign-in for owners and admins",
     items: [
       "Owners and admins now enter a 6-digit code from an authenticator app after the emailed code. You set it up the first time you sign in.",

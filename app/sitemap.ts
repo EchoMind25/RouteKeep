@@ -9,6 +9,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${url}/`, lastModified: HOME_UPDATED, changeFrequency: "weekly", priority: 1 },
     ...Object.values(SITE_PAGES).map((p) => ({ url: `${url}${p.path}`, lastModified: p.updated, changeFrequency: "monthly" as const, priority: 0.8 })),
-    ...["terms", "privacy", "dpa", "subprocessors"].map((p) => ({ url: `${url}/${p}`, changeFrequency: "yearly" as const, priority: 0.3 })),
+    ...["terms", "privacy", "dpa", "subprocessors", "cookies", "employee-notice"].map((p) => ({ url: `${url}/${p}`, changeFrequency: "yearly" as const, priority: 0.3 })),
   ];
 }

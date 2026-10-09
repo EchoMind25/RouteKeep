@@ -19,7 +19,7 @@ const link = "font-semibold text-accent underline underline-offset-4 hover:text-
 
 const OWNERSHIP = [
   "Your customer list, records and invoices belong to your business. We hold them to run the app for you.",
-  "We don't sell your data, we don't use it for advertising, and the app has no tracking or analytics scripts.",
+  "We don't sell your data, we don't use it for advertising, and there are no ad trackers or third-party analytics scripts. You decide whether we may learn anything from how you use the app.",
   "Owners and admins can export everything, any time, at no charge.",
 ];
 

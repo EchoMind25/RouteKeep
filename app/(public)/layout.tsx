@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { PrivacyChoicesLink } from "@/components/consent/cookie-banner";
 
 // Public pages beside the landing page: legal (CR-13) and status (NFR-04).
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <Link href="/privacy" className="hover:text-fg">Privacy</Link>
           <Link href="/dpa" className="hover:text-fg">Data processing</Link>
           <Link href="/subprocessors" className="hover:text-fg">Subprocessors</Link>
+          <Link href="/cookies" className="hover:text-fg">Cookies</Link>
+          <Link href="/employee-notice" className="hover:text-fg">Field staff notice</Link>
+          <PrivacyChoicesLink className="hover:text-fg" />
           <Link href="/status" className="hover:text-fg">Status</Link>
         </nav>
       </footer>

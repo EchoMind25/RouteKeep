@@ -3,7 +3,29 @@ import { test as base, expect, type Page } from "@playwright/test";
 
 // Every spec fails on a console error, an uncaught exception or any 5xx
 // (replica-test rule), and can run an axe scan for WCAG 2.2 AA (NFR-05).
-export const test = base.extend<{ problems: string[] }>({
+// The cookie banner (CR-17) would sit over buttons near the bottom of the
+// screen, so every context starts with a choice already made. cookie-banner.spec.ts
+// clears it to test the banner itself.
+const CONSENT = { name: "rv_consent", value: "v1.a0.banner" };
+
+export const test = base.extend<{ problems: string[] }, { consentPreset: void }>({
+  consentPreset: [
+    async ({ browser }, use) => {
+      const newContext = browser.newContext.bind(browser);
+      browser.newContext = async (options) => {
+        const context = await newContext(options);
+        const url = options?.baseURL ?? test.info().project.use.baseURL;
+        if (url) await context.addCookies([{ ...CONSENT, url }]);
+        return context;
+      };
+      await use();
+    },
+    { scope: "worker", auto: true },
+  ],
+  context: async ({ context, baseURL }, provide) => {
+    if (baseURL) await context.addCookies([{ ...CONSENT, url: baseURL }]);
+    await provide(context);
+  },
   problems: [
     async ({ page }, use) => {
       const problems: string[] = [];
