@@ -1,5 +1,6 @@
 import { SignOut } from "@phosphor-icons/react/ssr";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { BrandMark } from "@/components/brand-mark";
 import { BrandTheme } from "@/components/brand-theme";
 import { TenantMark } from "@/components/tenant-mark";
@@ -23,10 +24,11 @@ export default async function OfficeLayout({ children }: { children: React.React
   const member = await requireMember(OFFICE_ROLES);
   // FR-BRD-03: white label shows the business's name, logo and colour, not ours.
   const brand = await tenantBranding(member);
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[232px_1fr]">
-      {brand.whiteLabel ? <BrandTheme accent={brand.accent} /> : null}
+      {brand.whiteLabel ? <BrandTheme accent={brand.accent} nonce={nonce} /> : null}
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>

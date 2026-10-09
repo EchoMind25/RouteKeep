@@ -5,6 +5,7 @@ import { AUTOPAY_MAX_ATTEMPTS, idempotency } from "@/lib/domain/payments";
 import { declineOf, requireStripe, stripe } from "@/lib/providers/payments";
 import { processOutbox } from "./outbox";
 import { applyIntent, movePayment } from "./stripe-ledger";
+import { errorText, log } from "@/lib/observability/log";
 
 // FR-BIL-02, FR-BIL-04: autopay. An invoice for a customer with an active
 // saved method is due for a charge when it is issued (autopay_next_at); a
@@ -172,7 +173,7 @@ async function charge(tenantId: string, account: string, paymentId: string, now:
     const { code, declined } = declineOf(error);
     if (!declined) {
       // Network or Stripe trouble: leave it pending; the next run repeats the same call.
-      console.error(JSON.stringify({ msg: "autopay charge error", tenantId, paymentId, error: error instanceof Error ? error.message : String(error) }));
+      log.error("autopay charge error", { tenantId, paymentId, error: errorText(error) });
       return "pending";
     }
     const intentId = (error as { payment_intent?: { id?: string } }).payment_intent?.id ?? null;
@@ -192,7 +193,7 @@ export function kickAutopay(tenantId: string) {
       // Receipts and the new invoices' emails, in that order.
       await processOutbox({ tenantId, limit: 40 });
     } catch (error) {
-      console.error(JSON.stringify({ msg: "autopay kick failed", tenantId, error: error instanceof Error ? error.message : String(error) }));
+      log.error("autopay kick failed", { tenantId, error: errorText(error) });
     }
   });
 }

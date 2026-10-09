@@ -9,6 +9,7 @@ import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records";
 import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
 import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
+import { errorText, log } from "@/lib/observability/log";
 import {
   SYNC_PROTOCOL,
   type Mutation,
@@ -427,7 +428,7 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
       );
     } catch (error) {
       // Not the device's fault: keep it queued and try again later.
-      console.error("tech upload failed", { tenant: m.tenantId, key: mutation.key, kind: mutation.kind, error });
+      log.error("tech upload failed", { tenant: m.tenantId, key: mutation.key, kind: mutation.kind, error: errorText(error) });
       results.push({ key: mutation.key, status: "retry", message: "The server could not save this just now. It will try again." });
     }
   }

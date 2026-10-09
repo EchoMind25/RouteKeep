@@ -2,6 +2,7 @@ import { PRIVATE } from "@/lib/auth/api";
 import { receiveStripeEvent } from "@/lib/jobs/stripe-webhook";
 import { kickOutbox } from "@/lib/messaging/kick";
 import { stripe, verifyStripeEvent } from "@/lib/providers/payments";
+import { errorText, log } from "@/lib/observability/log";
 
 // ENG-03: Stripe's Connect webhook. The signature is checked against the raw
 // body before anything else; an unsigned or tampered request gets a 400 and
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     if (tenantId) kickOutbox(tenantId);
     return Response.json({ received: true, outcome }, { headers: PRIVATE });
   } catch (error) {
-    console.error(JSON.stringify({ msg: "stripe webhook failed", event: event.id, type: event.type, error: error instanceof Error ? error.message : String(error) }));
+    log.error("stripe webhook failed", { event: event.id, type: event.type, error: errorText(error) });
     return new Response("Not processed", { status: 500, headers: PRIVATE });
   }
 }

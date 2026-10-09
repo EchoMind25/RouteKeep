@@ -8,6 +8,7 @@ import { kickOutbox } from "@/lib/messaging/kick";
 import { requestService, requestSignInLink, withinRateLimit } from "@/lib/portal/data";
 import { payInvoice, PortalPaymentError, setUpAutopay, turnOffAutopay } from "@/lib/portal/payments";
 import { endPortalSession, portalSession } from "@/lib/portal/session";
+import { errorText, log } from "@/lib/observability/log";
 
 const tenantId = z.uuid();
 
@@ -74,7 +75,7 @@ async function toStripe(tenant: string, open: () => Promise<string>): Promise<ne
   try {
     url = await open();
   } catch (error) {
-    if (!(error instanceof PortalPaymentError)) console.error(JSON.stringify({ msg: "portal payment failed", error: error instanceof Error ? error.message : String(error) }));
+    if (!(error instanceof PortalPaymentError)) log.error("portal payment failed", { error: errorText(error) });
     redirect(`/p/${tenant}?pay=${error instanceof PortalPaymentError ? error.code : "stripe"}`);
   }
   redirect(url);

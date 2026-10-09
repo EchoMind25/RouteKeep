@@ -19,6 +19,12 @@ export interface StorageProvider {
   /** Writes the file; writing the same path again replaces it (uploads are retried). */
   put(path: string, body: Uint8Array, contentType: string): Promise<void>;
   get(path: string): Promise<StoredFile | null>;
+  /**
+   * A short-lived direct download address, so big files skip the app server
+   * (hosted functions cap responses at about 6 MB, FR-EXP-02). Null means the
+   * provider has none and the caller streams the file itself.
+   */
+  signedUrl(path: string, ttlSeconds: number, downloadName?: string): Promise<string | null>;
 }
 
 const TYPES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", pdf: "application/pdf" };
@@ -46,6 +52,9 @@ export function localDiskStorage(dir: string): StorageProvider {
         return null;
       }
     },
+    async signedUrl() {
+      return null;
+    },
   };
 }
 
@@ -65,6 +74,11 @@ export function supabaseStorage(url: string, serviceKey: string, bucket: string)
       const { data, error } = await client.storage.from(bucket).download(path);
       if (error || !data) return null;
       return { body: new Uint8Array(await data.arrayBuffer()), contentType: data.type || "application/octet-stream" };
+    },
+    async signedUrl(path, ttlSeconds, downloadName) {
+      const { data, error } = await client.storage.from(bucket).createSignedUrl(path, ttlSeconds, downloadName ? { download: downloadName } : undefined);
+      if (error || !data) throw new Error(`Storage could not sign a download: ${error?.message ?? "no url"}`);
+      return data.signedUrl;
     },
   };
 }
