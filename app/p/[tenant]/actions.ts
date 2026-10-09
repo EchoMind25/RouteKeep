@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import type { FormState } from "@/lib/forms";
+import { fieldErrors, type FormState } from "@/lib/forms";
 import { kickOutbox } from "@/lib/messaging/kick";
 import { requestService, requestSignInLink, withinRateLimit } from "@/lib/portal/data";
 import { payInvoice, PortalPaymentError, setUpAutopay, turnOffAutopay } from "@/lib/portal/payments";
@@ -26,7 +26,7 @@ export async function requestLinkAction(_prev: FormState, data: FormData): Promi
   const tenant = tenantId.safeParse(data.get("tenant"));
   const email = z.email().safeParse(String(data.get("email") ?? "").trim().toLowerCase());
   if (!tenant.success) return { ok: false, message: "This page address is not right. Use the link from your email." };
-  if (!email.success) return { ok: false, message: "Enter the email address you gave us.", values: { email: String(data.get("email") ?? "") } };
+  if (!email.success) return { ok: false, message: "Enter the email address you gave us.", errors: { email: "Enter an email address like name@example.com" }, values: { email: String(data.get("email") ?? "") } };
   const ip = clientIp(await headers());
   const allowed = (await withinRateLimit(`portal-link:ip:${tenant.data}:${ip}`, 600, 10)) && (await withinRateLimit(`portal-link:tenant:${tenant.data}`, 3600, 100));
   if (allowed && (await requestSignInLink(tenant.data, email.data))) kickOutbox(tenant.data);
@@ -52,7 +52,7 @@ export async function requestServiceAction(_prev: FormState, data: FormData): Pr
       propertyId: z.uuid().optional().or(z.literal("")),
     })
     .safeParse(Object.fromEntries(data.entries()));
-  if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Check the form.", values: { message: String(data.get("message") ?? "") } };
+  if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? "Check the form.", errors: fieldErrors(v.error), values: { message: String(data.get("message") ?? "") } };
   await requestService(claims, { key: v.data.key, message: v.data.message, preferred: v.data.preferred || null, propertyId: v.data.propertyId || null });
   return { ok: true, message: "Sent. The office will call or email you to set a time." };
 }
