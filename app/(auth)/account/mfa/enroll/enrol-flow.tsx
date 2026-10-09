@@ -29,8 +29,8 @@ export function EnrolFlow() {
         <li className="grid gap-3">
           <p className="font-medium">1. Scan this code with an authenticator app</p>
           {/* Supabase returns an SVG data URI; next/image adds nothing here. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           {/* Not a token on purpose: a QR code needs a white quiet zone to scan, in dark mode too. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={setup.qr} alt="QR code to add RouteVerde to your authenticator app" width={192} height={192} className="rounded-control border border-line bg-white p-2" />
           <p className="text-sm text-fg-muted">
             Can&apos;t scan it? Enter this key by hand: <code className="select-all break-all font-mono text-fg">{setup.secret}</code>
