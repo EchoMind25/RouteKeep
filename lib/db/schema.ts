@@ -436,6 +436,7 @@ export interface OutboxEvents {
   last_error: string | null;
   locked_until: Timestamp | null;
   payload: Generated<Json>;
+  priority: Generated<number>;
   sent_at: Timestamp | null;
   tenant_id: Generated<string>;
   topic: string;
