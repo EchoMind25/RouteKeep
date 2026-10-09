@@ -171,6 +171,23 @@ it. Anyone not on the list gets a 404. Each visit is written to `app.operator_au
 which only the database owner can read directly. To remove access, take the
 email off the list and redeploy.
 
+### Product analytics (OPS-03, OPS-04)
+
+Error reports and auto route outcomes are stored in RouteVerde's own database
+(`app.product_events`), never with a third party. Contract: `docs/DATA_COLLECTION.md`.
+
+1. Apply `supabase/migrations/20261014090000_product_analytics.sql` with the
+   other migrations (`supabase db push`). It adds `tenants.data_sharing` (opt-in: default `none`,
+   so nothing is collected until a business answers on `/setup` or in
+   Settings) and the events table; without it the developer console fails to
+   load.
+2. Retention: raw events older than 180 days are deleted daily by
+   `app.purge_product_events`. The Inngest daily schedule runs it; if you
+   schedule jobs some other way, `POST /api/cron?job=telemetry-retention` once a
+   day with `Authorization: Bearer <CRON_SECRET>`.
+3. The developer console's "Product signals" section shows the results. Each
+   business chooses its level in Settings, Business, "Product improvement data".
+
 ## 8. Backups and the restore drill (CR-09)
 
 1. Before the first real customer record: upgrade Supabase to Pro (daily

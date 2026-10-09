@@ -6,6 +6,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { HeroStage } from "@/components/landing/hero-stage";
 import s from "@/components/landing/landing.module.css";
 import { RouteScene } from "@/components/landing/route-scene";
+import { ErrorReporter } from "@/components/telemetry/error-reporter";
 import { BRAND } from "@/lib/brand";
 import { formatCents } from "@/lib/domain/money";
 import { FAQS, PLANS, WHITE_LABEL } from "@/lib/landing/content";
@@ -99,6 +100,8 @@ export default function LandingPage() {
   const whiteLabelHref = publicEnv.salesEmail ? `mailto:${publicEnv.salesEmail}?subject=${encodeURIComponent(`White label ${BRAND.name}`)}` : "/sign-in";
   return (
     <div className="bg-canvas text-fg">
+      {/* OPS-03: public site, error reports only (contract section 5). */}
+      <ErrorReporter />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd()).replace(/</g, "\\u003c") }} />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content

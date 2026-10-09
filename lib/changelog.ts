@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: "2026-10-09",
+    title: "You choose what product data we get",
+    items: [
+      "Nothing is shared unless you choose to. Get set up asks once; change it any time in Settings, Business, Product improvement data: share nothing, share anonymously, or share with your business name so we can reach out when something breaks for you.",
+      "Error reports and counts of how auto routes are used help us fix problems and improve routes. They never include customer details, who on your team did something, or anything anyone types.",
+      "Switching to share nothing stops collection at once and deletes everything stored with your business name.",
+    ],
+  },
+  {
+    date: "2026-10-09",
     title: "Two-step sign-in for owners and admins",
     items: [
       "Owners and admins now enter a 6-digit code from an authenticator app after the emailed code. You set it up the first time you sign in.",

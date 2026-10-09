@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { ErrorReporter } from "@/components/telemetry/error-reporter";
 
 // Public pages beside the landing page: legal (CR-13) and status (NFR-04).
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-canvas text-fg">
+      {/* OPS-03: public site, error reports only (contract section 5). */}
+      <ErrorReporter />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-30 focus:rounded-control focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>

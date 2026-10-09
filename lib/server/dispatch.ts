@@ -7,6 +7,8 @@ import type { RouteStop } from "@/lib/domain/routing";
 import { addDays, type LocalDate } from "@/lib/domain/time";
 import { redactNote, type PlannerProblem } from "@/lib/routing/ai-planner";
 import { estimateOptimizer, type RouteOptimizer, type RoutePlan } from "@/lib/providers/route-optimizer";
+import { engineOf } from "@/lib/telemetry/events";
+import { track } from "@/lib/telemetry/track";
 
 // Dispatch board (FR-DSP-01..06). Stop order is a route concern. Every write
 // that changes a lane locks that technician's route row for the day, then
@@ -210,7 +212,7 @@ export async function getBoard(m: MemberSession, date: LocalDate) {
  */
 async function lockRoutes(tx: Tx, technicianIds: readonly string[], date: LocalDate) {
   const ids = [...new Set(technicianIds)].sort();
-  const locked = new Map<string, { id: string; previous_order: unknown }>();
+  const locked = new Map<string, { id: string; previous_order: unknown; optimizer: string | null; optimized_at: Date | null }>();
   for (const technicianId of ids) {
     await tx
       .insertInto("routes")
@@ -219,7 +221,7 @@ async function lockRoutes(tx: Tx, technicianIds: readonly string[], date: LocalD
       .execute();
     const route = await tx
       .selectFrom("routes")
-      .select(["id", "previous_order"])
+      .select(["id", "previous_order", "optimizer", "optimized_at"])
       .where("technician_id", "=", technicianId)
       .where("local_date", "=", date)
       .forUpdate()
@@ -258,6 +260,17 @@ async function writeSequence(tx: Tx, technicianId: string, date: LocalDate, ids:
       and a.sequence is distinct from v.seq`.execute(tx);
 }
 
+/** Routes touched by a manual change that had been auto-routed for that day (OPS-03). */
+type LockedRoutes = Map<string, { optimizer: string | null; optimized_at: Date | null }>;
+function optimizedEngines(routes: LockedRoutes): ("solver" | "ai")[] {
+  return [...routes.values()].filter((r) => r.optimized_at !== null).map((r) => engineOf(r.optimizer));
+}
+
+/** OPS-03: one signal per auto-routed lane a dispatcher changed by hand. After the move has committed. */
+async function trackManualChanges(m: MemberSession, engines: ("solver" | "ai")[]) {
+  for (const engine of engines) await track(m, "route.manual_change_after_optimize", { engine });
+}
+
 /** A manual change ends the chance to undo the last optimize: undo would throw the change away. */
 async function endUndo(tx: Tx, routeIds: readonly string[]) {
   if (routeIds.length === 0) return;
@@ -281,7 +294,7 @@ export interface MoveInput {
  * unassigned lane. Both lanes are renumbered so stop numbers stay 1..n.
  */
 export async function moveStop(m: MemberSession, input: MoveInput): Promise<void> {
-  await withRls(m.claims, async (tx) => {
+  const engines = await withRls(m.claims, async (tx) => {
     const techs = [input.fromTechnicianId, input.toTechnicianId].filter((t): t is string => t !== null);
     const routes = await lockRoutes(tx, techs, input.date);
     if (input.fromTechnicianId) await expectLane(tx, input.fromTechnicianId, input.date, input.fromOrder ?? []);
@@ -314,14 +327,16 @@ export async function moveStop(m: MemberSession, input: MoveInput): Promise<void
       await writeSequence(tx, input.toTechnicianId, input.date, lane);
     }
     await endUndo(tx, [...routes.values()].map((r) => r.id));
+    return optimizedEngines(routes);
   });
+  await trackManualChanges(m, engines);
 }
 
 /** FR-DSP-02: drag a stop onto another day. It keeps its technician and joins the end of that day's route. */
 export async function moveStopToDay(m: MemberSession, input: { id: string; version: number; date: LocalDate; toDate: LocalDate }): Promise<void> {
-  await withRls(m.claims, async (tx) => {
+  const engines = await withRls(m.claims, async (tx) => {
     const current = await tx.selectFrom("appointments").select("technician_id").where("id", "=", input.id).executeTakeFirst();
-    const routes = current?.technician_id ? await lockRoutes(tx, [current.technician_id], input.date) : new Map();
+    const routes: Awaited<ReturnType<typeof lockRoutes>> = current?.technician_id ? await lockRoutes(tx, [current.technician_id], input.date) : new Map();
     const moved = await tx
       .updateTable("appointments")
       .set({ local_date: input.toDate, detached: true, sequence: null })
@@ -336,7 +351,9 @@ export async function moveStopToDay(m: MemberSession, input: { id: string; versi
       await writeSequence(tx, moved.technician_id, input.date, await laneIds(tx, moved.technician_id, input.date));
     }
     await endUndo(tx, [...routes.values()].map((r) => r.id));
+    return optimizedEngines(routes);
   });
+  await trackManualChanges(m, engines);
 }
 
 /**
@@ -348,8 +365,8 @@ export async function scheduleStop(
   m: MemberSession,
   input: { id: string; version: number; date: LocalDate; technicianId: string | null; toIndex: number; toOrder: string[] | null },
 ): Promise<void> {
-  await withRls(m.claims, async (tx) => {
-    const routes = input.technicianId ? await lockRoutes(tx, [input.technicianId], input.date) : new Map();
+  const engines = await withRls(m.claims, async (tx) => {
+    const routes: Awaited<ReturnType<typeof lockRoutes>> = input.technicianId ? await lockRoutes(tx, [input.technicianId], input.date) : new Map();
     // A day target appends without an order to compare against.
     if (input.technicianId && input.toOrder) await expectLane(tx, input.technicianId, input.date, input.toOrder);
     const moved = await tx
@@ -374,7 +391,9 @@ export async function scheduleStop(
       await writeSequence(tx, input.technicianId, input.date, lane);
     }
     await endUndo(tx, [...routes.values()].map((r) => r.id));
+    return optimizedEngines(routes);
   });
+  await trackManualChanges(m, engines);
 }
 
 async function laneStops(tx: Tx, technicianId: string, date: LocalDate): Promise<{ ids: string[]; stops: RouteStop[] }> {
@@ -456,7 +475,7 @@ export interface OptimizePreview {
 
 /** FR-DSP-03: a proposal only; nothing is written until the dispatcher commits it. */
 export async function previewOptimize(m: MemberSession, technicianId: string, date: LocalDate): Promise<OptimizePreview> {
-  return withRls(m.claims, async (tx) => {
+  const preview = await withRls(m.claims, async (tx): Promise<OptimizePreview> => {
     const { ids, stops } = await laneStops(tx, technicianId, date);
     const input = { start: await officeStart(tx), stops, dayStart: DAY_START };
     const placed = new Set(stops.map((s) => s.id));
@@ -468,6 +487,15 @@ export async function previewOptimize(m: MemberSession, technicianId: string, da
       unplaced: ids.filter((id) => !placed.has(id)),
     };
   });
+  // OPS-03: the solver's proposal was shown; minutes saved from the measured before and after.
+  await track(m, "route.proposal_shown", { engine: "solver", stops: Math.min(preview.proposed.order.length, 1000), saved_minutes: savedMinutes(preview.current, preview.proposed) });
+  return preview;
+}
+
+/** OPS-03: drive minutes saved, bounded to a day either way. */
+export function savedMinutes(current: Pick<RoutePlan, "seconds">, proposed: Pick<RoutePlan, "seconds">): number {
+  const m = Math.round((current.seconds - proposed.seconds) / 60);
+  return Number.isFinite(m) ? Math.max(-1440, Math.min(1440, m)) : 0;
 }
 
 /** FR-DSP-03: commit a previewed order; the order before it is kept for one undo. */
@@ -475,7 +503,7 @@ export async function commitOptimize(
   m: MemberSession,
   input: { technicianId: string; date: LocalDate; order: string[]; expected: string[]; provider: string; stats: Record<string, number> },
 ) {
-  await withRls(m.claims, async (tx) => {
+  const stops = await withRls(m.claims, async (tx) => {
     const route = (await lockRoutes(tx, [input.technicianId], input.date)).get(input.technicianId)!;
     const before = await expectLane(tx, input.technicianId, input.date, input.expected);
     const inLane = new Set(before);
@@ -493,12 +521,14 @@ export async function commitOptimize(
       })
       .where("id", "=", route.id)
       .execute();
+    return proposed.length;
   });
+  await track(m, "route.proposal_accepted", { engine: engineOf(input.provider), stops: Math.min(stops, 1000) });
 }
 
 /** FR-DSP-03: undo the last commit. */
 export async function undoOptimize(m: MemberSession, input: { technicianId: string; date: LocalDate; expected: string[] }) {
-  await withRls(m.claims, async (tx) => {
+  const engine = await withRls(m.claims, async (tx) => {
     const route = (await lockRoutes(tx, [input.technicianId], input.date)).get(input.technicianId)!;
     const previous = asIds(route.previous_order) ?? [];
     if (previous.length === 0) throw new RouteConflictError();
@@ -506,7 +536,9 @@ export async function undoOptimize(m: MemberSession, input: { technicianId: stri
     const kept = previous.filter((id) => lane.includes(id));
     await writeSequence(tx, input.technicianId, input.date, [...kept, ...lane.filter((id) => !kept.includes(id))]);
     await tx.updateTable("routes").set({ previous_order: null, optimized_at: null }).where("id", "=", route.id).execute();
+    return engineOf(route.optimizer);
   });
+  await track(m, "route.proposal_undone", { engine });
 }
 
 /** FR-DSP-06: publishing records the order the technician gets and how many flagged stops the dispatcher accepted. */

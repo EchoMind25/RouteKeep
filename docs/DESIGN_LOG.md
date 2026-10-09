@@ -159,3 +159,12 @@ was opened.
   online payments pending over 24 hours, the D-11 plan limits) are our own, as
   is the choice to run it as a database role with no table privileges so it can
   only see counts. No competitor admin or operator screen was looked at.
+- Product analytics and data-sharing setting (OPS-03, OPS-04), 2026-10-09: built
+  from the owner's request (track errors and auto routes people did not agree
+  with, anonymously, viewable in the developer console, and let a business
+  refuse even anonymous collection); opt-in with default none and an
+  onboarding question by owner decision the same day. The three sharing levels, the rule that
+  lowering a level reaches past rows, the event catalog, the 180-day retention
+  and the console's rates (accepted, dismissed and undone per engine, stops
+  moved by hand per saved route) are our own. Contract: docs/DATA_COLLECTION.md.
+  No competitor analytics, settings screen or privacy wording was looked at.

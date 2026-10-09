@@ -57,7 +57,7 @@ export async function setupProgress(m: MemberSession) {
   return withRls(m.claims, async (tx) => {
     const count = async (table: "technicians" | "service_plans" | "products" | "customers" | "subscriptions") =>
       Number((await tx.selectFrom(table).select((eb) => eb.fn.countAll<number>().as("n")).executeTakeFirstOrThrow()).n);
-    const tenant = await tx.selectFrom("tenants").select(["stripe_charges_enabled", "messaging_live_at"]).executeTakeFirstOrThrow();
+    const tenant = await tx.selectFrom("tenants").select(["stripe_charges_enabled", "messaging_live_at", "data_sharing", "data_sharing_changed_at"]).executeTakeFirstOrThrow();
     return {
       technicians: await count("technicians"),
       plans: await count("service_plans"),
@@ -67,6 +67,9 @@ export async function setupProgress(m: MemberSession) {
       stripeConnected: tenant.stripe_charges_enabled,
       emailOn: emailProvider() !== null,
       live: tenant.messaging_live_at !== null,
+      // OPS-04: opt-in; null means the owner has not answered the product data question yet.
+      dataSharing: tenant.data_sharing,
+      dataSharingAnswered: tenant.data_sharing_changed_at !== null,
       // Only owners and admins can read imports; a failed read would end the transaction.
       imported: m.role === "owner" || m.role === "admin" ? Number((await tx.selectFrom("import_jobs").select((eb) => eb.fn.countAll<number>().as("n")).where("status", "in", ["committed", "reconciled"]).executeTakeFirstOrThrow()).n) : 0,
       techLogins: Number((await tx.selectFrom("memberships").select((eb) => eb.fn.countAll<number>().as("n")).where("role", "=", "technician").executeTakeFirstOrThrow()).n),

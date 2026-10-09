@@ -10,14 +10,20 @@
 
 -- OPS-04: none = nothing stored; anonymous = stored with no business id;
 -- identified = stored with the business id. Never a person, at any level.
+-- Opt-in (owner decision 2026-10-09): every business, new or existing, starts
+-- at none and is asked during onboarding. data_sharing_changed_at stays null
+-- until the owner has answered.
 alter table public.tenants
-  add column data_sharing text not null default 'anonymous'
+  add column data_sharing text not null default 'none'
     check (data_sharing in ('none', 'anonymous', 'identified')),
   add column data_sharing_changed_at timestamptz;
 comment on column public.tenants.data_sharing is 'OPS-04: product analytics level. none stores nothing; anonymous stores events with no business id; identified adds the business id.';
 -- Owners and admins only, by the existing tenant_self_update policy. The change
 -- itself lands in public.audit_log through the tenants audit trigger.
 grant update (data_sharing) on table public.tenants to authenticated;
+-- The customer portal loads the browser reporter only when its business shares;
+-- the portal role already reads its own business's row.
+grant select (data_sharing) on public.tenants to portal;
 
 create table app.product_events (
   id bigint generated always as identity primary key,
@@ -113,12 +119,15 @@ $$;
 -- OPS-04: lowering the level applies to the past too. To none: the business's
 -- identified rows are deleted. To anonymous: the business id is removed from
 -- them. Anonymous rows were never linked, so there is nothing to find.
+-- Every explicit save stamps data_sharing_changed_at, so choosing none on
+-- purpose (no value change) still marks the onboarding question answered.
 create or replace function app.apply_data_sharing() returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
+  -- Fires only for updates that set data_sharing (before update of data_sharing).
+  new.data_sharing_changed_at := now();
   if new.data_sharing is distinct from old.data_sharing then
-    new.data_sharing_changed_at := now();
     if new.data_sharing = 'none' then
       delete from app.product_events where tenant_id = new.id;
     elsif new.data_sharing = 'anonymous' then
