@@ -29,6 +29,7 @@
     "billing:run": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/run-billing.ts",
     "messages:run": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/run-messages.ts",
     "db:drill": "scripts/db/restore-drill.sh",
+    "graph": "bash scripts/graph/refresh.sh",
     "white-label": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/white-label.ts"
   },
   "dependencies": {

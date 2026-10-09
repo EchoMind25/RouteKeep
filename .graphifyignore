@@ -1,0 +1,22 @@
+# Graphify scope for RouteVerde. Same syntax as .gitignore; .gitignore is already
+# honored and this file only excludes more. Rebuild with `npm run graph`.
+
+# Static assets: screenshots and icons need a vision LLM and carry no structure.
+# The service worker stays in: it is the technician app's offline layer.
+public/
+!public/sw.js
+app/icon.svg
+
+# Generated code. lib/db/schema.ts is kysely-codegen output; supabase/migrations is
+# the schema source of truth and is graphed as SQL (tables, functions, triggers).
+lib/db/schema.ts
+package-lock.json
+
+# Config manifests: dependency usage already shows up as import edges.
+package.json
+tsconfig.json
+
+# Agent tooling, framework boilerplate and this repo's own graph tooling.
+.claude/
+AGENTS.md
+scripts/graph/

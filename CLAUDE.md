@@ -40,3 +40,21 @@ Search and summaries go to `scout`, mechanical edits and test runs to `scribe`,
 specified builds to `builder`; design, debugging and final review stay on the
 main model. Under about three tool calls, do it directly. Every brief repeats
 the hard rules above in its Constraints line.
+
+## Knowledge graph (Graphify)
+
+`graphify-out/graph.json` maps the codebase: TS/TSX symbols, SQL migrations,
+docs, and RouteVerde links (code to `rv_table_<name>` with `reads_table` /
+`writes_table`, code to PRD requirement nodes `rv_req_<id>` with
+`cites_requirement`). Hooks refresh it at session start and after every edit
+(`.claude/hooks/graphify.sh`); it is git-ignored and rebuilt locally in seconds.
+
+- For codebase questions, query the graph before reading or grepping files:
+  `graphify query "<question>"`, `graphify explain "table appointments"`,
+  `graphify explain "FR-TEC-07"`, `graphify path "<A>" "<B>" --undirected`.
+  Then read only the lines the graph points to (`source_location`).
+- `graphify-out/GRAPH_REPORT.md` is for broad architecture review; its last
+  section lists the most-touched tables and requirements no code cites yet.
+- Run `npm run graph` before relying on the graph if the session hook did not run.
+- Keep it local: never run `graphify extract` with an LLM backend, `graphify label`,
+  or `/graphify` semantic passes on this repo without the owner's approval.

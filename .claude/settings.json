@@ -7,6 +7,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-policy.sh\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/graphify.sh\" start",
+            "timeout": 10
           }
         ]
       }
@@ -21,6 +26,45 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/graphify.sh\" guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/graphify.sh\" guard read",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/graphify.sh\" edit",
+            "timeout": 10
+          }
+        ]
+      }
     ]
+  },
+  "env": {
+    "GRAPHIFY_QUERY_LOG_DISABLE": "1",
+    "GRAPHIFY_NO_TIPS": "1",
+    "GRAPHIFY_NO_AUTO_REFRESH": "1"
   }
 }
