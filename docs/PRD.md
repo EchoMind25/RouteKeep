@@ -276,6 +276,11 @@ Added 2026-10-07 by owner decision.
 - FR-WEB-03 Public Terms, Privacy Policy, Data Processing Addendum, subprocessor list (CR-13) and a status page (NFR-04), linked from the landing page footer. Added 2026-10-08.
 - FR-WEB-02 Signed-in work starts at `/app`. `app.` and `login.` subdomains of the owner's domain open the app directly; `/login` does the same on any host.
 
+### 8.10.3 Developer console `[MVP]`
+Added 2026-10-09 by owner request: a sign-in and dashboard for the people who run RouteVerde itself, above any single business.
+- OPS-01 A read-only console at `/developer` for the emails on `DEVELOPER_EMAILS` (empty means nobody; no email is hardcoded). Sign-in is the normal email code; with Supabase a second factor (aal2) is always required, whatever `MFA_REQUIRED` says. Anyone else gets a plain 404. It shows platform health (email queue, webhooks, stuck and failed payments, reconciliation, billing runs, imports and exports, the AI planner), every business's size against its plan (D-11) and what needs a look, and recent system errors. It runs as the `platform_operator` database role, which has no table privileges and can only call aggregate functions, so no customer names, contact details or message content can be read through it.
+- OPS-02 Every developer action is recorded in an append-only audit (who, what, which business, when) that no API role can read, edit or delete. The console shows the last 25.
+
 ### 8.11 Later phases
 - `[P2]` QuickBooks Online sync; dunning workflows; bait station barcodes and inspections; termite diagrams; lawn depth (area-based rates, multi-round programs, weather); online booking widget; review requests; multi-state record templates; public API and webhooks; AI intake and note drafting; Capacitor native wrapper; VROOM adapter in production.
 - `[P3]` Door-to-door sales app with agreements and cooling-off notice; commissions; multi-branch; marketing campaigns; fleet GPS; SOC 2.
@@ -429,6 +434,6 @@ Time from import to first optimized route under 1 day. Zero duplicate charges. B
 
 ## 18. Environment variables
 
-`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `POWERSYNC_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `GOOGLE_MAPS_API_KEY`, `ROUTE_OPTIMIZER` (`estimate`), `ANTHROPIC_API_KEY`, `ROUTE_AI_MODEL` (default `claude-fable-5-1`), `ROUTE_AI_EFFORT` (default `high`), `ROUTE_AI_STEP_MS`, `SENTRY_DSN`, `NEXT_PUBLIC_SALES_EMAIL` (default RouteKeep@proton.me).
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `POWERSYNC_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_CLIENT_ID`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `RESEND_API_KEY`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `GOOGLE_MAPS_API_KEY`, `ROUTE_OPTIMIZER` (`estimate`), `ANTHROPIC_API_KEY`, `ROUTE_AI_MODEL` (default `claude-fable-5-1`), `ROUTE_AI_EFFORT` (default `high`), `ROUTE_AI_STEP_MS`, `SENTRY_DSN`, `NEXT_PUBLIC_SALES_EMAIL` (default RouteKeep@proton.me), `DEVELOPER_EMAILS` (OPS-01, comma-separated, empty means nobody).
 
 Secrets live in Netlify and GitHub Actions secrets only. Never commit them.

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authMode } from "@/lib/auth-mode";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireMember } from "@/lib/auth/session";
+import { isDeveloperUser, requireDeveloper, requireMember } from "@/lib/auth/session";
 import { supabaseServer } from "@/lib/auth/supabase";
 import { removeFactor } from "./actions";
 
@@ -12,9 +12,11 @@ export const metadata: Metadata = { title: "Two-step sign-in" };
 
 // CR-15: owners and admins list, add and remove authenticator apps. A lost
 // phone with only one factor is a support request, not a self-service reset.
+// OPS-01: developers manage theirs here too, whether or not they belong to a business.
 export default async function MfaManagePage() {
-  const member = await requireMember(["owner", "admin"]);
-  if (authMode() === "local") redirect("/settings/team");
+  const developer = await isDeveloperUser();
+  const member = developer ? await requireDeveloper() : await requireMember(["owner", "admin"]);
+  if (authMode() === "local") redirect(developer ? "/developer" : "/settings/team");
   const supabase = await supabaseServer();
   const { data } = await supabase.auth.mfa.listFactors();
   const factors = data?.totp ?? [];
@@ -49,7 +51,7 @@ export default async function MfaManagePage() {
           <Link href="/account/mfa/enroll">Add another</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/settings/team">Back to team</Link>
+          {developer ? <Link href="/developer">Back to console</Link> : <Link href="/settings/team">Back to team</Link>}
         </Button>
       </div>
     </div>

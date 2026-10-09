@@ -28,10 +28,13 @@ secret only the owner can create. Budget references are PRD section 5.
    random password:
    ```sql
    create role routeverde_app login noinherit password '<generated>';
-   grant authenticated, service_role to routeverde_app;
+   grant authenticated, service_role, portal, platform_operator to routeverde_app;
    ```
-   This role owns nothing and can do nothing until the app switches to
-   `authenticated` (requests) or `service_role` (jobs), so a query that forgets
+   Run it after the migrations, which create `portal` (customer portal) and
+   `platform_operator` (developer console). If the role already exists, run only
+   the `grant` line. This role owns nothing and can do nothing until the app
+   switches to `authenticated` (requests), `portal`, `platform_operator` or
+   `service_role` (jobs), so a query that forgets
    to switch fails instead of bypassing RLS (verified against a local Postgres 16).
    Use the transaction pooler URL:
    `postgresql://routeverde_app.<ref>:<password>@<pooler-host>:6543/postgres`.
@@ -130,6 +133,7 @@ values locally (for example `openssl rand -base64 48`); never paste them into ch
 | `CRON_SECRET` | `/api/cron` | Only if you schedule jobs with something other than Inngest |
 | `NEXT_PUBLIC_LEGAL_NAME` | Terms, Privacy, DPA | The legal entity that signs contracts (PRD OQ-02). Until set, the pages name the product |
 | `NEXT_PUBLIC_SALES_EMAIL` | Landing page, legal pages | Defaults to RouteKeep@proton.me |
+| `DEVELOPER_EMAILS` | Developer console (OPS-01) | Comma-separated emails allowed into `/developer`. Unset means nobody |
 
 Inngest (section 4) also runs: the outbox sweep every 5 minutes, reminders at
 4:05 PM Denver time, and billing at 2:45 AM Denver time.
@@ -146,6 +150,26 @@ Lost phone: for now an owner cannot reset their own factor. Support removes it
 (Supabase dashboard, Authentication, Users, the user, Factors, delete), after
 confirming the person's identity out of band; they enrol again at next sign-in.
 An owner with two factors can remove one themselves at `/account/mfa`.
+
+### Developer console (OPS-01, OPS-02)
+
+`/developer` is a read-only view across every business: platform health, each
+business's size and problems, and recent system errors. To open it:
+
+1. In Netlify, set `DEVELOPER_EMAILS` to your sign-in email (comma-separate
+   several). Redeploy so the function picks it up.
+2. Sign in at `/sign-in` with that email and the code it receives.
+3. Set up an authenticator app when asked. A developer always needs the second
+   factor with Supabase, even with `MFA_REQUIRED=false`.
+4. If you belong to no business you land on `/developer`; if you do, the office
+   sidebar has a "Developer console" link.
+
+Only a session that signed in with an emailed code counts, so a password
+sign-up that never confirmed the address cannot claim it. Keep Authentication,
+Email, "Confirm email" on, and turn off email/password sign-up if you do not use
+it. Anyone not on the list gets a 404. Each visit is written to `app.operator_audit`,
+which only the database owner can read directly. To remove access, take the
+email off the list and redeploy.
 
 ## 8. Backups and the restore drill (CR-09)
 
