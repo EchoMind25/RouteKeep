@@ -430,6 +430,7 @@ export interface OutboxEvents {
   event_id: string;
   id: Generated<string>;
   last_error: string | null;
+  locked_until: Timestamp | null;
   payload: Generated<Json>;
   sent_at: Timestamp | null;
   tenant_id: Generated<string>;

@@ -29,9 +29,14 @@ export async function publicBusiness(tenantId: string): Promise<PortalBusiness |
 }
 
 /** FR-POR-01: always answers the same way, whether or not the address is on file. */
-export async function requestSignInLink(tenantId: string, email: string): Promise<void> {
+export async function requestSignInLink(tenantId: string, email: string): Promise<boolean> {
   const token = randomBytes(32).toString("base64url");
-  await withAnon((tx) => sql`select app.portal_issue_token(${tenantId}::uuid, ${email}, ${token}, ${env().APP_URL})`.execute(tx));
+  return withAnon(async (tx) => (await sql<{ issued: boolean }>`select app.portal_issue_token(${tenantId}::uuid, ${email}, ${token}, ${env().APP_URL}) as issued`.execute(tx)).rows[0]?.issued === true);
+}
+
+/** FR-POR-01: durable fixed-window counter (app.rate_limit_hit). True when the call is within the limit. */
+export async function withinRateLimit(key: string, windowSeconds: number, max: number): Promise<boolean> {
+  return withAnon(async (tx) => (await sql<{ ok: boolean }>`select app.rate_limit_hit(${key}, ${windowSeconds}::int, ${max}::int) as ok`.execute(tx)).rows[0]?.ok === true);
 }
 
 export async function redeemSignInLink(tenantId: string, token: string): Promise<string | null> {
