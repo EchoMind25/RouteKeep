@@ -345,6 +345,8 @@ These are the floor. None may be traded for cost.
 | CR-14 | No card surcharge feature in MVP. Offer ACH as the low-fee option instead | $0 |
 | CR-15 | MFA available for owner and admin roles. Required for them (Supabase Auth TOTP, aal2); office, dispatcher and technician roles are not forced. Lost single factor: reset through support | $0 |
 | CR-16 | Restricted use pesticides: the customer gets a copy of the application record within 30 days (7 U.S.C. 136i-1(a)(2)). The service record PDF covers it; M6 emails it automatically for RUP applications | $0 |
+| CR-17 | Cookie and storage consent: a banner that defaults to essential only, gives "Essential only" and "Allow" equal weight, honors Global Privacy Control without asking, and can be reopened from "Privacy choices". A cookie policy lists every cookie and browser store (`lib/legal/policy.ts`). Browser-side measurement runs only when `analyticsAllowed()` (`lib/consent-client.ts`) is true. Privacy Policy, Terms and DPA describe the business-level product data setting (off, anonymous, identified). Templates until attorney review (D-13) | $0 |
+| CR-18 | A field staff notice (`/employee-notice`) the business gives its people: what the app records about their work (visit times, product use, truck and stock counts), what it does not (no GPS), who sees it and how long it is kept | $0 |
 
 ## 11. Non-functional requirements
 

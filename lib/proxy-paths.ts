@@ -7,7 +7,7 @@ const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const MARKETING = Object.values(SITE_PAGES)
   .map((p) => escape(p.path.slice(1)))
   .join("|");
-const LEGAL = "terms|privacy|dpa|subprocessors";
+const LEGAL = "terms|privacy|dpa|subprocessors|cookies|employee-notice";
 
 /**
  * Public and machine routes never read the session, so they skip the Supabase

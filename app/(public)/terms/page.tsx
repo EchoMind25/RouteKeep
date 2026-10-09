@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LegalDoc } from "@/components/legal-doc";
 import { BRAND } from "@/lib/brand";
 import { publicEnv } from "@/lib/public-env";
+import { LEGAL_UPDATED } from "@/lib/legal/policy";
 
 export const metadata: Metadata = { title: "Terms of Service", alternates: { canonical: "/terms" }, robots: { index: true, follow: true } };
 
@@ -11,7 +12,7 @@ const us = () => publicEnv.legalName || BRAND.name;
 // CR-13: plain terms for customer one. A template until reviewed (D-13).
 export default function TermsPage() {
   return (
-    <LegalDoc title="Terms of Service" updated="October 8, 2026">
+    <LegalDoc title="Terms of Service" updated={LEGAL_UPDATED}>
       <p>
         These terms are an agreement between {us()} (&quot;we&quot;) and the business that signs up for {BRAND.name} (&quot;you&quot;). By creating an account you agree to them. If you
         don&apos;t agree, don&apos;t use the service.
@@ -37,7 +38,23 @@ export default function TermsPage() {
         <li>Pesticide application records, licenses and state rules are your responsibility. The software asks for the fields Utah&apos;s rule lists and keeps records for you, but you are responsible for what is entered and for meeting your state&apos;s requirements.</li>
         <li>Only message customers you are allowed to. Texts require the customer&apos;s consent and an approved carrier registration; the software enforces both but relies on what you record.</li>
         <li>Don&apos;t use the service for anything unlawful, to send spam, or to try to get at other businesses&apos; data.</li>
+        <li>
+          You have the right to put your customers&apos; and staff&apos;s information in the app, and you give your staff the{" "}
+          <Link href="/employee-notice" className="underline">field staff notice</Link> (or your own equivalent) and meet your state&apos;s rules on notice of workplace monitoring.
+        </li>
+        <li>Don&apos;t probe, scan or load test the service, copy it, or resell it without our written agreement (white label is that agreement).</li>
       </ul>
+      <h2>Suggestions, forecasts and AI</h2>
+      <p>
+        Route plans, AI plans, usage forecasts, resupply lists and stock counts are aids to your judgment. They depend on the records you keep and can be wrong. You decide what to apply, order
+        and schedule, and the product label is the law: never follow a suggestion that conflicts with it.
+      </p>
+      <h2>Product data and your choice</h2>
+      <p>
+        You choose in Settings whether we may record how your business uses the app to improve it: off, anonymous, or shared with your business name, as the{" "}
+        <Link href="/privacy#product-data" className="underline">Privacy Policy</Link> describes. We use it only to run, secure and improve {BRAND.name}, never to sell or for advertising, and it
+        never includes your customers&apos; details. If you send us feedback, we may use it without owing you anything.
+      </p>
       <h2>Fees</h2>
       <ul>
         <li>Plans are billed monthly in advance at the price posted when you subscribe, based on your number of active customers. No contract: cancel any month and you won&apos;t be billed again.</li>

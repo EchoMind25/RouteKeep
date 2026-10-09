@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-mark";
+import { PrivacyChoicesLink } from "@/components/consent/cookie-banner";
 import { BRAND } from "@/lib/brand";
 import { SITE_PAGES } from "@/lib/landing/pages";
 import { publicEnv } from "@/lib/public-env";
@@ -26,6 +27,8 @@ const GROUPS = [
       { href: "/privacy", label: "Privacy" },
       { href: "/dpa", label: "Data processing" },
       { href: "/subprocessors", label: "Subprocessors" },
+      { href: "/cookies", label: "Cookies" },
+      { href: "/employee-notice", label: "Field staff notice" },
     ],
   },
 ];
@@ -55,6 +58,11 @@ export function SiteFooter() {
                     </Link>
                   </li>
                 ))}
+                {g.title === "Company" ? (
+                  <li>
+                    <PrivacyChoicesLink className="hover:text-fg" />
+                  </li>
+                ) : null}
               </ul>
             </div>
           ))}
