@@ -16,7 +16,8 @@ export interface SyncState {
 }
 
 const INITIAL: SyncState = { online: true, syncing: false, lastSyncAt: null, error: null, signedOut: false, notLinked: false };
-const BATCH = 50;
+// NFR-01: 25 per upload, so one request fits the server time budget.
+const BATCH = 25;
 const PERIOD_MS = 60_000;
 const BACKOFF_MS = [5_000, 15_000, 60_000, 300_000];
 

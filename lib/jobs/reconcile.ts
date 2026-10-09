@@ -37,7 +37,7 @@ async function connectedAccount(tenantId: string): Promise<string | null> {
 const windowStart = (now: Date) => Math.floor(now.getTime() / 1000) - WINDOW_DAYS * 86_400;
 
 /** Phase 1: the account, Stripe's recent intents, and our paid payments Stripe may not agree with. */
-export async function reconcileIntents(tenantId: string, now: Date = new Date(), budgetMs = PHASE_BUDGET_MS): Promise<{ intents: number; fixed: number } | null> {
+export async function reconcileIntents(tenantId: string, now: Date = new Date(), budgetMs = PHASE_BUDGET_MS): Promise<{ intents: number; fixed: number; truncated?: true } | null> {
   const account = await connectedAccount(tenantId);
   if (!account) return null;
   const s = requireStripe();
@@ -49,13 +49,21 @@ export async function reconcileIntents(tenantId: string, now: Date = new Date(),
 
   const since = windowStart(now);
   const seen = new Set<string>();
+  let cut = false;
   await s.paymentIntents.list({ created: { gte: since }, limit: 100 }, opts).autoPagingEach(async (pi: Stripe.PaymentIntent) => {
-    if (++result.intents > MAX_OBJECTS || Date.now() > deadline) return false;
+    if (++result.intents > MAX_OBJECTS || Date.now() > deadline) {
+      cut = true;
+      return false;
+    }
     seen.add(pi.id);
     if (!pi.metadata?.payment_id) return; // The business's own payments outside RouteVerde.
     const applied = await withServiceRole((tx) => applyIntent(tx, tenantId, pi, now));
     if (applied?.changed) result.fixed += 1;
   });
+
+  // FR-BIL-07, D-04: past MAX_OBJECTS, `seen` is incomplete, so "ours must agree"
+  // would flag real payments as missing. Skip it; the next night looks again.
+  if (cut || result.intents > MAX_OBJECTS) return { ...result, truncated: true };
 
   // Ours says paid; Stripe must agree.
   const ours = await withServiceRole((tx) =>

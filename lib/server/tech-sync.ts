@@ -438,11 +438,19 @@ async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: 
  * Applies a batch in order, each mutation in its own transaction, so one
  * refusal or failure never blocks the rest (FR-BIL-03's rule, applied here too).
  */
+/** NFR-01, D-04: leaves room under the 20 s function limit for the item in flight. */
+export const UPLOAD_BUDGET_MS = 10_000;
+
 export async function applyMutations(m: MemberSession, mutations: Mutation[]): Promise<MutationResult[]> {
   const techId = await withRls(m.claims, async (tx) => (await technicianFor(tx, m.userId))?.id);
   if (!techId) throw new NotATechnicianError();
   const results: MutationResult[] = [];
+  // NFR-01, D-04: stop starting new work at the budget. Items cut here get no
+  // result, so they stay queued on the device for the next upload. At least
+  // one is always applied, so a slow server still makes progress.
+  const deadline = Date.now() + UPLOAD_BUDGET_MS;
   for (const mutation of mutations) {
+    if (results.length > 0 && Date.now() > deadline) break;
     try {
       results.push(
         await withRls(m.claims, (tx) =>

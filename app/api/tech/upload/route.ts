@@ -24,6 +24,8 @@ export async function POST(request: Request) {
     const key = raw && typeof raw === "object" && "key" in raw && typeof raw.key === "string" ? raw.key : null;
     if (key) slots[i] = { key, status: "rejected", message: "The server could not read this change, so it was not applied. Tell the office." };
   });
+  // NFR-01, D-04: applyMutations may stop early; valid items past its prefix get no
+  // result (slice returns []), so they stay queued on the device.
   try {
     const applied = valid.length ? await applyMutations(member, valid) : [];
     let next = 0;

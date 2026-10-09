@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { chargeDueAutopay } from "@/lib/jobs/autopay";
+import { chargeDueAutopay, type AutopayResult } from "@/lib/jobs/autopay";
 import { billTenant } from "@/lib/jobs/billing";
 import { remindAll } from "@/lib/jobs/daily";
 import { listTenantIds } from "@/lib/jobs/generate-appointments";
@@ -14,6 +14,10 @@ import { inngest } from "./client";
 
 const BILLING_EVENT = "billing/tenant.requested";
 const PAYMENTS_EVENT = "payments/tenant.requested";
+// D-04: one run per business, five businesses at once across the fleet.
+const TENANT_CONCURRENCY: [{ key: string; limit: number }, { limit: number }] = [{ key: "event.data.tenantId", limit: 1 }, { limit: 5 }];
+// Each pass is a step under the 20 s limit; a tenant with a backlog loops until complete.
+const MAX_PASSES = 200;
 const tenantEvent = z.object({ tenantId: z.uuid() });
 
 export const outboxSweep = inngest.createFunction({ id: "outbox-sweep", triggers: [{ cron: "*/5 * * * *" }] }, async ({ step }) =>
@@ -34,13 +38,26 @@ export const nightlyBilling = inngest.createFunction({ id: "billing-nightly", tr
 });
 
 export const tenantBilling = inngest.createFunction(
-  { id: "billing-tenant", triggers: [{ event: BILLING_EVENT }], concurrency: { key: "event.data.tenantId", limit: 1 }, retries: 2 },
+  { id: "billing-tenant", triggers: [{ event: BILLING_EVENT }], concurrency: TENANT_CONCURRENCY, retries: 2 },
   async ({ event, step }) => {
     const { tenantId } = tenantEvent.parse(event.data);
-    return step.run("bill", async () => {
-      const r = await billTenant(tenantId);
-      return { tenantId, invoices: r.invoicesCreated, failures: r.failures.length };
-    });
+    // FR-BIL-03, D-04: resumable (invoiced visits drop out), so loop until complete.
+    let invoices = 0;
+    let failures = 0;
+    let complete = false;
+    for (let i = 0; i < MAX_PASSES; i++) {
+      const r = await step.run(`bill-${i}`, async () => {
+        const r = await billTenant(tenantId);
+        return { invoices: r.invoicesCreated, failures: r.failures.length, complete: r.complete };
+      });
+      invoices += r.invoices;
+      failures += r.failures;
+      if (r.complete) {
+        complete = true;
+        break;
+      }
+    }
+    return { tenantId, invoices, failures, complete };
   },
 );
 
@@ -54,10 +71,16 @@ export const nightlyPayments = inngest.createFunction({ id: "payments-nightly", 
 });
 
 export const tenantPayments = inngest.createFunction(
-  { id: "payments-tenant", triggers: [{ event: PAYMENTS_EVENT }], concurrency: { key: "event.data.tenantId", limit: 1 }, retries: 2 },
+  { id: "payments-tenant", triggers: [{ event: PAYMENTS_EVENT }], concurrency: TENANT_CONCURRENCY, retries: 2 },
   async ({ event, step }) => {
     const { tenantId } = tenantEvent.parse(event.data);
-    const autopay = await step.run("autopay", () => chargeDueAutopay(tenantId));
+    // FR-BIL-02, D-04: each pass is bounded; loop until nothing is left due.
+    let autopay: AutopayResult | undefined;
+    for (let i = 0; i < MAX_PASSES; i++) {
+      const r: AutopayResult = await step.run(`autopay-${i}`, () => chargeDueAutopay(tenantId));
+      autopay = autopay ? { charged: autopay.charged + r.charged, processing: autopay.processing + r.processing, failed: autopay.failed + r.failed, skipped: autopay.skipped + r.skipped, complete: r.complete } : r;
+      if (r.complete) break;
+    }
     const intents = await step.run("reconcile-intents", async () => (await reconcileIntents(tenantId)) ?? { skipped: true });
     const refunds = await step.run("reconcile-refunds", async () => (await reconcileRefunds(tenantId)) ?? { skipped: true });
     // Per-payment sweep errors come back in the result rather than failing the step.
