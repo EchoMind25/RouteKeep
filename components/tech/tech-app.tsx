@@ -19,6 +19,7 @@ import { SyncEngine, type SyncState } from "@/lib/sync/engine";
 import { recordDue } from "@/lib/sync/stop-draft";
 import { formatDeadline, formatLocalDate, formatWindow } from "@/lib/ui/format";
 import type { SnapshotStop } from "@/lib/sync/protocol";
+import { TruckCheckCard } from "./truck-check";
 import { TechContext, useTech } from "./context";
 import { StopScreen } from "./stop-screen";
 import { useNow } from "./use-now";
@@ -27,7 +28,7 @@ import { go, useFocusHeading, useView } from "./use-view";
 // The technician app (FR-TEC-01..11). Every screen reads the device copy; the
 // network is only ever used in the background (FR-TEC-02).
 
-const NOT_READY: TechState = { ready: false, info: null, stops: [], products: [], mixes: new Map(), drafts: new Map(), outbox: [], notices: [], blobs: new Map() };
+const NOT_READY: TechState = { ready: false, info: null, stops: [], products: [], mixes: new Map(), drafts: new Map(), outbox: [], notices: [], blobs: new Map(), countsDone: [] };
 const THEME_KEY = "rk-tech-theme";
 
 /** Runs before hydration so outdoor mode never flashes (FR-TEC-11). */
@@ -248,7 +249,7 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
         <div key={n.key} role={n.status === "rejected" ? "alert" : "status"} className={cn("flex items-start gap-3 rounded-control border px-3 py-2", n.status === "rejected" ? "border-danger/30 bg-danger-soft text-danger" : "border-warning/30 bg-warning-soft text-warning")}>
           <WarningCircle size={18} aria-hidden className="mt-0.5 shrink-0" />
           <p className="text-sm">
-            {state.stops.find((s) => s.id === n.appointmentId)?.customerName ?? (n.appointmentId ? "A stop" : "Running late")}: {n.message}
+            {state.stops.find((s) => s.id === n.appointmentId)?.customerName ?? (n.appointmentId ? "A stop" : n.key.startsWith("count-") ? "Truck check" : "Running late")}: {n.message}
           </p>
           <button type="button" className="-my-1 -mr-1 ml-auto grid size-11 shrink-0 place-items-center rounded-control" aria-label="Dismiss" onClick={() => void store.dismissNotice(n.key)}>
             <X size={16} aria-hidden />
@@ -289,6 +290,8 @@ function DayScreen({ state, sync, day }: { state: TechState; sync: SyncState; da
           </div>
 
           {isEnabled("runningLate") && day === "today" && stops.length ? <RunningLate state={state} today={date!} /> : null}
+
+          {day === "today" ? <TruckCheckCard state={state} today={date!} /> : null}
 
           {earlier.length ? (
             // Opened from here even when today is empty: their records still have to be finished (CR-02).

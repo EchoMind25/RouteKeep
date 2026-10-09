@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AMOUNT_UNITS, AREA_UNITS, MIX_UNITS } from "@/lib/domain/units";
+import { AMOUNT_UNITS, AREA_UNITS, MIX_UNITS, type AmountUnit } from "@/lib/domain/units";
 
 // The technician app's sync contract (FR-TEC-01, FR-TEC-02, NFR-01, NFR-02).
 // Shared by the device and the server, so both validate the same shapes.
@@ -91,6 +91,18 @@ export interface Snapshot {
   favorites: string[];
   /** FR-SAL-01: whether the owner lets technicians add customers. Missing on snapshots saved before it existed. */
   canSell?: boolean;
+  /**
+   * FR-INV-07: the resupply-day truck check. Present when the check is due, or
+   * when today's count already exists (due false, so the app can show "done").
+   * Missing on snapshots saved before it existed.
+   */
+  truckCheck?: {
+    due: boolean;
+    locationId: string;
+    /** The local day the check is for (the business's today). */
+    date: string;
+    lines: { productId: string; name: string; unit: AmountUnit; expected: number | null }[];
+  };
 }
 
 // Up ----------------------------------------------------------------------------------
@@ -132,6 +144,8 @@ const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 /** `date` is the day the device had the visit on; if the office has moved it since, that is a conflict. */
 const base = { key: clientKey, appointmentId: z.uuid(), date: localDate, at: instant };
 
+export const stockCountLine = z.object({ productId: z.uuid(), qty: z.number().min(0).max(10_000_000), unit: z.enum(AMOUNT_UNITS) });
+
 export const mutation = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("arrive"), ...base }),
   z.object({
@@ -149,6 +163,8 @@ export const mutation = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("on_the_way"), ...base }),
   // FR-TEC-02: behind for the rest of the day. About the day, not one visit, so no appointmentId.
   z.object({ kind: z.literal("running_late"), key: clientKey, date: localDate, at: instant, delayMin: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60)]) }),
+  // FR-INV-07: the truck count on resupply day. About the truck, not a visit, so no appointmentId.
+  z.object({ kind: z.literal("stock_count"), key: clientKey, date: localDate, at: instant, locationId: z.uuid(), lines: z.array(stockCountLine).min(1).max(200) }),
 ]);
 export type Mutation = z.infer<typeof mutation>;
 

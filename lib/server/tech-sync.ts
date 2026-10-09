@@ -8,7 +8,8 @@ import { businessHeader } from "@/lib/server/business";
 import { isCurrentVersion } from "@/lib/server/records";
 import { formatAddress } from "@/lib/domain/contact";
 import { missingRecordFields, type ApplicationDraft } from "@/lib/domain/records";
-import { addDays, todayIn, type LocalDate } from "@/lib/domain/time";
+import { addDays, parseLocalDate, todayIn, type LocalDate } from "@/lib/domain/time";
+import { InventoryError, recordCountIn, truckCheckFor } from "@/lib/server/inventory";
 import { LANE_STATUSES, stopOrder } from "@/lib/server/dispatch";
 import { errorText, log } from "@/lib/observability/log";
 import {
@@ -44,6 +45,26 @@ const num = (v: string | number | null) => (v === null ? null : Number(v));
 
 /** FR-TEC-01: today's and tomorrow's routes with everything a stop needs, for one technician. */
 export async function getTechSnapshot(m: MemberSession, now: Date = new Date()): Promise<Snapshot> {
+  const snapshot = await buildSnapshot(m, now);
+  const truckCheck = await truckCheckSnapshot(m, snapshot.technician.id, parseLocalDate(snapshot.today));
+  return truckCheck ? { ...snapshot, truckCheck } : snapshot;
+}
+
+/** FR-INV-07: the check when it is due, or "done" when today's count exists; nothing on other days. */
+async function truckCheckSnapshot(m: MemberSession, technicianId: string, today: LocalDate): Promise<Snapshot["truckCheck"]> {
+  const check = await truckCheckFor(m, technicianId, today);
+  if (!check.locationId) return undefined;
+  if (check.due) {
+    return { due: true, locationId: check.locationId, date: today, lines: check.lines.map((l) => ({ productId: l.productId, name: l.name, unit: l.unit, expected: l.expected })) };
+  }
+  const locationId = check.locationId;
+  const counted = await withRls(m.claims, (tx) =>
+    tx.selectFrom("stock_movements").select("id").where("location_id", "=", locationId).where("kind", "=", "count").where("local_date", "=", today).limit(1).executeTakeFirst(),
+  );
+  return counted ? { due: false, locationId, date: today, lines: [] } : undefined;
+}
+
+async function buildSnapshot(m: MemberSession, now: Date): Promise<Snapshot> {
   return withRls(m.claims, async (tx) => {
     const tech = await technicianFor(tx, m.userId);
     if (!tech) throw new NotATechnicianError();
@@ -421,6 +442,31 @@ async function runningLate(tx: Tx, m: MemberSession, techId: string, mutation: E
   return { key: mutation.key, status: "applied" };
 }
 
+/** FR-INV-07: a count is for today, or yesterday when a phone syncs after midnight. */
+export function countDateAllowed(date: string, today: string): boolean {
+  return date === today || date === addDays(parseLocalDate(today), -1);
+}
+
+/**
+ * FR-INV-07: the technician's truck count. Only their own truck, only today or
+ * yesterday (business time zone). Idempotent per line via recordCountIn (ENG-01);
+ * a replay stores nothing and answers duplicate.
+ */
+async function stockCount(tx: Tx, m: MemberSession, techId: string, mutation: Extract<Mutation, { kind: "stock_count" }>): Promise<MutationResult> {
+  if (!countDateAllowed(mutation.date, todayIn(m.timezone))) return { key: mutation.key, status: "rejected", message: "This truck check is too old to save. Ask the office." };
+  const truck = await tx.selectFrom("stock_locations").select("id").where("id", "=", mutation.locationId).where("technician_id", "=", techId).where("kind", "=", "truck").executeTakeFirst();
+  if (!truck) return { key: mutation.key, status: "rejected", message: "That truck is not yours. Ask the office." };
+  const seen = new Set<string>();
+  if (mutation.lines.some((l) => seen.size === seen.add(l.productId).size)) return { key: mutation.key, status: "rejected", message: "A product is listed twice in this check." };
+  try {
+    const stored = await recordCountIn(tx, truck.id, parseLocalDate(mutation.date), mutation.lines, mutation.key, new Date(mutation.at));
+    return { key: mutation.key, status: stored > 0 ? "applied" : "duplicate" };
+  } catch (error) {
+    if (error instanceof InventoryError) return { key: mutation.key, status: "rejected", message: error.message };
+    throw error;
+  }
+}
+
 async function skip(tx: Tx, techId: string, mutation: Extract<Mutation, { kind: "skip" }>): Promise<MutationResult> {
   const visit = await lockVisit(tx, mutation.appointmentId);
   if (!visit) return { key: mutation.key, status: "rejected", message: "This visit is no longer on file." };
@@ -462,7 +508,9 @@ export async function applyMutations(m: MemberSession, mutations: Mutation[]): P
                 ? onTheWay(tx, m, techId, mutation)
                 : mutation.kind === "running_late"
                   ? runningLate(tx, m, techId, mutation)
-                  : skip(tx, techId, mutation),
+                  : mutation.kind === "stock_count"
+                    ? stockCount(tx, m, techId, mutation)
+                    : skip(tx, techId, mutation),
         ),
       );
     } catch (error) {

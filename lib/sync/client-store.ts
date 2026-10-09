@@ -130,9 +130,11 @@ export interface TechState {
   outbox: OutboxEntry[];
   notices: Notice[];
   blobs: Map<string, BlobEntry>;
+  /** FR-INV-07: days whose truck check was submitted on this phone, so the card stays done between upload and the next snapshot. */
+  countsDone: string[];
 }
 
-const EMPTY: TechState = { ready: false, info: null, stops: [], products: [], mixes: new Map(), drafts: new Map(), outbox: [], notices: [], blobs: new Map() };
+const EMPTY: TechState = { ready: false, info: null, stops: [], products: [], mixes: new Map(), drafts: new Map(), outbox: [], notices: [], blobs: new Map(), countsDone: [] };
 
 export function newKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -190,7 +192,7 @@ export class TechStore {
       await tx.objectStore("meta").put({ key: "owner", value: this.userId });
       await tx.done;
     }
-    const [info, stops, products, mixes, drafts, outbox, notices, blobs] = await Promise.all([
+    const [info, stops, products, mixes, drafts, outbox, notices, blobs, countsDone] = await Promise.all([
       db.get("meta", "info"),
       db.getAll("stops"),
       db.getAll("products"),
@@ -199,6 +201,7 @@ export class TechStore {
       db.getAll("outbox"),
       db.getAll("notices"),
       db.getAll("blobs"),
+      db.get("meta", "countsDone"),
     ]);
     this.set({
       ready: true,
@@ -210,6 +213,7 @@ export class TechStore {
       outbox: outbox.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0)),
       notices,
       blobs: new Map(blobs.map((b) => [b.key, b])),
+      countsDone: Array.isArray(countsDone?.value) ? (countsDone.value as string[]) : [],
     });
   }
 
@@ -325,13 +329,30 @@ export class TechStore {
     this.set({ outbox: [...this.state.outbox, { ...entry, seq }] });
   }
 
+  /** FR-INV-07: queues the truck count and remembers the day as done, in one transaction. Works offline. */
+  async submitCount(mutation: Extract<Mutation, { kind: "stock_count" }>): Promise<void> {
+    const entry: OutboxEntry = { key: mutation.key, appointmentId: null, mutation, createdAt: new Date().toISOString(), attempts: 0, lastError: null };
+    const countsDone = [...new Set([...this.state.countsDone, mutation.date])].slice(-7);
+    const db = await this.conn();
+    const write = (async () => {
+      const tx = db.transaction(["outbox", "meta"], "readwrite");
+      const seq = await tx.objectStore("outbox").add(entry);
+      await tx.objectStore("meta").put({ key: "countsDone", value: countsDone });
+      await tx.done;
+      return seq;
+    })();
+    const seq = await this.track(write);
+    this.set({ outbox: [...this.state.outbox, { ...entry, seq }], countsDone });
+  }
+
   /** Records the server's answers: settled entries leave the queue; problems become notices. */
   async settle(results: MutationResult[], error?: string): Promise<void> {
     const db = await this.conn();
-    const tx = db.transaction(["outbox", "notices", "drafts"], "readwrite");
+    const tx = db.transaction(["outbox", "notices", "drafts", "meta"], "readwrite");
     const outbox = [...this.state.outbox];
     const notices = [...this.state.notices];
     const drafts = new Map(this.state.drafts);
+    let countsDone = this.state.countsDone;
     for (const r of results) {
       const i = outbox.findIndex((o) => o.key === r.key);
       if (i < 0) continue;
@@ -349,6 +370,12 @@ export class TechStore {
         notices.push(notice);
         await tx.objectStore("notices").put(notice);
       }
+      // FR-INV-07: a refused truck check is open again so it can be redone.
+      if (r.status === "rejected" && entry.mutation.kind === "stock_count") {
+        const date = entry.mutation.date;
+        countsDone = countsDone.filter((d) => d !== date);
+        await tx.objectStore("meta").put({ key: "countsDone", value: countsDone });
+      }
       // A refused completion reopens the stop so the technician can fix it.
       if (r.status === "rejected" && entry.mutation.kind === "complete" && entry.appointmentId) {
         const draft = drafts.get(entry.appointmentId);
@@ -360,7 +387,7 @@ export class TechStore {
       }
     }
     await tx.done;
-    this.set({ outbox, notices, drafts });
+    this.set({ outbox, notices, drafts, countsDone });
   }
 
   /** Marks the whole queue as tried once more (network failure: nothing reached the server). */
