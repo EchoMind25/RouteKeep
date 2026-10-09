@@ -17,6 +17,8 @@ alter table public.tenants
   add column inventory_mode text not null default 'off' check (inventory_mode in ('off', 'forecast', 'tracked')),
   -- 0 = Sunday ... 6 = Saturday, business-local. Technicians count their truck on this day (FR-INV-07).
   add column resupply_weekday smallint check (resupply_weekday between 0 and 6);
+-- Owners and admins change them through RLS (tenant_self_update); no other tenant column opens up.
+grant update (inventory_mode, resupply_weekday) on table public.tenants to authenticated;
 
 -- Products: the unit stock is kept in, and how many days of cover to hold back.
 alter table public.products
@@ -101,6 +103,29 @@ create index stock_locations_technician_fk on public.stock_locations (tenant_id,
 
 call app.secure_table('public.stock_locations',
   p_select => '{*}', p_insert => '{owner,admin}', p_update => '{owner,admin}', p_delete => '{}');
+
+-- A technician added while the business tracks stock gets a truck at once, so
+-- their first resupply-day check is never skipped for want of a location (FR-INV-07).
+create or replace function app.truck_for_new_technician() returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if exists (select 1 from public.tenants t where t.id = new.tenant_id and t.inventory_mode = 'tracked') then
+    insert into public.stock_locations (tenant_id, kind, name, technician_id)
+    select new.tenant_id, 'truck', left('Truck ' || new.display_name, 80), new.id
+    where not exists (
+      select 1 from public.stock_locations l
+      where l.tenant_id = new.tenant_id and l.technician_id = new.id and l.active
+    )
+    on conflict do nothing;
+  end if;
+  return new;
+end
+$$;
+create trigger truck_for_new_technician after insert on public.technicians
+  for each row execute function app.truck_for_new_technician();
 
 -- Purchase orders (FR-INV-05) ---------------------------------------------------------------
 -- The owner sends an order themselves (email or phone); RouteVerde never

@@ -73,6 +73,15 @@ const MIX: Record<MixUnit, { basis: MixBasis; label: string; product: AmountUnit
 
 const SQ_FT_PER_ACRE = 43_560;
 
+/** Whether a mix rate is per volume of finished mix ("solution") or per area treated (FR-INV-02). */
+export function mixBasis(unit: MixUnit): MixBasis {
+  return MIX[unit].basis;
+}
+/** The unit of product a mix rate yields (what productNeeded returns). */
+export function mixProductUnit(unit: MixUnit): AmountUnit {
+  return MIX[unit].product;
+}
+
 export function isAmountUnit(u: string): u is AmountUnit {
   return (AMOUNT_UNITS as readonly string[]).includes(u);
 }

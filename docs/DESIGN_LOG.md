@@ -159,3 +159,14 @@ was opened.
   online payments pending over 24 hours, the D-11 plan limits) are our own, as
   is the choice to run it as a database role with no table privileges so it can
   only see counts. No competitor admin or operator screen was looked at.
+- Inventory, resupply and truck stock (FR-INV-01..11), 2026-10-09: derived from
+  the owner's idea (forecast product from the schedule, a resupply-day truck
+  check, an ordering list) and from the public marketing pages of FieldRoutes,
+  PestPac and GorillaDesk, which were read only to confirm that inventory and
+  route-based usage are features customers look for. Everything else is our
+  own: usage derived from the legal application records instead of a second
+  entry (so stock never blocks or contradicts a record, G-04), the 8 then 26
+  week rate with a 10 visit minimum, counts as baselines with expected versus
+  counted variance, the Monday to Sunday buckets, the per-technician outlier
+  and rising-pest thresholds, and the append-only ledger. No competitor UI,
+  code, documentation, screenshots or logins were used.

@@ -35,7 +35,7 @@ First market: Utah and the Mountain West.
 - G-05 Zero duplicate charges. Zero cross-tenant data exposure.
 
 ### Non-goals for MVP
-Door-to-door sales app (canvassing, territories, door contracts; technician sales of a plan at a stop are in scope, see 8.5.1), marketplace, multi-branch roll-ups, general ledger, payroll, inventory, voice or IVR, custom report builder, self-serve white label (white label is a done-for-you service, see D-14), non-US tenants, native app store binaries, SOC 2 audit, AI features.
+Door-to-door sales app (canvassing, territories, door contracts; technician sales of a plan at a stop are in scope, see 8.5.1), marketplace, multi-branch roll-ups, general ledger, payroll, voice or IVR, custom report builder, self-serve white label (white label is a done-for-you service, see D-14), non-US tenants, native app store binaries, SOC 2 audit, AI features.
 
 ## 3. Personas
 
@@ -228,6 +228,20 @@ Added 2026-10-07 by owner decision: technicians often sell plans in the field an
 - FR-REC-04 Record state template is per tenant state. Utah template ships first.
 - FR-REC-05 Restricted-use products with Danger signal words prompt for the pre-application customer statement.
 - FR-REC-06 Report: product usage by date range, product, EPA number, technician; exportable CSV and PDF.
+
+### Inventory and resupply (FR-INV)
+Detail, formulas and schema notes: `docs/INVENTORY.md`.
+- FR-INV-01 Per-business setting `tenants.inventory_mode` (`off`, `forecast`, `tracked`) and `resupply_weekday`. Off is the default; nothing a technician sees changes until the owner turns it on. Owner and admin change it in Settings > Inventory.
+- FR-INV-02 Weekly usage per product: last full week and trailing 4, 8 and 12 week averages, from application records (current versions only), converted to product used (concentrate). Visible in Reports to owner, admin and office in every mode.
+- FR-INV-03 Forecast from the schedule: this week (remaining days), each of the next 3 weeks, and the rest of the calendar month, per product, with the basis ("from 42 visits"). Also per technician for truck restock.
+- FR-INV-04 Vendors and what they sell (package size, price, lead time, preferred package per product).
+- FR-INV-05 Resupply list and purchase orders: suggested packages per vendor with an order-by date; the owner turns it into a draft order, prints it or opens a prefilled email in their own mail app, marks it sent, then received. RouteVerde never contacts a vendor itself.
+- FR-INV-06 Tracked mode: stock on hand per location (shop and one truck per technician), receiving into a location, shop-to-truck transfers, adjustments with a reason.
+- FR-INV-07 Resupply-day truck check: on the business's resupply weekday each technician with a truck gets an inventory check in the technician app (works offline, syncs like a visit). Counted minus expected is shown to the office as a variance.
+- FR-INV-08 Restock list per truck: what each truck needs for its technician's scheduled visits until the next resupply day, minus what is on it.
+- FR-INV-09 Material spend: received orders by month and vendor; material cost per completed visit by service type (weighted average cost from receipts).
+- FR-INV-10 Pest activity by area: target pests by ZIP code and week, this business's records only, with rising flags. No cross-business data.
+- FR-INV-11 Per-technician outlier: usage per visit more than 1.5x or under 0.5x the business median for the same service type and product (at least 10 visits).
 
 ### 8.7 Billing and payments `[MVP]`
 - FR-BIL-01 Invoices generated on service completion or on a billing schedule, one per subscription period.
